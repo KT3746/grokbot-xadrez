@@ -45,6 +45,14 @@ g = new E.Game(); ['e2e4','a7a6','e4e5','d7d5'].forEach(m => g.playUci(m));
 check('en passant', !!g.playUci('e5d6') && g.pos.fen().split(' ')[0], 'rnbqkbnr/1pp1pppp/p2P4/8/8/8/PPPP1PPP/RNBQKBNR');
 g = new E.Game('8/P6k/8/8/8/8/8/K7 w - - 0 1');
 check('promocao a cavalo', !!g.playUci('a7a8n') && g.pos.fen().split(' ')[0], 'N7/7k/8/8/8/8/8/K7');
+// Notacao em portugues
+g = new E.Game(); ['e2e4','e7e5','g1f3','b8c6','f1c4','g8f6','e1g1','f8c5','d2d4','c5d4','f3d4','c6d4','d1h5'].forEach(m => g.playUci(m));
+check('notacao PT', g.sans.join(' '), 'e4 e5 Cf3 Cc6 Bc4 Cf6 O-O Bc5 d4 Bxd4 Cxd4 Cxd4 Dh5');
+g = new E.Game(); ['e2e4','e7e5','f1c4','b8c6','d1h5','g8f6','h5f7'].forEach(m => g.playUci(m));
+check('notacao mate', g.sans[6], 'Dxf7#');
+g = new E.Game('7k/R7/8/8/8/8/8/R3K3 w - - 0 1'); g.playUci('a1a4'); check('desambiguacao', g.sans[0], 'T1a4');
+g = new E.Game('7k/8/8/8/8/8/4K3/R6R w - - 0 1'); g.playUci('h1f1'); check('desambiguacao 2', g.sans[0], 'Thf1');
+g = new E.Game('7k/P7/8/8/8/8/8/K7 w - - 0 1'); g.playUci('a7a8q'); check('promocao notacao', g.sans[0], 'a8=D+');
 // IA: encontra mate em 1
 for (const lvl of ['medio', 'dificil']) {
   const p = new E.Position('6k1/5ppp/8/8/8/8/5PPP/3R2K1 w - - 0 1');

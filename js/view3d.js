@@ -445,6 +445,7 @@ export class View3D {
     this.dotMat = new THREE.MeshBasicMaterial({ color: 0x5ff0b0, transparent: true, opacity: 0.8, depthWrite: false });
     this.ringMat = new THREE.MeshBasicMaterial({ color: 0xff8a5c, transparent: true, opacity: 0.85, depthWrite: false });
     this.selMat = new THREE.MeshBasicMaterial({ color: 0xffd54a, transparent: true, opacity: 0.55, depthWrite: false });
+    this.hintMat = new THREE.MeshBasicMaterial({ color: 0x50c8ff, transparent: true, opacity: 0.55, depthWrite: false });
     this.lastMat = new THREE.MeshBasicMaterial({ color: 0xf5d76e, transparent: true, opacity: 0.3, depthWrite: false });
     const checkG = new THREE.PlaneGeometry(1.5, 1.5); checkG.rotateX(-Math.PI / 2);
     this.checkMesh = new THREE.Mesh(checkG, new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(glowCanvas('rgba(255,40,30,1)', 'rgba(255,40,30,0)')), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
@@ -644,7 +645,8 @@ export class View3D {
     for (const k in this.marks) {
       const sq = +k, mk = this.marks[k];
       const isSel = h.sel === sq, isLast = !!h.last && (h.last.from === sq || h.last.to === sq);
-      mk.plane.visible = isSel || isLast; mk.plane.material = isSel ? this.selMat : this.lastMat;
+      const isHint = !!h.hint && (h.hint.from === sq || h.hint.to === sq);
+      mk.plane.visible = isSel || isLast || isHint; mk.plane.material = isHint && !isSel ? this.hintMat : isSel ? this.selMat : this.lastMat;
       const d = h.dests && h.dests[sq];
       mk.dot.visible = d === 1; mk.ring.visible = d === 2;
     }
@@ -713,7 +715,7 @@ export class View3D {
     // encaixa o tabuleiro dentro da area livre da tela
     c.fov = 36; c.aspect = st.width / st.height; c.clearViewOffset(); c.updateProjectionMatrix();
     const corners = [];
-    for (const x of [-4.7, 4.7]) for (const z of [-4.7, 4.7]) { corners.push(new THREE.Vector3(x, 0, z)); corners.push(new THREE.Vector3(x, x * z > 0 ? 0.9 : 1.3, z)); }
+    for (const x of [-4.4, 4.4]) for (const z of [-4.4, 4.4]) { corners.push(new THREE.Vector3(x, 0, z)); corners.push(new THREE.Vector3(x, x * z > 0 ? 0.9 : 1.3, z)); }
     const dirv = new THREE.Vector3(Math.cos(this.cam.phi) * Math.sin(this.cam.theta), Math.sin(this.cam.phi), Math.cos(this.cam.phi) * Math.cos(this.cam.theta));
     const look = this.cam.target || new THREE.Vector3(0, 0.15, 0);
     const fits = (r) => {

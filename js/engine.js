@@ -280,15 +280,48 @@
 
   function uci(m) { return sqName(m.from) + sqName(m.to) + (m.promo ? PCHARS[m.promo] : ''); }
 
+  // Notacao algebrica em portugues: R rei, D dama, T torre, B bispo, C cavalo
+  var PT = ['', '', 'C', 'B', 'T', 'D', 'R'];
+  function san(pos, m, legal) {
+    legal = legal || pos.legal();
+    var out;
+    if (m.flags & F_CASTLE) out = (m.to > m.from) ? 'O-O' : 'O-O-O';
+    else {
+      var t = m.piece & 7, to = sqName(m.to);
+      if (t === P) {
+        out = (m.cap ? 'abcdefgh'[m.from & 7] + 'x' : '') + to + (m.promo ? '=' + PT[m.promo] : '');
+      } else {
+        var sameFile = false, sameRank = false, amb = false;
+        for (var i = 0; i < legal.length; i++) {
+          var o = legal[i];
+          if (o.to === m.to && o.from !== m.from && (o.piece & 7) === t) {
+            amb = true;
+            if ((o.from & 7) === (m.from & 7)) sameFile = true;
+            if ((o.from >> 4) === (m.from >> 4)) sameRank = true;
+          }
+        }
+        var dis = '';
+        if (amb) { var n = sqName(m.from); dis = !sameFile ? n[0] : !sameRank ? n[1] : n; }
+        out = PT[t] + dis + (m.cap ? 'x' : '') + to;
+      }
+    }
+    pos.make(m);
+    if (pos.inCheck()) out += pos.legal().length ? '+' : '#';
+    pos.unmake();
+    return out;
+  }
+
   // ===== Partida (historico, repeticao, estado) =====
   function Game(fen) {
     this.startFen = fen || START;
     this.pos = new Position(this.startFen);
     this.moves = [];
     this.keys = [this.pos.key()];
+    this.sans = [];
   }
   Game.prototype.legal = function () { return this.pos.legal(); };
   Game.prototype.play = function (m) {
+    this.sans.push(san(this.pos, m));
     this.pos.make(m);
     this.moves.push(m);
     this.keys.push(this.pos.key());
@@ -300,7 +333,7 @@
   };
   Game.prototype.undo = function () {
     if (!this.moves.length) return null;
-    this.pos.unmake(); this.keys.pop();
+    this.pos.unmake(); this.keys.pop(); this.sans.pop();
     return this.moves.pop();
   };
   Game.prototype.status = function () {
@@ -510,7 +543,7 @@
   var api = {
     WHITE: WHITE, BLACK: BLACK, P: P, N: N, B: B, R: R, Q: Q, K: K,
     F_CAP: F_CAP, F_DOUBLE: F_DOUBLE, F_EP: F_EP, F_CASTLE: F_CASTLE, F_PROMO: F_PROMO,
-    START: START, Position: Position, Game: Game, think: think, uci: uci,
+    START: START, Position: Position, Game: Game, think: think, uci: uci, san: san,
     sqName: sqName, sqFromName: sqFromName, evalFull: evalFull
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

@@ -71,6 +71,7 @@
       if (this.pieces[sq]) this.pieces[sq].classList.toggle('lifted', h.sel === sq);
       cl.toggle('last', !!h.last && (h.last.from === sq || h.last.to === sq));
       cl.toggle('check', h.check === sq);
+      cl.toggle('hint', !!h.hint && (h.hint.from === sq || h.hint.to === sq));
       var d = h.dests && h.dests[sq];
       cl.toggle('dot', d === 1); cl.toggle('ring', d === 2);
     }

@@ -8,7 +8,7 @@
   var COLOR_NAME = { 0: 'brancas', 8: 'pretas' };
 
   var prefs = load(PREFS) || {};
-  prefs = { view: prefs.view || '3d', sound: prefs.sound !== false, music: prefs.music !== false, vibe: prefs.vibe !== false, level: prefs.level || 'medio', color: prefs.color || 'w', flip: prefs.flip !== false };
+  prefs = { clock: prefs.clock || '0', view: prefs.view || '3d', sound: prefs.sound !== false, music: prefs.music !== false, vibe: prefs.vibe !== false, level: prefs.level || 'medio', color: prefs.color || 'w', flip: prefs.flip !== false };
 
   var app = {
     game: null, mode: 'ai', level: 'medio', human: 0, autoFlip: true, orient: 0,
@@ -22,7 +22,7 @@
   function savePrefs() { store(PREFS, prefs); }
   function saveGame() {
     if (!app.game) return;
-    store(SAVE, { mode: app.mode, level: app.level, human: app.human, autoFlip: app.autoFlip, orient: app.orient, moves: app.game.moves.map(E.uci), t: Date.now() });
+    store(SAVE, { mode: app.mode, level: app.level, human: app.human, autoFlip: app.autoFlip, orient: app.orient, moves: app.game.moves.map(E.uci), t: Date.now(), clock: app.clock ? { limit: app.clock.limit, left: app.clock.left } : null });
   }
   function sfx(n) { XSound.play(n); }
   var VIBE = { move: 12, capture: [22, 30, 14], check: [25, 60, 25], mate: [40, 70, 40, 70, 160], illegal: 8, select: 6, draw: [30, 80, 30] };
@@ -82,7 +82,9 @@
     for (var i = 0; i < moves.length; i++) if (!app.game.playUci(moves[i])) break;
     app.orient = opts.orient != null ? opts.orient : (app.mode === 'ai' ? app.human : 0);
     if (app.mode === '2p' && app.autoFlip) app.orient = app.game.pos.turn;
-    app.sel = -1; app.dests = {}; app.over = null; app.busy = false; app.thinking = false; app.aiReq++;
+    app.sel = -1; app.dests = {}; app.over = null; app.busy = false; app.thinking = false; app.aiReq++; app.hintMove = null; app.hintReq = 0;
+    app.clock = opts.clock && opts.clock.limit ? { limit: opts.clock.limit, left: { 0: opts.clock.left ? opts.clock.left[0] : opts.clock.limit, 8: opts.clock.left ? opts.clock.left[8] : opts.clock.limit } } : null;
+    lastTick = 0;
     if (app.view3d) { app.view3d.cam.target = null; app.view3d._fitKey = null; }
     $('banner').hidden = true; clearTimeout(app.overT);
     showScreen('game');
@@ -97,24 +99,29 @@
   }
 
   function lastMove() { var m = app.game.moves; return m.length ? m[m.length - 1] : null; }
+  function getStatus() { return (app.over && (app.over.reason === 'time' || app.over.reason === 'timedraw')) ? app.over : app.game.status(); }
   function refreshHL() {
-    var lm = lastMove(), st = app.game.status();
+    var lm = lastMove(), st = getStatus();
     var check = st.check ? app.game.pos.kings[app.game.pos.turn >> 3] : -1;
-    app.v.highlight({ sel: app.sel, dests: app.dests, last: lm ? { from: lm.from, to: lm.to } : null, check: check });
+    app.v.highlight({ sel: app.sel, dests: app.dests, last: lm ? { from: lm.from, to: lm.to } : null, check: check, hint: app.hintMove });
   }
   function refreshAll() {
-    refreshHL(); refreshStatus(); refreshPlayers(); refreshButtons();
+    refreshHL(); refreshStatus(); refreshPlayers(); refreshButtons(); refreshHist();
   }
   function statusText(st) {
     var g = app.game, turn = g.pos.turn;
     if (st.over) {
+      if (st.reason === 'time') {
+        if (app.mode === 'ai') return st.winner === app.human ? 'O tempo do computador acabou. Você venceu!' : 'Seu tempo acabou. O computador venceu';
+        return 'Tempo esgotado! ' + (st.winner === 0 ? 'Brancas' : 'Pretas') + ' venceram';
+      }
       if (st.reason === 'mate') {
         if (app.mode === 'ai') return st.winner === app.human ? 'Xeque-mate! Você venceu!' : 'Xeque-mate! O computador venceu';
         return 'Xeque-mate! ' + (st.winner === 0 ? 'Brancas' : 'Pretas') + ' venceram';
       }
       return {
         stalemate: 'Empate por afogamento', fifty: 'Empate pela regra dos 50 lances',
-        repetition: 'Empate por repetição (3 vezes)', material: 'Empate: peças insuficientes para mate'
+        repetition: 'Empate por repetição (3 vezes)', material: 'Empate: peças insuficientes para mate', timedraw: 'Empate: o tempo acabou, mas não havia peças para mate'
       }[st.reason];
     }
     var who;
@@ -123,7 +130,8 @@
     return st.check ? 'Xeque! ' + who : who;
   }
   function refreshStatus() {
-    var st = app.game.status(), el = $('status');
+    var st = getStatus(), el = $('status');
+    if (app.hintText && !st.over) { el.textContent = app.hintText; el.className = 'hint'; return; }
     el.textContent = statusText(st);
     el.className = st.over ? 'over' : (st.check ? 'check' : '');
   }
@@ -147,14 +155,75 @@
       el.classList.toggle('turn', !app.over && g.pos.turn === c);
     });
   }
+  function refreshHist() {
+    var h = $('hist'), sans = app.game.sans, out = '';
+    for (var i = 0; i < sans.length; i++) {
+      if (i % 2 === 0) out += '<span class="n">' + (i / 2 + 1) + '.</span>';
+      out += '<span class="mv' + (i === sans.length - 1 ? ' cur' : '') + '">' + sans[i] + '</span>';
+    }
+    h.innerHTML = out;
+    h.scrollLeft = h.scrollWidth;
+  }
+  function fmt(ms) { ms = Math.max(0, ms); var s = Math.ceil(ms / 1000); if (ms < 10000) return (ms / 1000).toFixed(1); return Math.floor(s / 60) + ':' + ('0' + (s % 60)).slice(-2); }
+  function refreshClocks() {
+    [['plTop', app.orient ^ 8], ['plBot', app.orient]].forEach(function (a) {
+      var el = $(a[0]).querySelector('.clk');
+      if (!app.clock) { el.textContent = ''; return; }
+      var left = app.clock.left[a[1]];
+      el.textContent = fmt(left); el.classList.toggle('low', left < 20000 && !app.over);
+    });
+  }
+  var lastTick = 0;
+  function tick() {
+    var t = Date.now(), dt = lastTick ? t - lastTick : 0; lastTick = t;
+    if (!app.clock || !app.game || app.over || app.screen !== 'game' || document.hidden || !app.game.moves.length) return;
+    var c = app.game.pos.turn;
+    app.clock.left[c] -= Math.min(dt, 1000);
+    if (app.clock.left[c] <= 0) {
+      app.clock.left[c] = 0;
+      app.aiReq++; app.thinking = false; app.pendingAI = null;
+      var w = c ^ 8, pos = app.game.pos, onlyMinor = true, n = 0;
+      for (var sq = 0; sq < 120; sq++) { if (sq & 0x88) { sq += 7; continue; } var p = pos.board[sq]; if (p && (p & 8) === w && (p & 7) !== E.K) { n++; if ((p & 7) !== E.N && (p & 7) !== E.B) onlyMinor = false; } }
+      var st = (n === 0 || (n === 1 && onlyMinor)) ? { over: true, reason: 'timedraw', winner: -1 } : { over: true, reason: 'time', winner: w };
+      refreshClocks(); refreshStatus();
+      gameOver(st);
+      saveGame();
+      return;
+    }
+    refreshClocks();
+    if (t % 5000 < 250) saveGame();
+  }
+  setInterval(tick, 100);
+  // ===== Dica =====
+  function hint() {
+    if (!app.game || app.over || app.busy || !isHumanTurn()) return;
+    sfx('click');
+    var id = ++app.hintReq, fen = app.game.pos.fen(), mvCount = app.game.moves.length;
+    app.hintText = 'Pensando numa dica...'; refreshStatus();
+    var done = function (u) {
+      if (id !== app.hintReq || app.game.moves.length !== mvCount) return;
+      var ms = app.game.legal(), m = null;
+      for (var i = 0; i < ms.length; i++) if (E.uci(ms[i]) === u) m = ms[i];
+      if (!m) { app.hintText = null; refreshStatus(); return; }
+      app.hintMove = { from: m.from, to: m.to };
+      app.hintText = 'Dica: ' + XPieces.names[m.piece & 7] + ' para ' + E.sqName(m.to);
+      select(m.from);
+      refreshStatus(); sfx('promote'); buzz('select');
+    };
+    var w = getWorker();
+    if (w) { hintCb[id] = done; w.postMessage({ id: id, hint: true, fen: fen, level: 'dificil', timeMs: 1000 }); }
+    else setTimeout(function () { var m = E.think(new E.Position(fen), 'dificil', { timeMs: 600 }); done(m ? E.uci(m) : null); }, 50);
+  }
+  var hintCb = {};
+  function clearHint() { app.hintMove = null; app.hintText = null; app.hintReq++; }
   function hasHumanMove() {
     var g = app.game;
     if (app.mode === '2p') return g.moves.length > 0;
     return g.moves.some(function (m) { return (m.piece & 8) === app.human; });
   }
-  function refreshButtons() { $('cUndo').disabled = !hasHumanMove(); }
+  function refreshButtons() { $('cUndo').disabled = !hasHumanMove(); $('cHint').disabled = !!app.over; refreshClocks(); }
 
-  app.clearSel = function () { app.sel = -1; app.dests = {}; refreshHL(); };
+  app.clearSel = function () { app.sel = -1; app.dests = {}; if (app.hintMove) { clearHint(); refreshStatus(); } refreshHL(); };
   function select(sq) {
     app.sel = sq; app.dests = {};
     app.game.legal().forEach(function (m) { if (m.from === sq) app.dests[m.to] = (m.cap ? 2 : 1); });
@@ -194,11 +263,12 @@
     else { sfx('move'); buzz('move'); }
   }
   function doMove(m, opts) {
+    clearHint();
     app.game.play(m);
     app.sel = -1; app.dests = {};
     app.busy = true;
     var st = app.game.status();
-    refreshStatus(); refreshPlayers(); refreshButtons();
+    refreshStatus(); refreshPlayers(); refreshButtons(); refreshHist();
     refreshHL();
     saveGame();
     var willAI = !st.over && app.mode === 'ai' && app.game.pos.turn !== app.human;
@@ -214,20 +284,22 @@
   }
   function gameOver(st) {
     app.over = st;
+    clearHint(); refreshStatus(); refreshButtons();
     refreshPlayers();
     var g = app.game;
     var loserKing = st.reason === 'mate' ? g.pos.kings[(st.winner ^ 8) >> 3] : -1;
-    if (st.reason === 'mate') { sfx(app.mode === 'ai' && st.winner !== app.human ? 'lose' : 'mate'); buzz('mate'); }
+    if (st.reason === 'mate' || st.reason === 'time') { sfx(app.mode === 'ai' && st.winner !== app.human ? 'lose' : 'mate'); buzz('mate'); }
     else { sfx('draw'); buzz('draw'); }
-    var sub = statusText(st).replace('Xeque-mate! ', '').replace(/^Empate (por |pela |: )?/, '');
-    setTimeout(function () { if (app.over === st) banner(st.reason === 'mate' ? 'XEQUE-MATE' : 'EMPATE', sub.charAt(0).toUpperCase() + sub.slice(1)); }, st.reason === 'mate' ? 700 : 200);
+    var sub = statusText(st).replace('Xeque-mate! ', '').replace('Tempo esgotado! ', '').replace(/^Empate (por |pela |: )?/, '');
+    var big = st.reason === 'mate' ? 'XEQUE-MATE' : st.reason === 'time' ? 'TEMPO!' : 'EMPATE';
+    setTimeout(function () { if (app.over === st) banner(big, sub.charAt(0).toUpperCase() + sub.slice(1)); }, st.reason === 'mate' ? 700 : 200);
     app.v.celebrate({ reason: st.reason, winner: st.winner, kingSq: loserKing });
     clearTimeout(app.overT);
     app.overT = setTimeout(function () {
       if (app.over !== st) return;
-      var title = st.reason === 'mate' ? 'Xeque-mate!' : 'Empate!';
-      var text = statusText(st).replace('Xeque-mate! ', '');
-      if (st.reason === 'mate') text = app.mode === 'ai' ? (st.winner === app.human ? 'Parabéns, você venceu o computador!' : 'O computador venceu desta vez. Tente de novo!') : text + '!';
+      var title = st.reason === 'mate' ? 'Xeque-mate!' : st.reason === 'time' ? 'Tempo esgotado!' : 'Empate!';
+      var text = statusText(st).replace('Xeque-mate! ', '').replace('Tempo esgotado! ', '');
+      if (st.reason === 'mate' || (st.reason === 'time' && app.mode !== 'ai')) text = app.mode === 'ai' ? (st.winner === app.human ? 'Parabéns, você venceu o computador!' : 'O computador venceu desta vez. Tente de novo!') : text + '!';
       modal(title, text, [{ t: 'Ver tabuleiro' }, { t: 'Novo jogo', pri: true, fn: function () { newSame(); } }]);
     }, st.reason === 'mate' ? 3300 : 2000);
   }
@@ -238,7 +310,7 @@
     if (worker) return worker;
     try {
       worker = new Worker('js/ai-worker.js?v=' + V);
-      worker.onmessage = function (e) { onAI(e.data); };
+      worker.onmessage = function (e) { if (e.data.hint) { var cb = hintCb[e.data.id]; delete hintCb[e.data.id]; if (cb) cb(e.data.move); return; } onAI(e.data); };
       worker.onerror = function () { worker = null; };
     } catch (e) { worker = null; }
     return worker;
@@ -277,7 +349,7 @@
   // ===== Botoes =====
   function undo() {
     if (app.busy || !hasHumanMove()) return;
-    app.aiReq++; app.thinking = false; app.pendingAI = null;
+    app.aiReq++; app.thinking = false; app.pendingAI = null; clearHint();
     var g = app.game;
     if (app.mode === '2p') g.undo();
     else { var m; do { m = g.undo(); } while (m && (m.piece & 8) !== app.human); }
@@ -290,7 +362,7 @@
   function newSame() {
     var human = app.human;
     if (app.mode === 'ai' && prefs.color === 'r') human = Math.random() < 0.5 ? 0 : 8;
-    startGame({ mode: app.mode, level: app.level, human: human, autoFlip: app.autoFlip });
+    startGame({ mode: app.mode, level: app.level, human: human, autoFlip: app.autoFlip, clock: app.clock ? { limit: app.clock.limit } : null });
   }
   function flip() {
     if (!app.game) return;
@@ -375,6 +447,7 @@
   function toggleVibe() { prefs.vibe = !prefs.vibe; savePrefs(); vibeUI(); sfx('click'); buzz('capture'); }
   function toggleMusic() { prefs.music = !prefs.music; savePrefs(); soundUI(); }
 
+  function clockOpt() { var m = +prefs.clock; return m ? { limit: m * 60000 } : null; }
   function aiHint(l) {
     $('aiHint').textContent = { facil: 'Para começar: o computador joga quase ao acaso.', medio: 'Um desafio equilibrado.', dificil: 'Pensa vários lances à frente. Boa sorte!' }[l];
   }
@@ -392,10 +465,15 @@
     [].forEach.call(document.querySelectorAll('[data-back]'), function (b) { b.onclick = function () { sfx('click'); showPanel('pMain'); }; });
     $('bContinue').onclick = function () {
       var s = load(SAVE); if (!s) return;
-      startGame({ mode: s.mode, level: s.level, human: s.human, autoFlip: s.autoFlip, orient: s.orient, moves: s.moves });
+      startGame({ mode: s.mode, level: s.level, human: s.human, autoFlip: s.autoFlip, orient: s.orient, moves: s.moves, clock: s.clock });
     };
     segInit('segLevel', prefs.level, function (v) { prefs.level = v; savePrefs(); aiHint(v); }); aiHint(prefs.level);
     segInit('segColor', prefs.color, function (v) { prefs.color = v; savePrefs(); });
+    var clockMarks = [].map.call(document.querySelectorAll('.segClock'), function (el, i) { el.id = 'segClock' + i; return null; });
+    var marks = [];
+    [].forEach.call(document.querySelectorAll('.segClock'), function (el) {
+      marks.push(segInit(el.id, prefs.clock, function (v) { prefs.clock = v; savePrefs(); marks.forEach(function (m) { m(v); }); }));
+    });
     segInit('segFlip', prefs.flip ? '1' : '0', function (v) { prefs.flip = v === '1'; savePrefs(); });
     var markView = segInit('segView', prefs.view, function (v) {
       prefs.view = v; savePrefs();
@@ -405,9 +483,10 @@
     if (!app.has3d) $('segView').hidden = true;
     $('bStartAI').onclick = function () {
       var c = prefs.color === 'r' ? (Math.random() < 0.5 ? 'w' : 'b') : prefs.color;
-      startGame({ mode: 'ai', level: prefs.level, human: c === 'b' ? 8 : 0 });
+      startGame({ mode: 'ai', level: prefs.level, human: c === 'b' ? 8 : 0, clock: clockOpt() });
     };
-    $('bStart2').onclick = function () { startGame({ mode: '2p', autoFlip: prefs.flip }); };
+    $('bStart2').onclick = function () { startGame({ mode: '2p', autoFlip: prefs.flip, clock: clockOpt() }); };
+    $('cHint').onclick = hint;
     $('mSound').onclick = toggleSound; $('gSound').onclick = toggleSound;
     $('mMusic').onclick = toggleMusic; $('gMusic').onclick = toggleMusic;
     $('mVibe').onclick = toggleVibe; $('gVibe').onclick = toggleVibe;

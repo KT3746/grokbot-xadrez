@@ -13,3 +13,5 @@ Jogue: https://kt3746.github.io/grokbot-xadrez/
 Testes do motor: `node test/test.js` (perft da posição inicial, Kiwipete e outras).
 
 Three.js (licença MIT) está em `js/vendor`, veja `js/vendor/THREE-LICENSE.txt`.
+
+Fontes: Cinzel e Nunito (SIL Open Font License 1.1), em `fonts/` com as licenças.

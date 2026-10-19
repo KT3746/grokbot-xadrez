@@ -1,3 +1,5 @@
+@font-face { font-family: "Nunito"; src: url(../fonts/nunito.woff2) format("woff2"); font-weight: 500 900; font-display: swap; }
+@font-face { font-family: "Cinzel"; src: url(../fonts/cinzel.woff2) format("woff2"); font-weight: 400 900; font-display: swap; }
 [hidden] { display: none !important; }
 :root {
   --bg1: #1d2740; --bg2: #0b0f1a; --gold: #f5c84c; --gold2: #e39b2d; --ink: #f4efe4; --mute: #a9b3c8;
@@ -8,7 +10,7 @@
 html, body { margin: 0; height: 100%; overflow: hidden; overscroll-behavior: none; }
 body {
   background: radial-gradient(120% 80% at 50% 0%, var(--bg1), var(--bg2));
-  color: var(--ink); font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans", sans-serif;
+  color: var(--ink); font-family: "Nunito", system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans", sans-serif;
   touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
 }
 button { font: inherit; color: inherit; border: 0; background: none; cursor: pointer; touch-action: manipulation; }
@@ -20,8 +22,8 @@ body.three #bgfx { display: none; }
 #vign { position: fixed; inset: 0; z-index: 1; pointer-events: none; display: none; background: radial-gradient(120% 75% at 50% 48%, transparent 55%, rgba(3, 4, 8, .55) 100%); }
 body.three #vign { display: block; }
 
-.screen { position: fixed; inset: 0; z-index: 2; display: none; }
-.screen.show { display: flex; }
+.screen { position: fixed; inset: 0; z-index: 2; display: flex; opacity: 0; visibility: hidden; transform: scale(1.03); transition: opacity .4s ease, transform .4s ease, visibility 0s linear .4s; }
+.screen.show { opacity: 1; visibility: visible; transform: none; transition: opacity .4s ease, transform .4s ease; }
 
 /* ===== Menu ===== */
 #menu { align-items: stretch; justify-content: center; padding: calc(16px + var(--safe-t)) 18px calc(16px + var(--safe-b));
@@ -31,7 +33,7 @@ body.three #vign { display: block; }
 .logo { text-align: center; animation: drop .9s cubic-bezier(.2, .9, .3, 1.2) both; }
 .crown { width: 64px; height: 64px; margin: 0 auto 4px; filter: drop-shadow(0 6px 18px rgba(245, 200, 76, .45)); }
 .crown svg { fill: var(--gold); width: 100%; height: 100%; }
-h1 { margin: 0; font-size: clamp(42px, 13vw, 64px); letter-spacing: .04em; font-weight: 900; line-height: 1;
+h1 { margin: 0; padding-top: .14em; font-family: "Cinzel", Georgia, serif; font-size: clamp(40px, 12.5vw, 62px); letter-spacing: .03em; font-weight: 900; line-height: 1.05;
   background: linear-gradient(180deg, #fff6d6 0%, #f5c84c 45%, #c97a1c 100%); -webkit-background-clip: text; background-clip: text; color: transparent;
   filter: drop-shadow(0 3px 0 rgba(0, 0, 0, .35)) drop-shadow(0 10px 25px rgba(0, 0, 0, .5)); }
 .tag { margin: 6px 0 0; color: #d9deea; font-size: 15px; text-shadow: 0 1px 2px #000, 0 0 12px rgba(0,0,0,.9); }
@@ -65,7 +67,7 @@ h1 { margin: 0; font-size: clamp(42px, 13vw, 64px); letter-spacing: .04em; font-
 body:not(.three) #game { background: radial-gradient(120% 80% at 50% 0%, var(--bg1), var(--bg2)); }
 .top { display: flex; align-items: center; justify-content: space-between; height: 52px; padding: 0 8px;
   background: linear-gradient(180deg, rgba(8, 11, 20, .75), rgba(8, 11, 20, 0)); }
-.brand { font-weight: 900; letter-spacing: .06em; font-size: 18px; color: var(--gold); text-shadow: 0 2px 8px rgba(0, 0, 0, .5); }
+.brand { font-family: "Cinzel", Georgia, serif; font-weight: 900; letter-spacing: .04em; font-size: 18px; color: var(--gold); text-shadow: 0 2px 8px rgba(0, 0, 0, .5); }
 .right { display: flex; gap: 4px; }
 .ico { height: 42px; min-width: 42px; padding: 0 8px; border-radius: 12px; display: flex; align-items: center; justify-content: center; gap: 2px; background: rgba(255, 255, 255, .07); }
 .ico svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
@@ -87,7 +89,7 @@ body.three #board2d { display: none; }
 #status { text-align: center; font-size: 19px; font-weight: 800; min-height: 34px; padding: 4px 10px; line-height: 26px; text-shadow: 0 2px 8px rgba(0, 0, 0, .6); transition: color .2s; }
 #status.check { color: #ff7b6b; animation: pulse 1s ease-in-out infinite; }
 #status.over { color: var(--gold); }
-.controls { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; padding: 6px 8px 10px; }
+.controls { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; padding: 6px 8px 10px; }
 .controls button { min-height: 58px; border-radius: 14px; background: linear-gradient(180deg, rgba(255, 255, 255, .13), rgba(255, 255, 255, .05)); border: 1px solid rgba(255, 255, 255, .12);
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; font-size: 13px; font-weight: 700; backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); transition: transform .1s; }
 .controls button:active { transform: scale(.94); }
@@ -128,7 +130,7 @@ body.three #board2d { display: none; }
 .modal[hidden] { display: none; }
 .card { width: 100%; max-width: 380px; border-radius: 22px; padding: 22px 18px 16px; text-align: center;
   background: linear-gradient(180deg, #26324f, #151c2e); border: 1px solid rgba(255, 255, 255, .14); box-shadow: 0 25px 60px rgba(0, 0, 0, .6); animation: pop .32s cubic-bezier(.2, .9, .3, 1.25) both; }
-.card h3 { margin: 0 0 6px; font-size: 26px; color: var(--gold); }
+.card h3 { margin: 0 0 6px; font-family: "Cinzel", Georgia, serif; font-size: 26px; color: var(--gold); }
 .card p { margin: 0 0 16px; color: #d6dcea; font-size: 17px; line-height: 1.35; }
 .card .row { display: flex; gap: 10px; }
 .card .row button { flex: 1; min-height: 54px; border-radius: 14px; font-weight: 800; font-size: 17px; background: rgba(255, 255, 255, .1); border: 1px solid rgba(255, 255, 255, .14); }
@@ -147,7 +149,7 @@ body.three #board2d { display: none; }
 
 /* ===== Faixa de fim de jogo ===== */
 #banner { position: fixed; left: 0; right: 0; top: 34%; z-index: 9; text-align: center; pointer-events: none; display: flex; flex-direction: column; align-items: center; }
-#banner b { font-size: clamp(40px, 13vw, 72px); font-weight: 900; letter-spacing: .05em; line-height: 1;
+#banner b { font-family: "Cinzel", Georgia, serif; font-size: clamp(40px, 13vw, 72px); font-weight: 900; letter-spacing: .05em; line-height: 1;
   background: linear-gradient(180deg, #fff6d6, #f5c84c 50%, #c97a1c); -webkit-background-clip: text; background-clip: text; color: transparent;
   filter: drop-shadow(0 4px 0 rgba(0,0,0,.4)) drop-shadow(0 0 30px rgba(245,200,76,.6)); }
 #banner span { margin-top: 8px; font-size: 20px; font-weight: 800; color: #fff; text-shadow: 0 2px 10px #000; }
@@ -165,3 +167,19 @@ body.three #board2d { display: none; }
 @keyframes chk { 50% { opacity: .55; } }
 .b2-sq.sel { z-index: 0; }
 .b2-pc.lifted .pcs { transform: translateY(-6%) scale(1.08); transition: transform .15s; filter: drop-shadow(0 8px 5px rgba(0,0,0,.4)); }
+
+/* ===== Historico, relogio, dica ===== */
+#hist { display: flex; gap: 2px; overflow-x: auto; white-space: nowrap; padding: 2px 12px 4px; min-height: 26px; font-size: 14px; scrollbar-width: none; -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 12px, #000 calc(100% - 12px), transparent); mask-image: linear-gradient(90deg, transparent 0, #000 12px, #000 calc(100% - 12px), transparent); }
+#hist::-webkit-scrollbar { display: none; }
+#hist .n { color: #6f7a94; margin: 0 2px 0 6px; font-weight: 700; }
+#hist .mv { padding: 1px 6px; border-radius: 6px; color: #d6dcea; font-weight: 700; }
+#hist .mv.cur { background: rgba(245, 200, 76, .22); color: var(--gold); }
+#hist:empty::before { content: "Os lances aparecem aqui"; color: #5d6782; font-size: 13px; }
+.player .clk { font-variant-numeric: tabular-nums; font-weight: 800; font-size: 16px; padding: 3px 8px; border-radius: 8px; background: rgba(0, 0, 0, .35); color: #cfd6e6; min-width: 58px; text-align: center; }
+.player .clk:empty { display: none; }
+.player.turn .clk { background: #f3ead8; color: #1b1510; }
+.player .clk.low { background: #e5483a !important; color: #fff !important; animation: pulse .8s infinite; }
+.b2-sq.hint::after { content: ""; position: absolute; inset: 6%; border-radius: 50%; border: 4px solid rgba(80, 200, 255, .95); box-shadow: 0 0 12px rgba(80, 200, 255, .8); animation: chk 1s ease-in-out infinite; pointer-events: none; }
+#status.hint { color: #8fd8ff; }
+.seg button { font-size: 15px; }
+#hist { touch-action: pan-x; }

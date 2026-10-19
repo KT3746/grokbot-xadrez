@@ -6,8 +6,8 @@ self.onmessage = function (e) {
   try {
     var pos = new XEngine.Position(d.fen);
     var m = XEngine.think(pos, d.level, { timeMs: d.timeMs || 1500 });
-    self.postMessage({ id: d.id, move: m ? XEngine.uci(m) : null });
+    self.postMessage({ id: d.id, hint: !!d.hint, move: m ? XEngine.uci(m) : null });
   } catch (err) {
-    self.postMessage({ id: d.id, move: null, error: String(err) });
+    self.postMessage({ id: d.id, hint: !!d.hint, move: null, error: String(err) });
   }
 };
