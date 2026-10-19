@@ -392,6 +392,7 @@ export class View3D {
     this.loop = this.loop.bind(this);
     this.dirty = true;
     requestAnimationFrame(this.loop);
+    try { this.placeCamera(); renderer.compile(this.scene, this.camera); } catch (e) { }
   }
 
   buildLights() {
@@ -769,7 +770,7 @@ export class View3D {
 
   pick(x, y) {
     const ndc = new THREE.Vector2(x / this.W * 2 - 1, -(y / this.H) * 2 + 1);
-    const rc = new THREE.Raycaster(); rc.setFromCamera(ndc, this.camera);
+    const rc = this._rc || (this._rc = new THREE.Raycaster()); rc.setFromCamera(ndc, this.camera);
     const hits = rc.intersectObjects(this.pieceGroup.children, false);
     for (const h of hits) { for (const k in this.meshes) if (this.meshes[k] === h.object) return +k; }
     const p = new THREE.Vector3();
@@ -809,12 +810,14 @@ export class View3D {
       if (this.checkKing) this.checkKing.material.emissiveIntensity = 0.12 + (Math.sin(t * 5) * 0.5 + 0.5) * 0.35; }
     if (this.selSq >= 0) { const s = 1 + Math.sin(t * 6) * 0.08; this.dotMat.opacity = 0.7 + Math.sin(t * 6) * 0.15; for (const k in this.marks) this.marks[k].dot.scale.set(s, 1, s); busy = true; }
     if (!busy && !this.dirty) { this.fps.frames = 0; this.fps.time = 0; return; }
+    // no menu basta 30 quadros por segundo (economiza bateria)
+    if (this.menu && !this.dirty && (this._skip = !this._skip)) return;
     if (this.tweens.length || this.shadowDirty || this._liftMoving) { this.renderer.shadowMap.needsUpdate = true; this.shadowDirty = false; }
     this.dirty = false;
     this.placeCamera();
     this.renderer.render(this.scene, this.camera);
     // ajuste automatico de qualidade
-    if (dt > 0 && dt < 0.2) {
+    if (dt > 0 && dt < 0.5) {
       this.fps.frames++; this.fps.time += dt;
       if (this.fps.time > 1.5) {
         const fps = this.fps.frames / this.fps.time;
