@@ -86,7 +86,7 @@ function normalFrom(src0, strength, invert) {
   if (src0.width > 512) { src = document.createElement('canvas'); src.width = src.height = 512; src.getContext('2d').drawImage(src0, 0, 0, 512, 512); }
   const w = src.width, h = src.height, sg = src.getContext('2d').getImageData(0, 0, w, h).data;
   const c = document.createElement('canvas'); c.width = w; c.height = h;
-  const g = c.getContext('2d'), out = g.createImageData(w, h), d = out.data;
+  const g = c.getContext('2d'), out = g.createImageData(w, h), d = out.data; // normal map
   const L = (x, y) => { x = (x + w) % w; y = (y + h) % h; const i = (y * w + x) * 4; return (sg[i] + sg[i + 1] + sg[i + 2]) / 765; };
   for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
     let dx = (L(x + 1, y) - L(x - 1, y)) * strength, dy = (L(x, y + 1) - L(x, y - 1)) * strength;
@@ -213,7 +213,7 @@ function buildGeometries(seg) {
       b.rotateY(-a + Math.PI / 2); b.translate(Math.cos(a) * 0.243, 0.795, Math.sin(a) * 0.243);
       parts.push(tint(b, 1));
     }
-    parts.push(tint(collar(0.615, 0.212, 0.016, seg), 0.7), tint(collar(0.255, 0.232, 0.014, seg), 0.7));
+    parts.push(tint(collar(0.615, 0.212, 0.016, seg), 0.86), tint(collar(0.255, 0.232, 0.014, seg), 0.86));
     G[E.R] = mergeGeometries(parts);
   }
   // Cavalo: pescoco e cabeca esculpidos, crina, orelhas, focinho, olhos
@@ -254,7 +254,7 @@ function buildGeometries(seg) {
     }
     const mouth = new THREE.BoxGeometry(0.06, 0.008, 0.1); mouth.rotateZ(-0.7); mouth.translate(0.305, 0.625, 0);
     const forelock = new THREE.SphereGeometry(0.05, 12, 8); forelock.scale(1.2, 0.6, 0.8); forelock.translate(0.09, 0.93, 0);
-    const g = mergeGeometries([tint(base, 1), tint(head, 1), tint(mane, 0.82), tint(forelock, 0.82), tint(mouth, 0.3), ...ears, ...eyes, ...nost, tint(collar(0.205, 0.252, 0.013, seg), 0.7)]);
+    const g = mergeGeometries([tint(base, 1), tint(head, 1), tint(mane, 0.82), tint(forelock, 0.82), tint(mouth, 0.3), ...ears, ...eyes, ...nost, tint(collar(0.205, 0.252, 0.013, seg), 0.86)]);
     g.rotateY(Math.PI / 2);
     G[E.N] = g;
   }
@@ -263,7 +263,7 @@ function buildGeometries(seg) {
     const body = lathe([...BASE, ...smooth([[0.215, 0.21], [0.16, 0.3], [0.125, 0.42], [0.11, 0.53]]), [0.175, 0.545], [0.19, 0.57], [0.175, 0.595], [0.105, 0.61],
       ...smooth([[0.11, 0.625], [0.15, 0.68], [0.178, 0.76], [0.17, 0.84], [0.135, 0.91], [0.08, 0.965], [0.035, 0.995]]), ...arc(1.04, 0.045, -55, 90, 8)], seg);
     const slit = rbox(0.045, 0.026, 0.24, 0.008, 1); slit.rotateX(0.8); slit.translate(0.155, 0.8, 0);
-    const g = mergeGeometries([tint(body, 1), tint(slit, 0.08), tint(collar(0.545, 0.17, 0.012, seg), 0.7)]);
+    const g = mergeGeometries([tint(body, 1), tint(slit, 0.08), tint(collar(0.545, 0.17, 0.012, seg), 0.86)]);
     g.rotateY(Math.PI / 2);
     G[E.B] = g;
   }
@@ -279,7 +279,7 @@ function buildGeometries(seg) {
       const b = new THREE.SphereGeometry(0.03, 12, 8); b.translate(x * 0.207, 1.135, z * 0.207);
       parts.push(tint(c, 1), tint(b, 1));
     }
-    parts.push(tint(collar(1.04, 0.2, 0.018, seg), 0.75), tint(collar(0.77, 0.205, 0.014, seg), 0.7));
+    parts.push(tint(collar(1.04, 0.2, 0.018, seg), 0.88), tint(collar(0.77, 0.205, 0.014, seg), 0.86));
     G[E.Q] = mergeGeometries(parts);
   }
   // Rei: coroa e cruz chanfrada
@@ -292,7 +292,7 @@ function buildGeometries(seg) {
     s.lineTo(-L + 0.02, -a + f); s.lineTo(-a + f, -a); s.lineTo(-a, -L);
     const cross = new THREE.ExtrudeGeometry(s, { depth: 0.04, bevelEnabled: true, bevelThickness: 0.015, bevelSize: 0.012, bevelSegments: 3 });
     cross.translate(0, 0, -0.02); cross.translate(0, 1.33, 0);
-    const parts = [tint(body, 1), tint(cross, 1), tint(collar(1.105, 0.205, 0.016, seg), 0.75), tint(collar(0.83, 0.212, 0.014, seg), 0.7)];
+    const parts = [tint(body, 1), tint(cross, 1), tint(collar(1.105, 0.205, 0.016, seg), 0.88), tint(collar(0.83, 0.212, 0.014, seg), 0.86)];
     const nub = new THREE.SphereGeometry(0.045, 14, 10); nub.translate(0, 1.21, 0); parts.push(tint(nub, 1));
     for (let i = 0; i < 8; i++) { const an = i / 8 * Math.PI * 2, b = new THREE.SphereGeometry(0.022, 10, 6); b.translate(Math.cos(an) * 0.2, 1.065, Math.sin(an) * 0.2); parts.push(tint(b, 0.8)); }
     G[E.K] = mergeGeometries(parts);
@@ -316,10 +316,10 @@ class Particles {
     }
     geo.setAttribute('position', new THREE.BufferAttribute(p, 3));
     geo.setAttribute('color', new THREE.BufferAttribute(c, 3));
-    const mat = new THREE.PointsMaterial({ size: opts.size || 0.11, map: this.tex, vertexColors: true, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending });
+    const mat = new THREE.PointsMaterial({ size: opts.size || 0.11, map: this.tex, vertexColors: true, transparent: true, depthWrite: false, blending: opts.normal ? THREE.NormalBlending : THREE.AdditiveBlending });
     const pts = new THREE.Points(geo, mat);
     this.scene.add(pts);
-    this.list.push({ pts, v, t0: now(), life: opts.life || 1.1, grav: opts.grav == null ? 6 : opts.grav });
+    this.list.push({ pts, v, t0: now(), life: opts.life || 1.1, grav: opts.grav == null ? 6 : opts.grav, op: opts.opacity || 1 });
   }
   update(dt) {
     const t = now();
@@ -332,7 +332,7 @@ class Particles {
         a.array[i * 3] += s.v[i].x * dt; a.array[i * 3 + 1] = Math.max(0.02, a.array[i * 3 + 1] + s.v[i].y * dt); a.array[i * 3 + 2] += s.v[i].z * dt;
       }
       a.needsUpdate = true;
-      s.pts.material.opacity = 1 - k * k;
+      s.pts.material.opacity = (s.op || 1) * (1 - k * k);
       return true;
     });
     return this.list.length > 0;
@@ -517,48 +517,89 @@ export class View3D {
     const startY = mesh.position.y;
     const dist = a.distanceTo(b);
     const knight = (m.piece & 7) === E.N;
-    const h = knight ? 0.9 : 0.18 + dist * 0.06;
-    const dur = Math.min(0.62, 0.3 + dist * 0.045);
+    const h = knight ? 0.95 : 0.22 + dist * 0.06;
+    const dur = Math.min(0.66, 0.34 + dist * 0.045);
     const jobs = [];
     let hit = false;
     const anim = this._animMeshes; anim.add(mesh); if (capMesh) anim.add(capMesh);
+    const dir = new THREE.Vector3(b.x - a.x, 0, b.z - a.z).normalize();
+    // inclina na direcao do movimento (eixo perpendicular)
+    const tilt = new THREE.Vector3(dir.z, 0, -dir.x);
     jobs.push(this.tween(dur, (k) => {
       const e = ease(k);
-      mesh.position.set(a.x + (b.x - a.x) * e, startY * (1 - e) + Math.sin(Math.PI * e) * h, a.z + (b.z - a.z) * e);
-      mesh.rotation.z = Math.sin(Math.PI * e) * 0.08 * Math.sign(b.x - a.x || 1);
-      if (capMesh && !hit && k > 0.72) { hit = true; this.captureFx(capMesh); }
-    }).then(() => this.tween(0.16, (k) => { const s = 1 - Math.sin(Math.PI * k) * 0.08; mesh.scale.set(1 + (1 - s) * 0.6, s, 1 + (1 - s) * 0.6); })));
+      const lift = Math.sin(Math.PI * Math.min(1, e * 1.05)) * h;
+      mesh.position.set(a.x + (b.x - a.x) * e, Math.max(0, startY * (1 - e) + lift), a.z + (b.z - a.z) * e);
+      const lean = Math.sin(Math.PI * k) * (knight ? 0.18 : 0.1) * (k < 0.5 ? 1 : 0.6);
+      mesh.rotation.x = -tilt.x * lean; mesh.rotation.z = -tilt.z * lean;
+      if (capMesh && !hit && k > 0.7) { hit = true; this.captureFx(capMesh, dir); }
+    }).then(() => {
+      mesh.rotation.x = 0; mesh.rotation.z = 0;
+      this.dust(b, m.cap ? 1.4 : 1);
+      this.shake(m.cap ? 0.05 : 0.018);
+      this.tween(0.22, (k) => { const s = 1 - Math.sin(Math.PI * k) * 0.09 * (1 - k * 0.5); mesh.scale.set(1 + (1 - s) * 0.55, s, 1 + (1 - s) * 0.55); }).then(() => mesh.scale.set(1, 1, 1));
+    }));
     if (m.flags & E.F_CASTLE) {
       const rf = m.to > m.from ? m.from + 3 : m.from - 4, rt = m.to > m.from ? m.from + 1 : m.from - 1;
       const rook = this.meshes[rf];
       if (rook) {
         delete this.meshes[rf]; this.meshes[rt] = rook; anim.add(rook);
         const ra = sqPos(rf), rb = sqPos(rt);
-        jobs.push(this.tween(0.42, (k) => { const e = ease(k); rook.position.set(ra.x + (rb.x - ra.x) * e, Math.sin(Math.PI * e) * 0.5, ra.z); }, dur * 0.6));
+        jobs.push(this.tween(0.45, (k) => { const e = ease(k); rook.position.set(ra.x + (rb.x - ra.x) * e, Math.sin(Math.PI * e) * 0.55, ra.z); }, dur * 0.55).then(() => this.dust(rb, 0.8)));
       }
     }
     return Promise.all(jobs).then(() => {
       anim.clear();
       if (m.promo) {
-        this.particles.burst(b.clone().setY(0.6), { colors: ['#ffe08a', '#fff4d0', '#ffb84a'], count: 50, up: 2.5, life: 1.2, grav: 3 });
+        this.particles.burst(b.clone().setY(0.6), { colors: ['#ffe08a', '#fff4d0', '#ffb84a'], count: 60, up: 2.8, life: 1.3, grav: 3 });
+        this.flash(b, 0xffd27a, 4);
       }
       this.sync(board);
       if (m.promo) {
         const nm = this.meshes[m.to];
-        if (nm) this.tween(0.4, (k) => { const s = 0.3 + easeOut(k) * 0.7; nm.scale.set(s, s, s); });
+        if (nm) this.tween(0.45, (k) => { const s = 0.2 + (1 - Math.pow(1 - k, 3) * Math.cos(k * 5)) * 0.8; nm.scale.set(s, s, s); }).then(() => nm.scale.set(1, 1, 1));
       }
     });
   }
 
-  captureFx(mesh) {
+  dust(pos, amt) {
+    this.particles.burst(pos.clone().setY(0.03), { colors: ['#d8ccb4', '#bfb197', '#efe6d4'], count: Math.round(22 * amt), up: 0.5, speed: 1.5 * amt, life: 0.6, grav: 1, size: 0.09, normal: true, opacity: 0.55 });
+  }
+  shake(a) { this.shakeAmt = Math.max(this.shakeAmt || 0, a); this.dirty = true; }
+  flash(pos, color, power) {
+    this.glowLight.color.set(color); this.glowLight.position.set(pos.x, 1.2, pos.z);
+    this.tween(0.6, (k) => { this.glowLight.intensity = Math.sin(Math.PI * k) * power; });
+  }
+
+  captureFx(mesh, dir) {
     const p = mesh.position.clone(), dark = mesh.userData.piece & 8;
-    this.particles.burst(p.clone().setY(0.4), { colors: dark ? ['#ff9d4a', '#ffd27a', '#7a4a2a'] : ['#fff1c8', '#ffd27a', '#ffffff'], count: 60, up: 3.2, speed: 2.6, life: 1.0 });
-    const spin = (Math.random() < 0.5 ? -1 : 1) * 4;
-    this.tween(0.5, (k) => {
+    this.particles.burst(p.clone().setY(0.45), { colors: dark ? ['#ff9d4a', '#ffd27a', '#ffefc0'] : ['#fff1c8', '#ffd27a', '#ffffff'], count: 55, up: 3, speed: 2.4, life: 0.9 });
+    this.dust(p, 1.6);
+    this.flash(p, 0xffb060, 3);
+    const mat = mesh.material.clone(); mat.transparent = true; mesh.material = mat;
+    const axis = new THREE.Vector3(dir.z, 0, -dir.x);
+    const q0 = mesh.quaternion.clone(), q = new THREE.Quaternion();
+    const spin = rnd(1.2, 2.2) * Math.PI;
+    this.tween(0.8, (k) => {
       const e = easeOut(k);
-      mesh.position.y = e * 1.1; mesh.rotation.y += spin * 0.016; mesh.rotation.x = e * 0.9;
-      const s = Math.max(0.001, 1 - e); mesh.scale.set(s, s, s);
-    }).then(() => { this.pieceGroup.remove(mesh); this._animMeshes.delete(mesh); });
+      mesh.position.set(p.x + dir.x * e * 1.3, Math.sin(Math.PI * Math.min(1, k * 1.2)) * 0.9 + Math.max(0, k - 0.8) * -1, p.z + dir.z * e * 1.3);
+      q.setFromAxisAngle(axis, -spin * e); mesh.quaternion.copy(q0).premultiply(q);
+      mat.opacity = k < 0.35 ? 1 : 1 - (k - 0.35) / 0.65;
+      const s = 1 - e * 0.35; mesh.scale.set(s, s, s);
+    }).then(() => { this.pieceGroup.remove(mesh); this._animMeshes.delete(mesh); mat.dispose(); });
+  }
+
+  resetView() {
+    if (!this.cam.target) return;
+    const t0 = this.cam.target.clone(), d0 = this.cam.dist, look = new THREE.Vector3(0, 0.15, 0);
+    const p0 = this.cam.phi, goalP = this.defaultPhi(), th0 = this.cam.theta, goalT = this.thetaFor(this.orient);
+    const dT = ((goalT - th0) % (Math.PI * 2) + Math.PI * 3) % (Math.PI * 2) - Math.PI;
+    const r1 = (this._fitR || 20);
+    this.cam.rFactor = 1;
+    this.tween(1.1, (k) => {
+      const e = ease(k);
+      this.cam.target.lerpVectors(t0, look, e); this.cam.dist = d0 + (r1 - d0) * e;
+      this.cam.phi = p0 + (goalP - p0) * e; this.cam.theta = th0 + dT * e;
+    }).then(() => { this.cam.target = null; this._fitKey = null; });
   }
 
   celebrate(result) {
@@ -575,9 +616,19 @@ export class View3D {
         setTimeout(() => this.particles.burst(p.clone().setY(0.3), { colors: ['#ff4a3a', '#ff9d4a', '#ffd27a'], count: 70, up: 2, speed: 3, life: 1.3 }), 900);
       }
       for (let i = 0; i < 5; i++) setTimeout(() => this.particles.burst(new THREE.Vector3(rnd(-3, 3), 0.5, rnd(-3, 3)), { colors: ['#ffe08a', '#ffffff', '#7fe3ff', '#ff9de0', '#ffd24a'], count: 70, up: 5.5, speed: 2.5, life: 1.8, grav: 5, size: 0.13 }), 400 + i * 380);
-      this.glowLight.color.set(0xffcc66);
+      this.glowLight.color.set(0xffcc66); this.glowLight.position.set(0, 1.5, 0);
       this.tween(2.6, (k) => { this.glowLight.intensity = Math.sin(Math.PI * k) * 6; });
-      this.orbitBy(0.6, 3.5);
+      if (king) {
+        // camera de cinema: aproxima do rei derrotado e gira devagar
+        const kp = king.position.clone().setY(0.4), look = new THREE.Vector3(0, 0.15, 0);
+        const d0 = (this._fitR || 20) * this.cam.rFactor, th0 = this.cam.theta, p0 = this.cam.phi;
+        this.cam.target = look.clone(); this.cam.dist = d0;
+        this.tween(3.6, (k) => {
+          const e = ease(k);
+          this.cam.target.lerpVectors(look, kp, e); this.cam.dist = d0 + (8.5 - d0) * e;
+          this.cam.phi = p0 + (0.5 - p0) * e; this.cam.theta = th0 + 0.8 * e;
+        }, 0.2);
+      }
     } else {
       this.particles.burst(new THREE.Vector3(0, 0.5, 0), { colors: ['#9fd8ff', '#ffffff', '#c8b8ff'], count: 90, up: 3.5, speed: 3, life: 1.6, grav: 3 });
     }
@@ -596,6 +647,12 @@ export class View3D {
       mk.plane.visible = isSel || isLast; mk.plane.material = isSel ? this.selMat : this.lastMat;
       const d = h.dests && h.dests[sq];
       mk.dot.visible = d === 1; mk.ring.visible = d === 2;
+    }
+    if (this.checkKing) { this.checkKing.material = this.mats[this.checkKing.userData.piece & 8]; this.checkKing = null; }
+    if (h.check >= 0 && h.check != null && this.meshes[h.check]) {
+      const km = this.meshes[h.check];
+      if (!this.checkMats) this.checkMats = { 0: this.mats[0].clone(), 8: this.mats[8].clone() };
+      const cm = this.checkMats[km.userData.piece & 8]; cm.emissive = new THREE.Color(0xff2a1a); km.material = cm; this.checkKing = km;
     }
     if (h.check >= 0 && h.check != null) { const p = sqPos(h.check); this.checkMesh.position.x = p.x; this.checkMesh.position.z = p.z; this.checkMesh.visible = true; }
     else this.checkMesh.visible = false;
@@ -675,6 +732,7 @@ export class View3D {
     }
     if (!this.cam.target) r *= this.cam.rFactor;
     c.position.copy(look).addScaledVector(dirv, r); c.lookAt(look);
+    if (this.shakeAmt > 0.001) { c.position.x += rnd(-1, 1) * this.shakeAmt * r * 0.05; c.position.y += rnd(-1, 1) * this.shakeAmt * r * 0.05; }
     c.aspect = w / h;
     const offY = h / 2 - (st.top + st.height / 2), offX = w / 2 - (st.left + st.width / 2);
     // escala o campo de visao para que a area livre tenha o tamanho calculado
@@ -736,15 +794,17 @@ export class View3D {
       });
     }
     if (this.particles.update(dt)) busy = true;
+    if (this.shakeAmt > 0.001) { this.shakeAmt *= Math.pow(0.0005, dt); busy = true; } else this.shakeAmt = 0;
     if (this.menu) { this.cam.theta += dt * 0.12; busy = true; }
     // peca selecionada sobe um pouco
     this._liftMoving = false;
     for (const k in this.meshes) {
-      const m = this.meshes[k], goal = (+k === this.selSq) ? 0.22 : 0;
+      const m = this.meshes[k], goal = (+k === this.selSq) ? 0.24 + Math.sin(t * 4) * 0.025 : 0;
       const d = goal - m.position.y;
       if (Math.abs(d) > 0.002 && !this.isTweening(m)) { m.position.y += d * Math.min(1, dt * 14); busy = true; this._liftMoving = true; }
     }
-    if (this.checkMesh.visible) { const s = 0.85 + Math.sin(t * 5) * 0.15; this.checkMesh.scale.set(s, 1, s); this.checkMesh.material.opacity = 0.65 + Math.sin(t * 5) * 0.3; busy = true; }
+    if (this.checkMesh.visible) { const s = 0.85 + Math.sin(t * 5) * 0.15; this.checkMesh.scale.set(s, 1, s); this.checkMesh.material.opacity = 0.65 + Math.sin(t * 5) * 0.3; busy = true;
+      if (this.checkKing) this.checkKing.material.emissiveIntensity = 0.12 + (Math.sin(t * 5) * 0.5 + 0.5) * 0.35; }
     if (this.selSq >= 0) { const s = 1 + Math.sin(t * 6) * 0.08; this.dotMat.opacity = 0.7 + Math.sin(t * 6) * 0.15; for (const k in this.marks) this.marks[k].dot.scale.set(s, 1, s); busy = true; }
     if (!busy && !this.dirty) { this.fps.frames = 0; this.fps.time = 0; return; }
     if (this.tweens.length || this.shadowDirty || this._liftMoving) { this.renderer.shadowMap.needsUpdate = true; this.shadowDirty = false; }

@@ -8,7 +8,7 @@
   var COLOR_NAME = { 0: 'brancas', 8: 'pretas' };
 
   var prefs = load(PREFS) || {};
-  prefs = { view: prefs.view || '3d', sound: prefs.sound !== false, music: prefs.music !== false, level: prefs.level || 'medio', color: prefs.color || 'w', flip: prefs.flip !== false };
+  prefs = { view: prefs.view || '3d', sound: prefs.sound !== false, music: prefs.music !== false, vibe: prefs.vibe !== false, level: prefs.level || 'medio', color: prefs.color || 'w', flip: prefs.flip !== false };
 
   var app = {
     game: null, mode: 'ai', level: 'medio', human: 0, autoFlip: true, orient: 0,
@@ -25,6 +25,13 @@
     store(SAVE, { mode: app.mode, level: app.level, human: app.human, autoFlip: app.autoFlip, orient: app.orient, moves: app.game.moves.map(E.uci), t: Date.now() });
   }
   function sfx(n) { XSound.play(n); }
+  var VIBE = { move: 12, capture: [22, 30, 14], check: [25, 60, 25], mate: [40, 70, 40, 70, 160], illegal: 8, select: 6, draw: [30, 80, 30] };
+  function buzz(n) { if (!prefs.vibe || !navigator.vibrate) return; try { navigator.vibrate(VIBE[n] || 10); } catch (e) { } }
+  function banner(title, sub) {
+    var b = $('banner'); b.querySelector('b').textContent = title; b.querySelector('span').textContent = sub || '';
+    b.hidden = false; b.classList.remove('go'); void b.offsetWidth; b.classList.add('go');
+    clearTimeout(banner.t); banner.t = setTimeout(function () { b.hidden = true; }, 2600);
+  }
 
   // ===== Visuais =====
   app.stageRect = function () {
@@ -76,6 +83,8 @@
     app.orient = opts.orient != null ? opts.orient : (app.mode === 'ai' ? app.human : 0);
     if (app.mode === '2p' && app.autoFlip) app.orient = app.game.pos.turn;
     app.sel = -1; app.dests = {}; app.over = null; app.busy = false; app.thinking = false; app.aiReq++;
+    if (app.view3d) { app.view3d.cam.target = null; app.view3d._fitKey = null; }
+    $('banner').hidden = true; clearTimeout(app.overT);
     showScreen('game');
     useView(prefs.view);
     if (app.v === app.view3d && !moves.length) app.view3d.intro();
@@ -150,7 +159,7 @@
     app.sel = sq; app.dests = {};
     app.game.legal().forEach(function (m) { if (m.from === sq) app.dests[m.to] = (m.cap ? 2 : 1); });
     refreshHL();
-    sfx('select');
+    sfx('select'); buzz('select');
   }
   app.onSquare = function (sq) {
     if (app.busy || app.over || !app.game || !isHumanTurn()) return;
@@ -158,7 +167,7 @@
     if (app.sel >= 0 && app.dests[sq]) { app.tryMove(app.sel, sq); return; }
     if (sq === app.sel) { app.clearSel(); return; }
     if (p && (p & 8) === turn) { select(sq); return; }
-    if (app.sel >= 0) sfx('illegal');
+    if (app.sel >= 0) { sfx('illegal'); buzz('illegal'); }
     app.clearSel();
   };
   app.tryMove = function (from, to, opts) {
@@ -178,11 +187,11 @@
   };
   function moveSound(m, st) {
     if (st.over && st.reason === 'mate') return;
-    if (st.check) sfx('check');
-    else if (m.promo) { sfx('promote'); sfx(m.cap ? 'capture' : 'move'); }
-    else if (m.flags & E.F_CASTLE) sfx('castle');
-    else if (m.cap) sfx('capture');
-    else sfx('move');
+    if (st.check) { sfx('check'); buzz('check'); }
+    else if (m.promo) { sfx('promote'); sfx(m.cap ? 'capture' : 'move'); buzz('capture'); }
+    else if (m.flags & E.F_CASTLE) { sfx('castle'); buzz('move'); }
+    else if (m.cap) { sfx('capture'); buzz('capture'); }
+    else { sfx('move'); buzz('move'); }
   }
   function doMove(m, opts) {
     app.game.play(m);
@@ -208,15 +217,19 @@
     refreshPlayers();
     var g = app.game;
     var loserKing = st.reason === 'mate' ? g.pos.kings[(st.winner ^ 8) >> 3] : -1;
-    if (st.reason === 'mate') sfx(app.mode === 'ai' && st.winner !== app.human ? 'lose' : 'mate');
-    else sfx('draw');
+    if (st.reason === 'mate') { sfx(app.mode === 'ai' && st.winner !== app.human ? 'lose' : 'mate'); buzz('mate'); }
+    else { sfx('draw'); buzz('draw'); }
+    var sub = statusText(st).replace('Xeque-mate! ', '').replace(/^Empate (por |pela |: )?/, '');
+    setTimeout(function () { if (app.over === st) banner(st.reason === 'mate' ? 'XEQUE-MATE' : 'EMPATE', sub.charAt(0).toUpperCase() + sub.slice(1)); }, st.reason === 'mate' ? 700 : 200);
     app.v.celebrate({ reason: st.reason, winner: st.winner, kingSq: loserKing });
-    setTimeout(function () {
+    clearTimeout(app.overT);
+    app.overT = setTimeout(function () {
+      if (app.over !== st) return;
       var title = st.reason === 'mate' ? 'Xeque-mate!' : 'Empate!';
       var text = statusText(st).replace('Xeque-mate! ', '');
       if (st.reason === 'mate') text = app.mode === 'ai' ? (st.winner === app.human ? 'Parabéns, você venceu o computador!' : 'O computador venceu desta vez. Tente de novo!') : text + '!';
       modal(title, text, [{ t: 'Ver tabuleiro' }, { t: 'Novo jogo', pri: true, fn: function () { newSame(); } }]);
-    }, st.reason === 'mate' ? 1900 : 900);
+    }, st.reason === 'mate' ? 3300 : 2000);
   }
 
   // ===== Computador =====
@@ -270,6 +283,7 @@
     else { var m; do { m = g.undo(); } while (m && (m.piece & 8) !== app.human); }
     app.over = null; app.sel = -1; app.dests = {};
     if (app.mode === '2p' && app.autoFlip) { app.orient = g.pos.turn; app.v.setOrient(app.orient, false); }
+    if (app.v.resetView) app.v.resetView();
     app.v.sync(g.pos.board);
     refreshAll(); saveGame(); sfx('whoosh');
   }
@@ -345,13 +359,20 @@
     var s = ICON_SOUND + (sOn ? '<path d="M16 9a4 4 0 0 1 0 6M18.5 6.5a8 8 0 0 1 0 11"/>' : '<path d="M16 9l5 6M21 9l-5 6"/>') + '</svg>';
     var m = ICON_MUSIC + (mOn ? '' : '<path d="M3 3l18 18"/>') + '</svg>';
     $('gSound').innerHTML = s; $('gMusic').innerHTML = m;
-    $('mSound').innerHTML = s + '<span>Som ' + (sOn ? 'ligado' : 'desligado') + '</span>';
-    $('mMusic').innerHTML = m + '<span>Música ' + (mOn ? 'ligada' : 'desligada') + '</span>';
+    $('mSound').innerHTML = s + '<span>Som</span>';
+    $('mMusic').innerHTML = m + '<span>Música</span>';
     ['gSound', 'mSound'].forEach(function (i) { $(i).classList.toggle('off', !sOn); });
     ['gMusic', 'mMusic'].forEach(function (i) { $(i).classList.toggle('off', !mOn); });
     XSound.setSfx(sOn); XSound.setMusic(mOn);
   }
   function toggleSound() { prefs.sound = !prefs.sound; savePrefs(); soundUI(); sfx('click'); }
+  var ICON_VIBE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="3" width="8" height="18" rx="2"/>';
+  function vibeUI() {
+    var on = prefs.vibe, ic = ICON_VIBE + (on ? '<path d="M4 8v8M20 8v8"/>' : '<path d="M3 3l18 18"/>') + '</svg>';
+    $('gVibe').innerHTML = ic; $('mVibe').innerHTML = ic + '<span>Vibrar</span>';
+    $('gVibe').classList.toggle('off', !on); $('mVibe').classList.toggle('off', !on);
+  }
+  function toggleVibe() { prefs.vibe = !prefs.vibe; savePrefs(); vibeUI(); sfx('click'); buzz('capture'); }
   function toggleMusic() { prefs.music = !prefs.music; savePrefs(); soundUI(); }
 
   function aiHint(l) {
@@ -389,6 +410,7 @@
     $('bStart2').onclick = function () { startGame({ mode: '2p', autoFlip: prefs.flip }); };
     $('mSound').onclick = toggleSound; $('gSound').onclick = toggleSound;
     $('mMusic').onclick = toggleMusic; $('gMusic').onclick = toggleMusic;
+    $('mVibe').onclick = toggleVibe; $('gVibe').onclick = toggleVibe;
     $('gMenu').onclick = function () { sfx('click'); saveGame(); app.aiReq++; app.thinking = false; app.pendingAI = null; showScreen('menu'); };
     $('cNew').onclick = function () {
       sfx('click');
@@ -410,7 +432,8 @@
     app.has3d = webglOK();
     app.view2d = new View2D($('board2d'), app);
     app.v = app.view2d;
-    bind(); soundUI();
+    bind(); soundUI(); vibeUI();
+    if (!navigator.vibrate) { $('mVibe').hidden = true; $('gVibe').hidden = true; }
     showScreen('menu');
     if (prefs.view === '3d' && app.has3d) init3d().then(function () { showScreen('menu'); });
     else if (!app.has3d) prefs.view = '2d';

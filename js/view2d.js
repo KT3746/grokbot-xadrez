@@ -60,7 +60,7 @@
       e.style.transition = 'none'; e.style.transform = self.tf(mv[0]); e.style.zIndex = 5;
       void e.offsetWidth;
       e.style.transition = ''; e.style.transform = self.tf(mv[1]);
-      setTimeout(function () { e.style.zIndex = ''; }, 260);
+      setTimeout(function () { e.style.zIndex = ''; e.classList.add('land'); }, 230);
     });
     return new Promise(function (res) { setTimeout(res, 240); });
   };
@@ -68,6 +68,7 @@
     for (var k in this.squares) {
       var sq = +k, cl = this.squares[k].classList;
       cl.toggle('sel', h.sel === sq);
+      if (this.pieces[sq]) this.pieces[sq].classList.toggle('lifted', h.sel === sq);
       cl.toggle('last', !!h.last && (h.last.from === sq || h.last.to === sq));
       cl.toggle('check', h.check === sq);
       var d = h.dests && h.dests[sq];
