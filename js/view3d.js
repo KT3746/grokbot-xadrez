@@ -716,7 +716,7 @@ export class View3D {
     // encaixa o tabuleiro dentro da area livre da tela
     c.fov = 36; c.aspect = st.width / st.height; c.clearViewOffset(); c.updateProjectionMatrix();
     const corners = [];
-    for (const x of [-4.4, 4.4]) for (const z of [-4.4, 4.4]) { corners.push(new THREE.Vector3(x, 0, z)); corners.push(new THREE.Vector3(x, x * z > 0 ? 0.9 : 1.3, z)); }
+    for (const x of [-4.2, 4.2]) for (const z of [-4.2, 4.2]) { corners.push(new THREE.Vector3(x, 0, z)); corners.push(new THREE.Vector3(x, x * z > 0 ? 0.9 : 1.3, z)); }
     const dirv = new THREE.Vector3(Math.cos(this.cam.phi) * Math.sin(this.cam.theta), Math.sin(this.cam.phi), Math.cos(this.cam.phi) * Math.cos(this.cam.theta));
     const look = this.cam.target || new THREE.Vector3(0, 0.15, 0);
     const fits = (r) => {
