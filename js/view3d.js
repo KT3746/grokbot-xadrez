@@ -43,15 +43,24 @@ function marbleCanvas(size) {
 function woodCanvas(w, h, labels) {
   const c = document.createElement('canvas'); c.width = w; c.height = h;
   const g = c.getContext('2d');
-  g.fillStyle = '#5b3920'; g.fillRect(0, 0, w, h);
-  for (let i = 0; i < 260; i++) {
-    const y = Math.random() * h, amp = rnd(2, 10), per = rnd(80, 300), ph = Math.random() * 6;
+  const grd0 = g.createLinearGradient(0, 0, w, h); grd0.addColorStop(0, '#6a4225'); grd0.addColorStop(0.5, '#5a361d'); grd0.addColorStop(1, '#4a2c17');
+  g.fillStyle = grd0; g.fillRect(0, 0, w, h);
+  // veios: linhas onduladas com nos (aneis) aqui e ali
+  const knots = [0, 1, 2].map(() => [Math.random() * w, Math.random() * h, rnd(30, 90)]);
+  for (let i = 0; i < 340; i++) {
+    const y = Math.random() * h, amp = rnd(1.5, 7), per = rnd(60, 260), ph = Math.random() * 6;
     g.beginPath();
-    for (let x = 0; x <= w; x += 12) { const yy = y + Math.sin(x / per + ph) * amp; x ? g.lineTo(x, yy) : g.moveTo(x, yy); }
-    g.lineWidth = rnd(0.5, 3);
-    g.strokeStyle = Math.random() < 0.5 ? `rgba(30,15,6,${rnd(0.08, 0.3)})` : `rgba(150,100,60,${rnd(0.05, 0.2)})`;
+    for (let x = 0; x <= w; x += 8) {
+      let yy = y + Math.sin(x / per + ph) * amp + Math.sin(x / 23 + i) * 0.6;
+      for (const k of knots) { const dx = x - k[0], dy = yy - k[1], dd = dx * dx + dy * dy; yy += dy * k[2] * k[2] / (dd + k[2] * k[2]) * 0.6; }
+      x ? g.lineTo(x, yy) : g.moveTo(x, yy);
+    }
+    g.lineWidth = rnd(0.4, 2.6) * w / 1024;
+    g.strokeStyle = Math.random() < 0.55 ? `rgba(28,13,5,${rnd(0.08, 0.32)})` : `rgba(170,115,65,${rnd(0.04, 0.18)})`;
     g.stroke();
   }
+  const sh = g.createLinearGradient(0, 0, 0, h); sh.addColorStop(0, 'rgba(255,220,170,0.06)'); sh.addColorStop(1, 'rgba(0,0,0,0.08)');
+  g.fillStyle = sh; g.fillRect(0, 0, w, h);
   if (labels) {
     // coordenadas na moldura (9.6 unidades no total, tabuleiro de 8 no centro)
     const u = w / 9.6;
@@ -70,6 +79,46 @@ function woodCanvas(w, h, labels) {
   }
   return c;
 }
+
+// mapa de normais a partir do brilho de um canvas
+function normalFrom(src0, strength, invert) {
+  let src = src0;
+  if (src0.width > 512) { src = document.createElement('canvas'); src.width = src.height = 512; src.getContext('2d').drawImage(src0, 0, 0, 512, 512); }
+  const w = src.width, h = src.height, sg = src.getContext('2d').getImageData(0, 0, w, h).data;
+  const c = document.createElement('canvas'); c.width = w; c.height = h;
+  const g = c.getContext('2d'), out = g.createImageData(w, h), d = out.data;
+  const L = (x, y) => { x = (x + w) % w; y = (y + h) % h; const i = (y * w + x) * 4; return (sg[i] + sg[i + 1] + sg[i + 2]) / 765; };
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    let dx = (L(x + 1, y) - L(x - 1, y)) * strength, dy = (L(x, y + 1) - L(x, y - 1)) * strength;
+    if (invert) { dx = -dx; dy = -dy; }
+    const l = Math.hypot(dx, dy, 1), i = (y * w + x) * 4;
+    d[i] = (-dx / l * 0.5 + 0.5) * 255; d[i + 1] = (dy / l * 0.5 + 0.5) * 255; d[i + 2] = (1 / l * 0.5 + 0.5) * 255; d[i + 3] = 255;
+  }
+  g.putImageData(out, 0, 0); return c;
+}
+function noiseCanvas(size, base, spread, streak) {
+  const c = document.createElement('canvas'); c.width = c.height = size;
+  const g = c.getContext('2d'); g.fillStyle = base; g.fillRect(0, 0, size, size);
+  const img = g.getImageData(0, 0, size, size), d = img.data;
+  for (let i = 0; i < d.length; i += 4) { const n = (Math.random() - 0.5) * spread; d[i] += n; d[i + 1] += n; d[i + 2] += n; }
+  g.putImageData(img, 0, 0);
+  if (streak) {
+    for (let i = 0; i < streak.n; i++) {
+      const x = Math.random() * size, wv = rnd(0.5, 3) * size / 256;
+      g.strokeStyle = streak.col(); g.lineWidth = wv; g.beginPath();
+      for (let y = -10; y <= size + 10; y += 8) { const xx = x + Math.sin(y / rnd(30, 90) + i) * rnd(1, 4); y < 0 ? g.moveTo(xx, y) : g.lineTo(xx, y); }
+      g.stroke();
+    }
+  }
+  return c;
+}
+function ctex(canvas, srgb, rep) {
+  const t = new THREE.CanvasTexture(canvas);
+  if (srgb) t.colorSpace = THREE.SRGBColorSpace;
+  t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = 4;
+  if (rep) t.repeat.set(rep, rep);
+  return t;
+}
 function glowCanvas(inner, outer) {
   const c = document.createElement('canvas'); c.width = c.height = 128;
   const g = c.getContext('2d'), grd = g.createRadialGradient(64, 64, 0, 64, 64, 64);
@@ -84,10 +133,24 @@ function bgCanvas() {
 }
 
 // ---------- Modelos das pecas ----------
-function arc(cy, r, a0, a1, n) {
+function arc(cy, r, a0, a1, n, cx = 0) {
   const pts = [];
-  for (let i = 0; i <= n; i++) { const a = (a0 + (a1 - a0) * i / n) * Math.PI / 180; pts.push([Math.max(0, r * Math.cos(a)), cy + r * Math.sin(a)]); }
+  for (let i = 0; i <= n; i++) { const a = (a0 + (a1 - a0) * i / n) * Math.PI / 180; pts.push([Math.max(0, cx + r * Math.cos(a)), cy + r * Math.sin(a)]); }
   return pts;
+}
+// suaviza um perfil (Catmull-Rom) mantendo os pontos marcados com '!' como quinas
+function smooth(pts, sub = 3) {
+  const out = [];
+  for (let i = 0; i < pts.length - 1; i++) {
+    const p0 = pts[Math.max(0, i - 1)], p1 = pts[i], p2 = pts[i + 1], p3 = pts[Math.min(pts.length - 1, i + 2)];
+    for (let k = 0; k < sub; k++) {
+      const t = k / sub, t2 = t * t, t3 = t2 * t;
+      const f = (a, b, c, d) => 0.5 * ((2 * b) + (-a + c) * t + (2 * a - 5 * b + 4 * c - d) * t2 + (-a + 3 * b - 3 * c + d) * t3);
+      out.push([Math.max(0, f(p0[0], p1[0], p2[0], p3[0])), f(p0[1], p1[1], p2[1], p3[1])]);
+    }
+  }
+  out.push(pts[pts.length - 1]);
+  return out;
 }
 function lathe(pts, seg) { return new THREE.LatheGeometry(pts.map((p) => new THREE.Vector2(p[0], p[1])), seg); }
 function tint(geo, v) {
@@ -97,65 +160,144 @@ function tint(geo, v) {
   if (!geo.attributes.uv) geo.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(n * 2), 2));
   return geo;
 }
-const BASE = [[0, 0], [0.35, 0], [0.37, 0.025], [0.37, 0.055], [0.335, 0.095], [0.29, 0.12], [0.27, 0.16]];
+function rbox(w, h, d, r, segs = 2) {
+  // caixa com cantos arredondados (extrusao com chanfro)
+  const s = new THREE.Shape(), x = w / 2 - r, y = h / 2 - r;
+  s.moveTo(-w / 2, -y);
+  s.absarc(-x, -y, r, Math.PI, Math.PI * 1.5); s.absarc(x, -y, r, Math.PI * 1.5, Math.PI * 2);
+  s.absarc(x, y, r, 0, Math.PI / 2); s.absarc(-x, y, r, Math.PI / 2, Math.PI);
+  const g = new THREE.ExtrudeGeometry(s, { depth: d - 2 * r, bevelEnabled: true, bevelThickness: r, bevelSize: r * 0.6, bevelSegments: segs, curveSegments: 4 });
+  g.translate(0, 0, -(d - 2 * r) / 2);
+  return g;
+}
+// tubo de secao eliptica variavel ao longo de uma curva (para a cabeca do cavalo)
+function loft(curve, radii, segL, segR) {
+  const pos = [], uv = [], idx = [];
+  const P = new THREE.Vector3(), T = new THREE.Vector3(), Nn = new THREE.Vector3(), Z = new THREE.Vector3(0, 0, 1);
+  for (let i = 0; i <= segL; i++) {
+    const t = i / segL;
+    curve.getPointAt(t, P); curve.getTangentAt(t, T);
+    Nn.set(-T.y, T.x, 0).normalize();
+    const [rn, rz] = radii(t);
+    for (let j = 0; j <= segR; j++) {
+      const a = j / segR * Math.PI * 2;
+      pos.push(P.x + Nn.x * rn * Math.cos(a), P.y + Nn.y * rn * Math.cos(a), P.z + rz * Math.sin(a));
+      uv.push(j / segR, t);
+    }
+  }
+  for (let i = 0; i < segL; i++) for (let j = 0; j < segR; j++) {
+    const a = i * (segR + 1) + j, b = a + segR + 1;
+    idx.push(a, a + 1, b, b, a + 1, b + 1);
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+  g.setIndex(idx); g.computeVertexNormals();
+  return g;
+}
+const BASE = [[0, 0], [0.33, 0], [0.365, 0.012], [0.375, 0.04], [0.37, 0.065], [0.345, 0.09], [0.35, 0.105], [0.33, 0.125], [0.29, 0.14], [0.27, 0.17]];
+function collar(y, r, t, seg) { const g = new THREE.TorusGeometry(r, t, 10, seg); g.rotateX(Math.PI / 2); g.translate(0, y, 0); return g; }
 function buildGeometries(seg) {
   const G = {};
-  G[E.P] = tint(lathe([...BASE, [0.21, 0.2], [0.15, 0.28], [0.115, 0.4], [0.17, 0.44], [0.175, 0.47], [0.11, 0.5], ...arc(0.62, 0.13, -60, 90, 10)], seg), 1);
+  // Peao
+  G[E.P] = mergeGeometries([
+    tint(lathe([...BASE, ...smooth([[0.25, 0.19], [0.19, 0.24], [0.14, 0.32], [0.115, 0.4], [0.11, 0.44]]), [0.17, 0.445], [0.185, 0.47], [0.17, 0.495], [0.1, 0.505], ...arc(0.62, 0.13, -62, 90, 14)], seg), 1),
+  ]);
+  // Torre: corpo, ameias arredondadas e aneis
   {
-    const body = lathe([...BASE, [0.24, 0.21], [0.205, 0.3], [0.2, 0.5], [0.215, 0.6], [0.265, 0.64], [0.275, 0.68], [0.275, 0.76], [0.2, 0.76], [0.19, 0.72], [0, 0.72]], seg);
-    const parts = [tint(body, 1)];
-    for (let i = 0; i < 6; i++) {
-      const b = new THREE.BoxGeometry(0.11, 0.1, 0.075);
-      const a = i / 6 * Math.PI * 2;
-      b.rotateY(-a + Math.PI / 2); b.translate(Math.cos(a) * 0.235, 0.8, Math.sin(a) * 0.235);
+    const prof = [...BASE, ...smooth([[0.25, 0.2], [0.215, 0.27], [0.2, 0.4], [0.198, 0.52], [0.21, 0.6]]), [0.25, 0.625], [0.275, 0.645], [0.285, 0.67], [0.285, 0.74], [0.205, 0.74], [0.195, 0.7], [0, 0.7]];
+    const parts = [tint(lathe(prof, seg), 1)];
+    const n = 6;
+    for (let i = 0; i < n; i++) {
+      const a = (i + 0.5) / n * Math.PI * 2, b = rbox(0.13, 0.12, 0.085, 0.018);
+      b.rotateY(-a + Math.PI / 2); b.translate(Math.cos(a) * 0.243, 0.795, Math.sin(a) * 0.243);
       parts.push(tint(b, 1));
     }
-    const band = new THREE.TorusGeometry(0.205, 0.012, 6, seg); band.rotateX(Math.PI / 2); band.translate(0, 0.42, 0);
-    parts.push(tint(band, 0.55));
+    parts.push(tint(collar(0.615, 0.212, 0.016, seg), 0.7), tint(collar(0.255, 0.232, 0.014, seg), 0.7));
     G[E.R] = mergeGeometries(parts);
   }
+  // Cavalo: pescoco e cabeca esculpidos, crina, orelhas, focinho, olhos
   {
-    const base = lathe([...BASE, [0.25, 0.2], [0.24, 0.24], [0, 0.24]], seg);
-    const s = new THREE.Shape();
-    s.moveTo(-0.23, 0.2);
-    s.lineTo(0.22, 0.2);
-    s.splineThru([new THREE.Vector2(0.17, 0.4), new THREE.Vector2(0.09, 0.53), new THREE.Vector2(0.2, 0.6), new THREE.Vector2(0.33, 0.65),
-      new THREE.Vector2(0.37, 0.73), new THREE.Vector2(0.3, 0.83), new THREE.Vector2(0.15, 0.95), new THREE.Vector2(0.07, 1.07)]);
-    s.lineTo(0.0, 1.12); s.lineTo(-0.04, 1.0);
-    s.splineThru([new THREE.Vector2(-0.15, 0.96), new THREE.Vector2(-0.24, 0.8), new THREE.Vector2(-0.28, 0.58), new THREE.Vector2(-0.26, 0.38), new THREE.Vector2(-0.23, 0.2)]);
-    const head = new THREE.ExtrudeGeometry(s, { depth: 0.16, bevelEnabled: true, bevelThickness: 0.04, bevelSize: 0.035, bevelSegments: 3, curveSegments: 10 });
-    head.translate(-0.03, 0, -0.08);
-    const eyes = [];
-    for (const z of [-0.125, 0.125]) { const e = new THREE.SphereGeometry(0.035, 8, 6); e.translate(0.15, 0.84, z); eyes.push(tint(e, 0.15)); }
-    const mane = new THREE.BoxGeometry(0.05, 0.5, 0.08); mane.rotateZ(-0.35); mane.translate(-0.2, 0.72, 0);
-    const g = mergeGeometries([tint(base, 1), tint(head, 1), tint(mane, 0.6), ...eyes]);
+    const base = lathe([...BASE, [0.26, 0.2], [0.245, 0.235], [0, 0.235]], seg);
+    const spine = new THREE.CatmullRomCurve3([
+      new THREE.Vector3(-0.04, 0.16, 0), new THREE.Vector3(-0.055, 0.36, 0), new THREE.Vector3(-0.035, 0.56, 0),
+      new THREE.Vector3(0.01, 0.74, 0), new THREE.Vector3(0.08, 0.86, 0), new THREE.Vector3(0.18, 0.84, 0),
+      new THREE.Vector3(0.27, 0.75, 0), new THREE.Vector3(0.33, 0.68, 0), new THREE.Vector3(0.36, 0.65, 0)]);
+    const head = loft(spine, (t) => {
+      let rn, rz;
+      if (t < 0.55) { const k = t / 0.55; rn = 0.2 - 0.075 * k + 0.02 * Math.sin(k * Math.PI); rz = 0.165 - 0.065 * k; }
+      else { const k = (t - 0.55) / 0.45; rn = 0.145 - 0.06 * k; rz = 0.1 - 0.02 * k + 0.012 * Math.sin(k * Math.PI); }
+      if (t > 0.9) { const c = Math.sqrt(Math.max(0, 1 - Math.pow((t - 0.9) / 0.1, 2))); rn *= 0.25 + 0.75 * c; rz *= 0.25 + 0.75 * c; }
+      return [rn, rz];
+    }, 48, 28);
+    // crina com mechas
+    const m = new THREE.Shape();
+    const back = [[-0.25, 0.2], [-0.27, 0.38], [-0.25, 0.56], [-0.19, 0.72], [-0.1, 0.86], [0.0, 0.96]];
+    m.moveTo(-0.19, 0.2); m.lineTo(back[0][0] - 0.01, back[0][1]);
+    for (let i = 0; i < back.length - 1; i++) {
+      const [x, y] = back[i], [x2, y2] = back[i + 1];
+      const nx = -(y2 - y), ny = x2 - x, l = Math.hypot(nx, ny);
+      m.quadraticCurveTo((x + x2) / 2 + nx / l * 0.045, (y + y2) / 2 + ny / l * 0.045, x2, y2);
+    }
+    m.lineTo(0.03, 0.9); m.lineTo(-0.06, 0.8); m.lineTo(-0.12, 0.66); m.lineTo(-0.15, 0.5); m.lineTo(-0.16, 0.34); m.lineTo(-0.15, 0.2);
+    const mane = new THREE.ExtrudeGeometry(m, { depth: 0.05, bevelEnabled: true, bevelThickness: 0.025, bevelSize: 0.018, bevelSegments: 3, curveSegments: 6 });
+    mane.translate(0, 0, -0.025);
+    const ears = [];
+    for (const z of [-0.055, 0.055]) {
+      const e = new THREE.ConeGeometry(0.038, 0.14, 12); e.rotateZ(-0.35); e.rotateX(z > 0 ? 0.18 : -0.18); e.translate(0.05, 0.97, z); ears.push(tint(e, 1));
+    }
+    const eyes = [], nost = [];
+    for (const z of [-1, 1]) {
+      const e = new THREE.SphereGeometry(0.026, 12, 8); e.translate(0.17, 0.83, z * 0.088); eyes.push(tint(e, 0.12));
+      const lid = new THREE.TorusGeometry(0.03, 0.008, 6, 14); lid.translate(0.17, 0.83, z * 0.086); eyes.push(tint(lid, 0.9));
+      const n = new THREE.SphereGeometry(0.018, 10, 6); n.scale(1, 0.7, 1); n.translate(0.365, 0.665, z * 0.035); nost.push(tint(n, 0.15));
+    }
+    const mouth = new THREE.BoxGeometry(0.06, 0.008, 0.1); mouth.rotateZ(-0.7); mouth.translate(0.305, 0.625, 0);
+    const forelock = new THREE.SphereGeometry(0.05, 12, 8); forelock.scale(1.2, 0.6, 0.8); forelock.translate(0.09, 0.93, 0);
+    const g = mergeGeometries([tint(base, 1), tint(head, 1), tint(mane, 0.82), tint(forelock, 0.82), tint(mouth, 0.3), ...ears, ...eyes, ...nost, tint(collar(0.205, 0.252, 0.013, seg), 0.7)]);
     g.rotateY(Math.PI / 2);
     G[E.N] = g;
   }
+  // Bispo: mitra com fenda inclinada
   {
-    const body = lathe([...BASE, [0.2, 0.22], [0.135, 0.36], [0.11, 0.52], [0.185, 0.55], [0.185, 0.585], [0.11, 0.615], [0.135, 0.65], [0.17, 0.71],
-      [0.185, 0.78], [0.17, 0.86], [0.13, 0.93], [0.07, 0.99], [0.03, 1.01], ...arc(1.05, 0.05, -40, 90, 6)], seg);
-    const slit = new THREE.BoxGeometry(0.05, 0.03, 0.2); slit.rotateX(0.75); slit.translate(0.163, 0.82, 0);
-    const g = mergeGeometries([tint(body, 1), tint(slit, 0.18)]);
+    const body = lathe([...BASE, ...smooth([[0.215, 0.21], [0.16, 0.3], [0.125, 0.42], [0.11, 0.53]]), [0.175, 0.545], [0.19, 0.57], [0.175, 0.595], [0.105, 0.61],
+      ...smooth([[0.11, 0.625], [0.15, 0.68], [0.178, 0.76], [0.17, 0.84], [0.135, 0.91], [0.08, 0.965], [0.035, 0.995]]), ...arc(1.04, 0.045, -55, 90, 8)], seg);
+    const slit = rbox(0.045, 0.026, 0.24, 0.008, 1); slit.rotateX(0.8); slit.translate(0.155, 0.8, 0);
+    const g = mergeGeometries([tint(body, 1), tint(slit, 0.08), tint(collar(0.545, 0.17, 0.012, seg), 0.7)]);
     g.rotateY(Math.PI / 2);
     G[E.B] = g;
   }
+  // Dama: coroa com pontas e perolas
   {
-    const body = lathe([...BASE, [0.22, 0.23], [0.155, 0.42], [0.125, 0.62], [0.12, 0.74], [0.205, 0.77], [0.205, 0.805], [0.13, 0.83],
-      [0.15, 0.92], [0.2, 1.02], [0.225, 1.08], [0.17, 1.07], [0.1, 1.09], [0.065, 1.12], ...arc(1.17, 0.06, -50, 90, 8)], seg);
+    const body = lathe([...BASE, ...smooth([[0.225, 0.22], [0.165, 0.34], [0.13, 0.5], [0.118, 0.66], [0.12, 0.74]]), [0.195, 0.755], [0.21, 0.78], [0.195, 0.805], [0.125, 0.82],
+      ...smooth([[0.135, 0.85], [0.16, 0.93], [0.2, 1.01], [0.215, 1.045]]), [0.19, 1.05], [0.12, 1.04], [0.075, 1.07], [0.05, 1.1], ...arc(1.15, 0.055, -60, 90, 10)], seg);
     const parts = [tint(body, 1)];
-    for (let i = 0; i < 9; i++) { const a = i / 9 * Math.PI * 2, b = new THREE.SphereGeometry(0.035, 8, 6); b.translate(Math.cos(a) * 0.215, 1.1, Math.sin(a) * 0.215); parts.push(tint(b, 1)); }
-    const band = new THREE.TorusGeometry(0.205, 0.015, 6, seg); band.rotateX(Math.PI / 2); band.translate(0, 0.79, 0); parts.push(tint(band, 0.55));
+    const n = 9;
+    for (let i = 0; i < n; i++) {
+      const a = i / n * Math.PI * 2, x = Math.cos(a), z = Math.sin(a);
+      const c = new THREE.ConeGeometry(0.03, 0.09, 10); c.translate(0, 0.045, 0); c.rotateZ(0); c.translate(x * 0.205, 1.035, z * 0.205);
+      const b = new THREE.SphereGeometry(0.03, 12, 8); b.translate(x * 0.207, 1.135, z * 0.207);
+      parts.push(tint(c, 1), tint(b, 1));
+    }
+    parts.push(tint(collar(1.04, 0.2, 0.018, seg), 0.75), tint(collar(0.77, 0.205, 0.014, seg), 0.7));
     G[E.Q] = mergeGeometries(parts);
   }
+  // Rei: coroa e cruz chanfrada
   {
-    const body = lathe([...BASE, [0.23, 0.24], [0.165, 0.44], [0.135, 0.68], [0.13, 0.79], [0.22, 0.82], [0.22, 0.855], [0.14, 0.88],
-      [0.165, 0.98], [0.215, 1.08], [0.2, 1.13], [0.12, 1.15], [0.06, 1.19], [0, 1.2]], seg);
-    const v = new THREE.BoxGeometry(0.075, 0.3, 0.075); v.translate(0, 1.33, 0);
-    const h = new THREE.BoxGeometry(0.22, 0.075, 0.075); h.translate(0, 1.36, 0);
-    const band = new THREE.TorusGeometry(0.215, 0.015, 6, seg); band.rotateX(Math.PI / 2); band.translate(0, 0.84, 0);
-    G[E.K] = mergeGeometries([tint(body, 1), tint(v, 1), tint(h, 1), tint(band, 0.55)]);
+    const body = lathe([...BASE, ...smooth([[0.235, 0.22], [0.17, 0.35], [0.14, 0.52], [0.128, 0.7], [0.13, 0.79]]), [0.205, 0.805], [0.222, 0.83], [0.205, 0.855], [0.135, 0.87],
+      ...smooth([[0.145, 0.9], [0.17, 0.98], [0.21, 1.06], [0.22, 1.1]]), [0.2, 1.115], [0.13, 1.12], [0.09, 1.15], [0.055, 1.19], [0, 1.2]], seg);
+    const s = new THREE.Shape(), a = 0.032, L = 0.11, f = 0.012;
+    s.moveTo(-a, -L); s.lineTo(a, -L); s.lineTo(a - f, -a); s.lineTo(L - 0.02, -a + f); s.lineTo(L, -a - 0.005); s.lineTo(L, a + 0.005); s.lineTo(L - 0.02, a - f);
+    s.lineTo(a - f, a); s.lineTo(a + 0.005, L); s.lineTo(-a - 0.005, L); s.lineTo(-a + f, a); s.lineTo(-L + 0.02, a - f); s.lineTo(-L, a + 0.005); s.lineTo(-L, -a - 0.005);
+    s.lineTo(-L + 0.02, -a + f); s.lineTo(-a + f, -a); s.lineTo(-a, -L);
+    const cross = new THREE.ExtrudeGeometry(s, { depth: 0.04, bevelEnabled: true, bevelThickness: 0.015, bevelSize: 0.012, bevelSegments: 3 });
+    cross.translate(0, 0, -0.02); cross.translate(0, 1.33, 0);
+    const parts = [tint(body, 1), tint(cross, 1), tint(collar(1.105, 0.205, 0.016, seg), 0.75), tint(collar(0.83, 0.212, 0.014, seg), 0.7)];
+    const nub = new THREE.SphereGeometry(0.045, 14, 10); nub.translate(0, 1.21, 0); parts.push(tint(nub, 1));
+    for (let i = 0; i < 8; i++) { const an = i / 8 * Math.PI * 2, b = new THREE.SphereGeometry(0.022, 10, 6); b.translate(Math.cos(an) * 0.2, 1.065, Math.sin(an) * 0.2); parts.push(tint(b, 0.8)); }
+    G[E.K] = mergeGeometries(parts);
   }
+  for (const k in G) G[k].computeBoundingSphere();
   return G;
 }
 
@@ -205,7 +347,7 @@ export class View3D {
     this.renderer = renderer;
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.05;
-    renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap; renderer.shadowMap.autoUpdate = false;
     const dpr = window.devicePixelRatio || 1;
     const mobile = Math.min(screen.width, screen.height) < 700;
     this.levels = [
@@ -217,6 +359,8 @@ export class View3D {
       { pr: 0.75, shadow: 512, shadows: false },
     ];
     this.level = mobile ? 1 : 0;
+    const qp = new URLSearchParams(location.search).get('q');
+    this.lockQ = qp != null; if (this.lockQ) this.level = Math.max(0, Math.min(5, +qp || 0));
     this.scene = new THREE.Scene();
     const bg = new THREE.CanvasTexture(bgCanvas()); bg.colorSpace = THREE.SRGBColorSpace; this.scene.background = bg; this.scene.fog = new THREE.Fog(0x0b0e18, 16, 34);
     const pmrem = new THREE.PMREMGenerator(renderer);
@@ -225,9 +369,14 @@ export class View3D {
 
     this.buildLights(); this.buildBoard(mobile);
     this.geos = buildGeometries(mobile ? 28 : 40);
+    const ivory = noiseCanvas(256, '#f1e6cf', 14, { n: 26, col: () => `rgba(190,160,115,${rnd(0.05, 0.16)})` });
+    const ebony = noiseCanvas(256, '#2b1c15', 10, { n: 60, col: () => Math.random() < 0.5 ? `rgba(10,5,3,${rnd(0.2, 0.5)})` : `rgba(110,70,45,${rnd(0.08, 0.25)})` });
+    const rough = noiseCanvas(128, '#5a5a5a', 60);
     this.mats = {
-      0: new THREE.MeshPhysicalMaterial({ color: 0xe6d8bd, roughness: 0.38, metalness: 0, clearcoat: 0.55, clearcoatRoughness: 0.25, vertexColors: true, envMapIntensity: 0.8 }),
-      8: new THREE.MeshPhysicalMaterial({ color: 0x2a1d17, roughness: 0.32, metalness: 0, clearcoat: 0.9, clearcoatRoughness: 0.15, vertexColors: true, envMapIntensity: 0.9 }),
+      0: new THREE.MeshPhysicalMaterial({ map: ctex(ivory, true), roughnessMap: ctex(rough, false), normalMap: ctex(normalFrom(ivory, 1.2), false), normalScale: new THREE.Vector2(0.25, 0.25),
+        color: 0xf4ead8, roughness: 0.55, metalness: 0, clearcoat: 0.6, clearcoatRoughness: 0.22, sheen: 0.3, sheenColor: new THREE.Color(0xfff2dd), vertexColors: true, envMapIntensity: 0.85 }),
+      8: new THREE.MeshPhysicalMaterial({ map: ctex(ebony, true), roughnessMap: ctex(rough, false), normalMap: ctex(normalFrom(ebony, 2), false), normalScale: new THREE.Vector2(0.35, 0.35),
+        color: 0xffffff, roughness: 0.5, metalness: 0, clearcoat: 0.95, clearcoatRoughness: 0.12, vertexColors: true, envMapIntensity: 1.0 }),
     };
     this.pieceGroup = new THREE.Group(); this.scene.add(this.pieceGroup);
     this.meshes = {};
@@ -259,20 +408,34 @@ export class View3D {
 
   buildBoard(mobile) {
     const s = this.scene;
-    const mtex = new THREE.CanvasTexture(marbleCanvas(mobile ? 1024 : 2048));
-    mtex.colorSpace = THREE.SRGBColorSpace; mtex.anisotropy = 4;
-    const top = new THREE.Mesh(new THREE.PlaneGeometry(8, 8), new THREE.MeshPhysicalMaterial({ map: mtex, roughness: 0.22, clearcoat: 0.6, clearcoatRoughness: 0.2, envMapIntensity: 0.6 }));
+    const mc = marbleCanvas(mobile ? 1024 : 2048);
+    const mtex = new THREE.CanvasTexture(mc); mtex.colorSpace = THREE.SRGBColorSpace; mtex.anisotropy = 8;
+    const mn = normalFrom(mc, 3);
+    const top = new THREE.Mesh(new THREE.PlaneGeometry(8, 8), new THREE.MeshPhysicalMaterial({ map: mtex, normalMap: new THREE.CanvasTexture(mn), normalScale: new THREE.Vector2(0.15, 0.15),
+      roughnessMap: ctex(noiseCanvas(256, '#4a4a4a', 50), false, 4), roughness: 0.4, clearcoat: 0.8, clearcoatRoughness: 0.12, envMapIntensity: 0.7 }));
     top.rotation.x = -Math.PI / 2; top.position.y = 0.004; top.receiveShadow = true; s.add(top);
-    const ftex = new THREE.CanvasTexture(woodCanvas(1024, 1024, true)); ftex.colorSpace = THREE.SRGBColorSpace; ftex.anisotropy = 4;
-    const ftop = new THREE.Mesh(new THREE.PlaneGeometry(9.6, 9.6), new THREE.MeshPhysicalMaterial({ map: ftex, roughness: 0.4, clearcoat: 0.7, clearcoatRoughness: 0.25 }));
+    const wc = woodCanvas(1024, 1024, true);
+    const ftex = new THREE.CanvasTexture(wc); ftex.colorSpace = THREE.SRGBColorSpace; ftex.anisotropy = 8;
+    const ftop = new THREE.Mesh(new THREE.PlaneGeometry(9.6, 9.6), new THREE.MeshPhysicalMaterial({ map: ftex, normalMap: new THREE.CanvasTexture(normalFrom(wc, 2.5, true)), normalScale: new THREE.Vector2(0.35, 0.35),
+      roughness: 0.45, clearcoat: 0.75, clearcoatRoughness: 0.2 }));
     ftop.rotation.x = -Math.PI / 2; ftop.position.y = 0.001; ftop.receiveShadow = true; s.add(ftop);
     const stex = new THREE.CanvasTexture(woodCanvas(512, 64, false)); stex.colorSpace = THREE.SRGBColorSpace;
-    const frame = new THREE.Mesh(new THREE.BoxGeometry(9.6, 0.42, 9.6), new THREE.MeshStandardMaterial({ map: stex, roughness: 0.45 }));
-    frame.position.y = -0.21; frame.castShadow = true; frame.receiveShadow = true; s.add(frame);
+    const frameG = rbox(9.6, 9.6, 0.42, 0.06, 3); frameG.rotateX(Math.PI / 2);
+    const frame = new THREE.Mesh(frameG, new THREE.MeshPhysicalMaterial({ map: stex, roughness: 0.42, clearcoat: 0.6, clearcoatRoughness: 0.25 }));
+    stex.wrapS = stex.wrapT = THREE.RepeatWrapping; stex.repeat.set(0.1, 0.1);
+    frame.position.y = -0.21 - 0.0; frame.castShadow = true; frame.receiveShadow = true; s.add(frame);
     const table = new THREE.Mesh(new THREE.CircleGeometry(40, 48), new THREE.MeshStandardMaterial({ color: 0x0e0c0b, roughness: 0.95 }));
     table.rotation.x = -Math.PI / 2; table.position.y = -0.42; table.receiveShadow = true; s.add(table);
     const pool = new THREE.Mesh(new THREE.PlaneGeometry(22, 22), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(glowCanvas('rgba(255,210,150,0.22)', 'rgba(255,210,150,0)')), transparent: true, depthWrite: false }));
     pool.rotation.x = -Math.PI / 2; pool.position.y = -0.415; s.add(pool);
+    // luzes desfocadas ao fundo (ambiente)
+    const bok = new THREE.CanvasTexture(glowCanvas('rgba(255,255,255,1)', 'rgba(255,255,255,0)'));
+    const cols = [0xffc27a, 0xffe2b0, 0x8fb4ff, 0xffa060];
+    for (let i = 0; i < 26; i++) {
+      const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: bok, color: cols[i % 4], transparent: true, opacity: rnd(0.08, 0.28), depthWrite: false, fog: false, blending: THREE.AdditiveBlending }));
+      const a = Math.random() * Math.PI * 2, d = rnd(16, 26);
+      sp.position.set(Math.cos(a) * d, rnd(1.5, 9), Math.sin(a) * d); const sz = rnd(1.2, 3.5); sp.scale.set(sz, sz, 1); s.add(sp);
+    }
 
     // marcas de casas
     this.marks = {};
@@ -305,7 +468,12 @@ export class View3D {
       this.key.shadow.mapSize.set(L.shadow, L.shadow);
       if (this.key.shadow.map) { this.key.shadow.map.dispose(); this.key.shadow.map = null; }
     }
+    if (this.mats) {
+      const lo = this.level >= 3;
+      this.mats[0].clearcoat = lo ? 0 : 0.6; this.mats[0].sheen = lo ? 0 : 0.3; this.mats[8].clearcoat = lo ? 0.5 : 0.95;
+    }
     this.scene.traverse((o) => { if (o.material) o.material.needsUpdate = true; });
+    this.shadowDirty = true;
     this.resize();
   }
 
@@ -331,7 +499,7 @@ export class View3D {
     }
     for (const k in this.meshes) if (!keep[k] && this.meshes[k] !== keep[k]) this.pieceGroup.remove(this.meshes[k]);
     this.meshes = keep;
-    this.dirty = true;
+    this.dirty = true; this.shadowDirty = true;
   }
 
   tween(dur, fn, delay = 0) {
@@ -456,8 +624,14 @@ export class View3D {
     });
   }
   setMenu(on) {
+    const was = this.menu;
     this.menu = on;
-    if (on) { this.cam.phi = 0.55; this.cam.rFactor = 1.15; }
+    if (on) { this.cam.phi = 0.55; this.cam.rFactor = 1.15; this.cam.target = null; }
+    else if (was) {
+      const p0 = this.cam.phi, r0 = this.cam.rFactor, t0 = this.cam.theta, goal = this.thetaFor(this.orient);
+      const d = ((goal - t0) % (Math.PI * 2) + Math.PI * 3) % (Math.PI * 2) - Math.PI;
+      this.tween(1.2, (k) => { const e = ease(k); this.cam.phi = p0 + (this.defaultPhi() - p0) * e; this.cam.rFactor = r0 + (1 - r0) * e; this.cam.theta = t0 + d * e; });
+    }
     this.resize();
   }
   setActive(on) {
@@ -480,11 +654,11 @@ export class View3D {
   placeCamera() {
     const c = this.camera, st = this.stage, w = this.W, h = this.H;
     // encaixa o tabuleiro dentro da area livre da tela
-    c.aspect = st.width / st.height; c.clearViewOffset(); c.updateProjectionMatrix();
+    c.fov = 36; c.aspect = st.width / st.height; c.clearViewOffset(); c.updateProjectionMatrix();
     const corners = [];
     for (const x of [-4.7, 4.7]) for (const z of [-4.7, 4.7]) { corners.push(new THREE.Vector3(x, 0, z)); corners.push(new THREE.Vector3(x, x * z > 0 ? 0.9 : 1.3, z)); }
     const dirv = new THREE.Vector3(Math.cos(this.cam.phi) * Math.sin(this.cam.theta), Math.sin(this.cam.phi), Math.cos(this.cam.phi) * Math.cos(this.cam.theta));
-    const look = new THREE.Vector3(0, 0.15, 0);
+    const look = this.cam.target || new THREE.Vector3(0, 0.15, 0);
     const fits = (r) => {
       c.position.copy(look).addScaledVector(dirv, r); c.lookAt(look); c.updateMatrixWorld();
       for (const p of corners) { const v = p.clone().project(c); if (Math.abs(v.x) > 0.97 || Math.abs(v.y) > 0.95 || v.z > 1) return false; }
@@ -492,13 +666,14 @@ export class View3D {
     };
     const key = [this.cam.theta.toFixed(3), this.cam.phi.toFixed(3), st.width, st.height].join();
     let r;
-    if (this._fitKey === key) r = this._fitR;
+    if (this.cam.target) { this._fitKey = null; r = this.cam.dist || 3; }
+    else if (this._fitKey === key) r = this._fitR;
     else {
       let lo = 4, hi = 60;
       for (let i = 0; i < 22; i++) { const mid = (lo + hi) / 2; if (fits(mid)) hi = mid; else lo = mid; }
       r = hi; this._fitKey = key; this._fitR = r;
     }
-    r *= this.cam.rFactor;
+    if (!this.cam.target) r *= this.cam.rFactor;
     c.position.copy(look).addScaledVector(dirv, r); c.lookAt(look);
     c.aspect = w / h;
     const offY = h / 2 - (st.top + st.height / 2), offX = w / 2 - (st.left + st.width / 2);
@@ -563,14 +738,16 @@ export class View3D {
     if (this.particles.update(dt)) busy = true;
     if (this.menu) { this.cam.theta += dt * 0.12; busy = true; }
     // peca selecionada sobe um pouco
+    this._liftMoving = false;
     for (const k in this.meshes) {
       const m = this.meshes[k], goal = (+k === this.selSq) ? 0.22 : 0;
       const d = goal - m.position.y;
-      if (Math.abs(d) > 0.002 && !this.isTweening(m)) { m.position.y += d * Math.min(1, dt * 14); busy = true; }
+      if (Math.abs(d) > 0.002 && !this.isTweening(m)) { m.position.y += d * Math.min(1, dt * 14); busy = true; this._liftMoving = true; }
     }
     if (this.checkMesh.visible) { const s = 0.85 + Math.sin(t * 5) * 0.15; this.checkMesh.scale.set(s, 1, s); this.checkMesh.material.opacity = 0.65 + Math.sin(t * 5) * 0.3; busy = true; }
     if (this.selSq >= 0) { const s = 1 + Math.sin(t * 6) * 0.08; this.dotMat.opacity = 0.7 + Math.sin(t * 6) * 0.15; for (const k in this.marks) this.marks[k].dot.scale.set(s, 1, s); busy = true; }
     if (!busy && !this.dirty) { this.fps.frames = 0; this.fps.time = 0; return; }
+    if (this.tweens.length || this.shadowDirty || this._liftMoving) { this.renderer.shadowMap.needsUpdate = true; this.shadowDirty = false; }
     this.dirty = false;
     this.placeCamera();
     this.renderer.render(this.scene, this.camera);
@@ -581,7 +758,7 @@ export class View3D {
         const fps = this.fps.frames / this.fps.time;
         this.fps.frames = 0; this.fps.time = 0;
         this.lastFps = fps;
-        if (fps < 45 && this.level < this.levels.length - 1) { this.level++; this.applyQuality(); }
+        if (!this.lockQ && fps < 45 && this.level < this.levels.length - 1) { this.level++; this.applyQuality(); }
       }
     }
   }

@@ -17,6 +17,8 @@ svg { display: block; }
 #bgfx { position: fixed; inset: 0; z-index: 0; pointer-events: none;
   background: radial-gradient(60% 40% at 50% 100%, rgba(245, 200, 76, .10), transparent 70%); }
 body.three #bgfx { display: none; }
+#vign { position: fixed; inset: 0; z-index: 1; pointer-events: none; display: none; background: radial-gradient(120% 75% at 50% 48%, transparent 55%, rgba(3, 4, 8, .55) 100%); }
+body.three #vign { display: block; }
 
 .screen { position: fixed; inset: 0; z-index: 2; display: none; }
 .screen.show { display: flex; }
