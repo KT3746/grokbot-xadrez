@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#0f1424">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="description" content="XADREZÃO: xadrez bonito para jogar no celular, contra o computador ou com um amigo.">
+<title>XADREZÃO</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%231d2740'/%3E%3Cpath fill='%23f5c84c' d='M46.5 8h7v6h6v7h-6v7h-7v-7h-6v-7h6zM28 42c0-9 10-12 19-8l3 3 3-3c9-4 19-1 19 8 0 10-8 18-10 24H38c-2-6-10-14-10-24zM36 68h28l2 8H34zM26 80h48v10H26z'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="css/style.css?v=202610191916">
+</head>
+<body>
+<canvas id="c3d" aria-label="Tabuleiro 3D"></canvas>
+<div id="bgfx"></div>
+
+<section id="menu" class="screen show">
+  <div class="menu-inner">
+    <div class="logo">
+      <div class="crown"><svg viewBox="0 0 100 100"><path d="M46.5 5h7v6h6v7h-6v8h-7v-8h-6v-7h6z"/><path d="M26 41c0-9 10-12 19-8l5 4 5-4c9-4 19-1 19 8 0 10-8 18-10 24H36c-2-6-10-14-10-24z"/><path d="M35 65h30l-2 7H37z"/><path d="M27 79h46l3 9H24z"/></svg></div>
+      <h1>XADREZÃO</h1>
+      <p class="tag">Xadrez de verdade, feito para o seu celular</p>
+    </div>
+
+    <div class="menu-bottom">
+    <div class="panel" id="pMain">
+      <button class="big gold" id="bContinue" hidden><span>Continuar partida</span><small id="contInfo"></small></button>
+      <button class="big" id="bVsAI"><span>Contra o computador</span><small>Escolha o nível e a sua cor</small></button>
+      <button class="big" id="bTwo"><span>2 jogadores</span><small>Os dois jogam no mesmo celular</small></button>
+      <div class="opts">
+        <div class="seg" id="segView"><button data-v="3d">Visual 3D</button><button data-v="2d">Visual 2D</button></div>
+        <div class="toggles">
+          <button class="tog" id="mSound"></button>
+          <button class="tog" id="mMusic"></button>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel" id="pAI" hidden>
+      <h2>Contra o computador</h2>
+      <label>Nível</label>
+      <div class="seg" id="segLevel"><button data-v="facil">Fácil</button><button data-v="medio">Médio</button><button data-v="dificil">Difícil</button></div>
+      <label>Sua cor</label>
+      <div class="seg" id="segColor"><button data-v="w">Brancas</button><button data-v="b">Pretas</button><button data-v="r">Sorteio</button></div>
+      <p class="hint" id="aiHint"></p>
+      <button class="big gold" id="bStartAI"><span>Começar</span></button>
+      <button class="link" data-back>Voltar</button>
+    </div>
+
+    <div class="panel" id="pTwo" hidden>
+      <h2>2 jogadores</h2>
+      <label>Girar o tabuleiro a cada jogada?</label>
+      <div class="seg" id="segFlip"><button data-v="1">Sim</button><button data-v="0">Não</button></div>
+      <p class="hint">Com "Sim", o tabuleiro sempre fica virado para quem vai jogar.</p>
+      <button class="big gold" id="bStart2"><span>Começar</span></button>
+      <button class="link" data-back>Voltar</button>
+    </div>
+    <p class="foot">Toque numa peça e depois na casa para onde quer ir.</p>
+    </div>
+  </div>
+</section>
+
+<section id="game" class="screen">
+  <header class="top">
+    <button class="ico" id="gMenu" aria-label="Voltar ao menu"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg><span>Menu</span></button>
+    <div class="brand">XADREZÃO</div>
+    <div class="right">
+      <button class="ico" id="gSound" aria-label="Som"></button>
+      <button class="ico" id="gMusic" aria-label="Música"></button>
+    </div>
+  </header>
+  <div class="player" id="plTop"><span class="dot"></span><span class="name"></span><span class="caps"></span><span class="adv"></span></div>
+  <div id="stage"><div id="board2d"></div><div id="loading" hidden>Carregando 3D...</div></div>
+  <div class="player" id="plBot"><span class="dot"></span><span class="name"></span><span class="caps"></span><span class="adv"></span></div>
+  <div id="status">Vez das brancas</div>
+  <nav class="controls">
+    <button id="cNew"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg><span>Novo jogo</span></button>
+    <button id="cUndo"><svg viewBox="0 0 24 24"><path d="M9 14L4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/></svg><span>Desfazer</span></button>
+    <button id="cFlip"><svg viewBox="0 0 24 24"><path d="M7 4v14l-3-3M17 20V6l3 3"/></svg><span>Virar</span></button>
+    <button id="cView"><svg viewBox="0 0 24 24"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M12 12l8-4.5M12 12v9M12 12L4 7.5"/></svg><span id="cViewL">2D</span></button>
+  </nav>
+</section>
+
+<div id="modal" class="modal" hidden>
+  <div class="card">
+    <h3 id="mTitle"></h3>
+    <p id="mText"></p>
+    <div class="row" id="mBtns"></div>
+  </div>
+</div>
+<div id="promo" class="modal" hidden>
+  <div class="card">
+    <h3>Promover o peão</h3>
+    <p>Escolha a peça nova:</p>
+    <div class="promo-grid" id="promoGrid"></div>
+    <button class="link" id="promoCancel">Cancelar</button>
+  </div>
+</div>
+<div id="toast" hidden></div>
+
+<script>window.XV = '202610191916';</script>
+<script src="js/engine.js?v=202610191916"></script>
+<script src="js/pieces.js?v=202610191916"></script>
+<script src="js/sound.js?v=202610191916"></script>
+<script src="js/view2d.js?v=202610191916"></script>
+<script src="js/app.js?v=202610191916"></script>
+</body>
+</html>
