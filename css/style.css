@@ -102,8 +102,11 @@ body.three #board2d { display: none; }
 .b2-squares, .b2-pieces { position: absolute; inset: 0; }
 .b2-pieces { pointer-events: none; }
 .b2-sq { position: absolute; width: 12.5%; height: 12.5%; transition: left .45s ease, top .45s ease; }
-.b2-sq.light { background: linear-gradient(135deg, #f3e6cc, #e6d2ae); }
-.b2-sq.dark { background: linear-gradient(135deg, #5d8a76, #4a7461); }
+:root { --sqL1: #e8d1a8; --sqL2: #d6ba8c; --sqD1: #5d8a76; --sqD2: #4a7461; }
+body[data-theme="madeira"] { --sqL1: #e2bb85; --sqL2: #d0a46c; --sqD1: #93643f; --sqD2: #7c5232; }
+body[data-theme="azul"] { --sqL1: #c3cdd5; --sqL2: #adb9c4; --sqD1: #5a7590; --sqD2: #4a6179; }
+.b2-sq.light { background: linear-gradient(135deg, var(--sqL1), var(--sqL2)); }
+.b2-sq.dark { background: linear-gradient(135deg, var(--sqD1), var(--sqD2)); }
 .b2-sq.last::before, .b2-sq.sel::before, .b2-sq.check::before { content: ""; position: absolute; inset: 0; }
 .b2-sq.last::before { background: var(--last); }
 .b2-sq.sel::before { background: var(--sel); }
@@ -113,7 +116,7 @@ body.three #board2d { display: none; }
 .b2-sq.ring .mk { background: radial-gradient(circle, transparent 0 58%, rgba(20, 40, 30, .45) 60% 72%, transparent 74%); }
 .b2-sq b { position: absolute; font-size: clamp(9px, 2.6vw, 13px); font-weight: 800; opacity: .75; pointer-events: none; }
 .b2-sq .cf { right: 3px; bottom: 1px; } .b2-sq .cr { left: 3px; top: 1px; }
-.b2-sq.light b { color: #4a7461; } .b2-sq.dark b { color: #f3e6cc; }
+.b2-sq.light b { color: var(--sqD2); } .b2-sq.dark b { color: var(--sqL1); }
 .b2-pc { position: absolute; left: 0; top: 0; width: 12.5%; height: 12.5%; transition: transform .23s cubic-bezier(.3, .7, .3, 1); will-change: transform; }
 .b2-pc .pcs { width: 100%; height: 100%; padding: 6%; filter: drop-shadow(0 3px 2px rgba(0, 0, 0, .35)); }
 .b2-pc.dragging { transition: none; z-index: 20; }
@@ -183,3 +186,5 @@ body.three #board2d { display: none; }
 #status.hint { color: #8fd8ff; }
 .seg button { font-size: 15px; }
 #hist { touch-action: pan-x; }
+
+.optlbl { font-size: 13px; color: var(--mute); margin: 2px 0 -6px 4px; }

@@ -12,7 +12,14 @@ function sqPos(sq) { return new THREE.Vector3((sq & 7) - 3.5, 0, 3.5 - (sq >> 4)
 
 // ---------- Texturas procedurais ----------
 function rnd(a, b) { return a + Math.random() * (b - a); }
-function marbleCanvas(size) {
+// temas do tabuleiro (o primeiro e o de maior contraste com as pecas)
+export const THEMES = {
+  classico: { l: ['#d3a86c', '#bf9156'], d: ['#3f7b63', '#316650'], vl: [110, 80, 50], vd: [200, 230, 215], frame: '#6a4225' },
+  madeira: { l: ['#d9a564', '#c58f4e'], d: ['#87562f', '#714522'], vl: [120, 80, 40], vd: [40, 20, 8], frame: '#4a2c17' },
+  azul: { l: ['#a9b8c6', '#93a4b5'], d: ['#466283', '#38526f'], vl: [70, 85, 100], vd: [190, 210, 230], frame: '#3a2a20' },
+};
+function marbleCanvas(size, themeName) {
+  const T = THEMES[themeName] || THEMES.classico;
   const c = document.createElement('canvas'); c.width = c.height = size;
   const g = c.getContext('2d'), s = size / 8;
   for (let r = 0; r < 8; r++) for (let f = 0; f < 8; f++) {
@@ -20,8 +27,8 @@ function marbleCanvas(size) {
     const x = f * s, y = r * s;
     g.save(); g.beginPath(); g.rect(x, y, s, s); g.clip();
     const grd = g.createLinearGradient(x, y, x + s, y + s);
-    if (light) { grd.addColorStop(0, '#f1e8d6'); grd.addColorStop(1, '#e2d5bd'); }
-    else { grd.addColorStop(0, '#2f5d50'); grd.addColorStop(1, '#244a40'); }
+    const C = light ? T.l : T.d;
+    grd.addColorStop(0, C[0]); grd.addColorStop(1, C[1]);
     g.fillStyle = grd; g.fillRect(x, y, s, s);
     for (let i = 0; i < 7; i++) {
       g.beginPath();
@@ -29,7 +36,8 @@ function marbleCanvas(size) {
       g.moveTo(sx, sy);
       g.bezierCurveTo(x + rnd(0, 1) * s, y + rnd(0, 1) * s, x + rnd(0, 1) * s, y + rnd(0, 1) * s, x + rnd(-0.2, 1.2) * s, y + rnd(-0.2, 1.2) * s);
       g.lineWidth = rnd(0.4, 2.2) * size / 512;
-      g.strokeStyle = light ? `rgba(150,128,100,${rnd(0.15, 0.4)})` : `rgba(190,225,210,${rnd(0.08, 0.28)})`;
+      const vc = light ? T.vl : T.vd;
+      g.strokeStyle = `rgba(${vc[0]},${vc[1]},${vc[2]},${light ? rnd(0.12, 0.32) : rnd(0.08, 0.26)})`;
       g.stroke();
     }
     for (let i = 0; i < 90; i++) {
@@ -369,15 +377,25 @@ export class View3D {
 
     this.buildLights(); this.buildBoard(mobile);
     this.geos = buildGeometries(mobile ? 28 : 40);
-    const ivory = noiseCanvas(256, '#f1e6cf', 14, { n: 26, col: () => `rgba(190,160,115,${rnd(0.05, 0.16)})` });
+    const ivory = noiseCanvas(256, '#f8e6c2', 12, { n: 26, col: () => `rgba(190,160,115,${rnd(0.05, 0.16)})` });
     const ebony = noiseCanvas(256, '#2b1c15', 10, { n: 60, col: () => Math.random() < 0.5 ? `rgba(10,5,3,${rnd(0.2, 0.5)})` : `rgba(110,70,45,${rnd(0.08, 0.25)})` });
     const rough = noiseCanvas(128, '#5a5a5a', 60);
     this.mats = {
       0: new THREE.MeshPhysicalMaterial({ map: ctex(ivory, true), roughnessMap: ctex(rough, false), normalMap: ctex(normalFrom(ivory, 1.2), false), normalScale: new THREE.Vector2(0.25, 0.25),
-        color: 0xf4ead8, roughness: 0.55, metalness: 0, clearcoat: 0.6, clearcoatRoughness: 0.22, sheen: 0.3, sheenColor: new THREE.Color(0xfff2dd), vertexColors: true, envMapIntensity: 0.85 }),
+        color: 0xffeccb, roughness: 0.5, metalness: 0, clearcoat: 0.6, clearcoatRoughness: 0.22, sheen: 0.3, sheenColor: new THREE.Color(0xfff2dd), vertexColors: true, envMapIntensity: 0.85 }),
       8: new THREE.MeshPhysicalMaterial({ map: ctex(ebony, true), roughnessMap: ctex(rough, false), normalMap: ctex(normalFrom(ebony, 2), false), normalScale: new THREE.Vector2(0.35, 0.35),
         color: 0xffffff, roughness: 0.5, metalness: 0, clearcoat: 0.95, clearcoatRoughness: 0.12, vertexColors: true, envMapIntensity: 1.0 }),
     };
+    // contorno (casca invertida) e sombra de contato sob cada peca
+    const hull = (color, w) => {
+      const m = new THREE.MeshBasicMaterial({ color, side: THREE.BackSide });
+      m.onBeforeCompile = (sh) => { sh.vertexShader = sh.vertexShader.replace('#include <begin_vertex>', 'vec3 transformed = position + normal * ' + w.toFixed(4) + ';'); };
+      return m;
+    };
+    this.outlineMats = { 0: hull(0x2a180a, 0.013), 8: hull(0x5e4a3a, 0.007) };
+    const aoC = glowCanvas('rgba(0,0,0,0.78)', 'rgba(0,0,0,0)');
+    this.aoMat = new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(aoC), transparent: true, depthWrite: false, toneMapped: false });
+    this.aoGeo = new THREE.PlaneGeometry(0.98, 0.98); this.aoGeo.rotateX(-Math.PI / 2);
     this.pieceGroup = new THREE.Group(); this.scene.add(this.pieceGroup);
     this.meshes = {};
     this.particles = new Particles(this.scene, new THREE.CanvasTexture(glowCanvas('rgba(255,255,255,1)', 'rgba(255,255,255,0)')));
@@ -403,17 +421,17 @@ export class View3D {
     const sc = key.shadow.camera; sc.left = -6.5; sc.right = 6.5; sc.top = 6.5; sc.bottom = -6.5; sc.near = 2; sc.far = 25;
     key.shadow.bias = -0.0004; key.shadow.normalBias = 0.02; key.shadow.radius = 4;
     s.add(key); this.key = key;
-    const rim = new THREE.DirectionalLight(0x9db8ff, 0.7); rim.position.set(-6, 5, -7); s.add(rim);
+    const rim = new THREE.DirectionalLight(0xfff1de, 1.7); rim.position.set(-6, 5, -7); s.add(rim); this.rim = rim;
+    const rim2 = new THREE.DirectionalLight(0x9db8ff, 0.5); rim2.position.set(-6, 5, -7); s.add(rim2); this.rim2 = rim2;
     this.glowLight = new THREE.PointLight(0xffcc66, 0, 8, 2); this.glowLight.position.set(0, 1.5, 0); s.add(this.glowLight);
   }
 
   buildBoard(mobile) {
     const s = this.scene;
-    const mc = marbleCanvas(mobile ? 1024 : 2048);
-    const mtex = new THREE.CanvasTexture(mc); mtex.colorSpace = THREE.SRGBColorSpace; mtex.anisotropy = 8;
-    const mn = normalFrom(mc, 3);
-    const top = new THREE.Mesh(new THREE.PlaneGeometry(8, 8), new THREE.MeshPhysicalMaterial({ map: mtex, normalMap: new THREE.CanvasTexture(mn), normalScale: new THREE.Vector2(0.15, 0.15),
-      roughnessMap: ctex(noiseCanvas(256, '#4a4a4a', 50), false, 4), roughness: 0.4, clearcoat: 0.8, clearcoatRoughness: 0.12, envMapIntensity: 0.7 }));
+    this.mobile = mobile;
+    const top = new THREE.Mesh(new THREE.PlaneGeometry(8, 8), new THREE.MeshPhysicalMaterial({ color: 0xc9c0b2, normalScale: new THREE.Vector2(0.12, 0.12),
+      roughnessMap: ctex(noiseCanvas(256, '#4a4a4a', 50), false, 4), roughness: 0.62, clearcoat: 0.3, clearcoatRoughness: 0.35, envMapIntensity: 0.42 }));
+    this.boardTop = top; this.setTheme(this.app.theme || 'classico');
     top.rotation.x = -Math.PI / 2; top.position.y = 0.004; top.receiveShadow = true; s.add(top);
     const wc = woodCanvas(1024, 1024, true);
     const ftex = new THREE.CanvasTexture(wc); ftex.colorSpace = THREE.SRGBColorSpace; ftex.anisotropy = 8;
@@ -461,6 +479,15 @@ export class View3D {
     }
   }
 
+  setTheme(name) {
+    const mc = marbleCanvas(this.mobile ? 1024 : 2048, name);
+    const mat = this.boardTop.material;
+    if (mat.map) mat.map.dispose(); if (mat.normalMap) mat.normalMap.dispose();
+    const mtex = new THREE.CanvasTexture(mc); mtex.colorSpace = THREE.SRGBColorSpace; mtex.anisotropy = 8;
+    mat.map = mtex; mat.normalMap = new THREE.CanvasTexture(normalFrom(mc, 3)); mat.needsUpdate = true;
+    this.dirty = true;
+  }
+
   applyQuality() {
     const L = this.levels[this.level];
     this.renderer.setPixelRatio(L.pr);
@@ -484,7 +511,9 @@ export class View3D {
     m.castShadow = true; m.receiveShadow = true;
     m.position.copy(sqPos(sq));
     if ((piece & 7) === E.N) m.rotation.y = (piece & 8) ? Math.PI : 0;
-    m.userData = { piece, sq };
+    const ol = new THREE.Mesh(this.geos[piece & 7], this.outlineMats[piece & 8]); ol.renderOrder = -1; m.add(ol);
+    const ao = new THREE.Mesh(this.aoGeo, this.aoMat); ao.renderOrder = 1; ao.position.y = 0.007; m.add(ao);
+    m.userData = { piece, sq, ol, ao };
     this.pieceGroup.add(m);
     return m;
   }
@@ -495,7 +524,7 @@ export class View3D {
     for (let sq = 0; sq < 120; sq++) {
       if (sq & 0x88) { sq += 7; continue; }
       const p = board[sq], m = this.meshes[sq];
-      if (p && m && m.userData.piece === p) { keep[sq] = m; m.position.copy(sqPos(sq)); m.scale.set(1, 1, 1); m.rotation.x = 0; m.rotation.z = 0; continue; }
+      if (p && m && m.userData.piece === p) { keep[sq] = m; if (m.userData.ao) m.userData.ao.visible = true; m.position.copy(sqPos(sq)); m.scale.set(1, 1, 1); m.rotation.x = 0; m.rotation.z = 0; continue; }
       if (m) this.pieceGroup.remove(m);
       if (p) keep[sq] = this.newMesh(sq, p);
     }
@@ -578,6 +607,7 @@ export class View3D {
     this.dust(p, 1.6);
     this.flash(p, 0xffb060, 3);
     const mat = mesh.material.clone(); mat.transparent = true; mesh.material = mat;
+    if (mesh.userData.ol) mesh.userData.ol.visible = false; if (mesh.userData.ao) mesh.userData.ao.visible = false;
     const axis = new THREE.Vector3(dir.z, 0, -dir.x);
     const q0 = mesh.quaternion.clone(), q = new THREE.Quaternion();
     const spin = rnd(1.2, 2.2) * Math.PI;
@@ -608,6 +638,7 @@ export class View3D {
     // result: {reason, winner, kingSq}
     if (result.reason === 'mate') {
       const king = this.meshes[result.kingSq];
+      if (king && king.userData.ao) king.userData.ao.visible = false;
       if (king) {
         const dir = Math.random() < 0.5 ? 1 : -1;
         this.tween(1.1, (k) => {
@@ -735,6 +766,9 @@ export class View3D {
     }
     if (!this.cam.target) r *= this.cam.rFactor;
     c.position.copy(look).addScaledVector(dirv, r); c.lookAt(look);
+    // luz de contorno sempre atras das pecas, vista da camera
+    this.rim.position.set(-dirv.x * 9 + dirv.z * 3, 4.5, -dirv.z * 9 - dirv.x * 3);
+    this.rim2.position.set(-dirv.x * 9 - dirv.z * 4, 6, -dirv.z * 9 + dirv.x * 4);
     if (this.shakeAmt > 0.001) { c.position.x += rnd(-1, 1) * this.shakeAmt * r * 0.05; c.position.y += rnd(-1, 1) * this.shakeAmt * r * 0.05; }
     c.aspect = w / h;
     const offY = h / 2 - (st.top + st.height / 2), offX = w / 2 - (st.left + st.width / 2);
@@ -809,6 +843,7 @@ export class View3D {
     if (this.checkMesh.visible) { const s = 0.85 + Math.sin(t * 5) * 0.15; this.checkMesh.scale.set(s, 1, s); this.checkMesh.material.opacity = 0.65 + Math.sin(t * 5) * 0.3; busy = true;
       if (this.checkKing) this.checkKing.material.emissiveIntensity = 0.12 + (Math.sin(t * 5) * 0.5 + 0.5) * 0.35; }
     if (this.selSq >= 0) { const s = 1 + Math.sin(t * 6) * 0.08; this.dotMat.opacity = 0.7 + Math.sin(t * 6) * 0.15; for (const k in this.marks) this.marks[k].dot.scale.set(s, 1, s); busy = true; }
+    for (const k in this.meshes) { const m = this.meshes[k], ao = m.userData.ao; if (ao) { ao.position.y = 0.007 - m.position.y; const sc = 1 + m.position.y * 0.8; ao.scale.set(sc, 1, sc); } }
     if (!busy && !this.dirty) { this.fps.frames = 0; this.fps.time = 0; return; }
     // no menu basta 30 quadros por segundo (economiza bateria)
     if (this.menu && !this.dirty && (this._skip = !this._skip)) return;

@@ -8,7 +8,7 @@
   var COLOR_NAME = { 0: 'brancas', 8: 'pretas' };
 
   var prefs = load(PREFS) || {};
-  prefs = { clock: prefs.clock || '0', view: prefs.view || '3d', sound: prefs.sound !== false, music: prefs.music !== false, vibe: prefs.vibe !== false, level: prefs.level || 'medio', color: prefs.color || 'w', flip: prefs.flip !== false };
+  prefs = { theme: prefs.theme || 'classico', clock: prefs.clock || '0', view: prefs.view || '3d', sound: prefs.sound !== false, music: prefs.music !== false, vibe: prefs.vibe !== false, level: prefs.level || 'medio', color: prefs.color || 'w', flip: prefs.flip !== false };
 
   var app = {
     game: null, mode: 'ai', level: 'medio', human: 0, autoFlip: true, orient: 0,
@@ -475,6 +475,10 @@
       marks.push(segInit(el.id, prefs.clock, function (v) { prefs.clock = v; savePrefs(); marks.forEach(function (m) { m(v); }); }));
     });
     segInit('segFlip', prefs.flip ? '1' : '0', function (v) { prefs.flip = v === '1'; savePrefs(); });
+    segInit('segTheme', prefs.theme, function (v) {
+      prefs.theme = v; savePrefs(); app.theme = v; document.body.dataset.theme = v;
+      if (app.view3d) app.view3d.setTheme(v);
+    });
     var markView = segInit('segView', prefs.view, function (v) {
       prefs.view = v; savePrefs();
       if (v === '3d') init3d().then(function () { if (!app.view3d) { prefs.view = '2d'; markView('2d'); } showScreen('menu'); });
@@ -509,6 +513,7 @@
 
   function boot() {
     app.has3d = webglOK();
+    app.theme = prefs.theme; document.body.dataset.theme = prefs.theme;
     app.view2d = new View2D($('board2d'), app);
     app.v = app.view2d;
     bind(); soundUI(); vibeUI();
