@@ -21,7 +21,7 @@ export const THEMES = {
 function marbleCanvas(size, themeName) {
   const T = THEMES[themeName] || THEMES.classico;
   const c = document.createElement('canvas'); c.width = c.height = size;
-  const g = c.getContext('2d'), s = size / 8;
+  const g = c.getContext('2d', { willReadFrequently: true }), s = size / 8;
   for (let r = 0; r < 8; r++) for (let f = 0; f < 8; f++) {
     const light = (r + f) % 2 === 0;
     const x = f * s, y = r * s;
@@ -50,7 +50,7 @@ function marbleCanvas(size, themeName) {
 }
 function woodCanvas(w, h, labels) {
   const c = document.createElement('canvas'); c.width = w; c.height = h;
-  const g = c.getContext('2d');
+  const g = c.getContext('2d', { willReadFrequently: true });
   const grd0 = g.createLinearGradient(0, 0, w, h); grd0.addColorStop(0, '#6a4225'); grd0.addColorStop(0.5, '#5a361d'); grd0.addColorStop(1, '#4a2c17');
   g.fillStyle = grd0; g.fillRect(0, 0, w, h);
   // veios: linhas onduladas com nos (aneis) aqui e ali
@@ -91,10 +91,10 @@ function woodCanvas(w, h, labels) {
 // mapa de normais a partir do brilho de um canvas
 function normalFrom(src0, strength, invert) {
   let src = src0;
-  if (src0.width > 512) { src = document.createElement('canvas'); src.width = src.height = 512; src.getContext('2d').drawImage(src0, 0, 0, 512, 512); }
-  const w = src.width, h = src.height, sg = src.getContext('2d').getImageData(0, 0, w, h).data;
+  if (src0.width > 512) { src = document.createElement('canvas'); src.width = src.height = 512; src.getContext('2d', { willReadFrequently: true }).drawImage(src0, 0, 0, 512, 512); }
+  const w = src.width, h = src.height, sg = src.getContext('2d', { willReadFrequently: true }).getImageData(0, 0, w, h).data;
   const c = document.createElement('canvas'); c.width = w; c.height = h;
-  const g = c.getContext('2d'), out = g.createImageData(w, h), d = out.data; // normal map
+  const g = c.getContext('2d', { willReadFrequently: true }), out = g.createImageData(w, h), d = out.data; // normal map
   const L = (x, y) => { x = (x + w) % w; y = (y + h) % h; const i = (y * w + x) * 4; return (sg[i] + sg[i + 1] + sg[i + 2]) / 765; };
   for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
     let dx = (L(x + 1, y) - L(x - 1, y)) * strength, dy = (L(x, y + 1) - L(x, y - 1)) * strength;
@@ -106,7 +106,7 @@ function normalFrom(src0, strength, invert) {
 }
 function noiseCanvas(size, base, spread, streak) {
   const c = document.createElement('canvas'); c.width = c.height = size;
-  const g = c.getContext('2d'); g.fillStyle = base; g.fillRect(0, 0, size, size);
+  const g = c.getContext('2d', { willReadFrequently: true }); g.fillStyle = base; g.fillRect(0, 0, size, size);
   const img = g.getImageData(0, 0, size, size), d = img.data;
   for (let i = 0; i < d.length; i += 4) { const n = (Math.random() - 0.5) * spread; d[i] += n; d[i + 1] += n; d[i + 2] += n; }
   g.putImageData(img, 0, 0);
@@ -129,13 +129,13 @@ function ctex(canvas, srgb, rep) {
 }
 function glowCanvas(inner, outer) {
   const c = document.createElement('canvas'); c.width = c.height = 128;
-  const g = c.getContext('2d'), grd = g.createRadialGradient(64, 64, 0, 64, 64, 64);
+  const g = c.getContext('2d', { willReadFrequently: true }), grd = g.createRadialGradient(64, 64, 0, 64, 64, 64);
   grd.addColorStop(0, inner); grd.addColorStop(1, outer);
   g.fillStyle = grd; g.fillRect(0, 0, 128, 128); return c;
 }
 function bgCanvas() {
   const c = document.createElement('canvas'); c.width = 16; c.height = 256;
-  const g = c.getContext('2d'), grd = g.createLinearGradient(0, 0, 0, 256);
+  const g = c.getContext('2d', { willReadFrequently: true }), grd = g.createLinearGradient(0, 0, 0, 256);
   grd.addColorStop(0, '#1d2740'); grd.addColorStop(0.55, '#0f1424'); grd.addColorStop(1, '#07090f');
   g.fillStyle = grd; g.fillRect(0, 0, 16, 256); return c;
 }

@@ -188,3 +188,7 @@ body[data-theme="azul"] { --sqL1: #c3cdd5; --sqL2: #adb9c4; --sqD1: #5a7590; --s
 #hist { touch-action: pan-x; }
 
 .optlbl { font-size: 13px; color: var(--mute); margin: 2px 0 -6px 4px; }
+
+/* 5 niveis: duas linhas no celular */
+.seg5 { flex-wrap: wrap; }
+.seg5 button { flex: 1 1 30%; min-height: 42px; font-size: 14px; }

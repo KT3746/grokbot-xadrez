@@ -4,7 +4,7 @@
   var E = XEngine, V = window.XV || '1';
   var $ = function (id) { return document.getElementById(id); };
   var SAVE = 'xadrezao.jogo.v1', PREFS = 'xadrezao.prefs.v1';
-  var LEVEL_NAME = { facil: 'Fácil', medio: 'Médio', dificil: 'Difícil' };
+  var LEVEL_NAME = { iniciante: 'Iniciante', facil: 'Fácil', medio: 'Médio', dificil: 'Difícil', mestre: 'Mestre' };
   var COLOR_NAME = { 0: 'brancas', 8: 'pretas' };
 
   var prefs = load(PREFS) || {};
@@ -211,7 +211,7 @@
       refreshStatus(); sfx('promote'); buzz('select');
     };
     var w = getWorker();
-    if (w) { hintCb[id] = done; w.postMessage({ id: id, hint: true, fen: fen, level: 'dificil', timeMs: 1000 }); }
+    if (w) { hintCb[id] = done; w.postMessage({ id: id, hint: true, start: app.game.startFen, moves: app.game.moves.map(E.uci), level: 'dificil', timeMs: 1000 }); }
     else setTimeout(function () { var m = E.think(new E.Position(fen), 'dificil', { timeMs: 600 }); done(m ? E.uci(m) : null); }, 50);
   }
   var hintCb = {};
@@ -305,12 +305,18 @@
   }
 
   // ===== Computador =====
-  var worker = null;
+  var worker = null, anaCb = {}, anaId = 0;
+  // Pede uma avaliacao ao worker (Modo Aprender)
+  function analyseAsync(start, moves, timeMs, cb) {
+    var w = getWorker(), id = ++anaId;
+    if (w) { anaCb[id] = cb; w.postMessage({ id: id, type: 'analyse', start: start, moves: moves, timeMs: timeMs }); }
+    else setTimeout(function () { var g = new E.Game(start); moves.forEach(function (u) { g.playUci(u); }); var r = E.analyse(g.pos, { timeMs: Math.min(timeMs, 300) }); cb({ move: r.move ? E.uci(r.move) : null, score: r.score }); }, 30);
+  }
   function getWorker() {
     if (worker) return worker;
     try {
       worker = new Worker('js/ai-worker.js?v=' + V);
-      worker.onmessage = function (e) { if (e.data.hint) { var cb = hintCb[e.data.id]; delete hintCb[e.data.id]; if (cb) cb(e.data.move); return; } onAI(e.data); };
+      worker.onmessage = function (e) { if (e.data.type === 'analyse') { var ac = anaCb[e.data.id]; delete anaCb[e.data.id]; if (ac) ac(e.data); return; } if (e.data.hint) { var cb = hintCb[e.data.id]; delete hintCb[e.data.id]; if (cb) cb(e.data.move); return; } onAI(e.data); };
       worker.onerror = function () { worker = null; };
     } catch (e) { worker = null; }
     return worker;
@@ -320,7 +326,7 @@
     var id = ++app.aiReq, fen = app.game.pos.fen(), t0 = Date.now();
     app.aiStart = t0;
     var w = getWorker();
-    if (w) w.postMessage({ id: id, fen: fen, level: app.level, timeMs: 1500 });
+    if (w) w.postMessage({ id: id, start: app.game.startFen, moves: app.game.moves.map(E.uci), level: app.level });
     else setTimeout(function () {
       var m = E.think(new E.Position(fen), app.level, { timeMs: 900 });
       onAI({ id: id, move: m ? E.uci(m) : null });
@@ -449,7 +455,7 @@
 
   function clockOpt() { var m = +prefs.clock; return m ? { limit: m * 60000 } : null; }
   function aiHint(l) {
-    $('aiHint').textContent = { facil: 'Para começar: o computador joga quase ao acaso.', medio: 'Um desafio equilibrado.', dificil: 'Pensa vários lances à frente. Boa sorte!' }[l];
+    $('aiHint').textContent = { iniciante: 'Para quem está aprendendo: o computador joga quase ao acaso.', facil: 'Pensa só um lance e às vezes se distrai.', medio: 'Um desafio equilibrado.', dificil: 'Pensa vários lances à frente. Boa sorte!', mestre: 'Usa toda a força: aberturas de livro e cálculo profundo.' }[l] || '';
   }
 
   function bind() {

@@ -66,5 +66,51 @@ t = Date.now(); m = E.think(new E.Position('r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N
 g = new E.Game(); let n = 0;
 while (!g.status().over && n < 300) { const mv = E.think(g.pos, n % 2 ? 'facil' : 'medio'); g.play(mv); n++; }
 console.log('partida medio x facil terminou:', g.status().reason || 'limite', 'apos', n, 'lances');
+
+// hash Zobrist incremental confere com o calculado do zero (passeio pela arvore)
+(function () {
+  let bad = 0, cnt = 0;
+  function walk(pos, d) {
+    const ms = pos.pseudo(false), us = pos.turn;
+    for (const m of ms) {
+      pos.make(m);
+      if (!pos.attacked(pos.kings[us >> 3], us ^ 8)) {
+        const h = pos.hh, l = pos.hl; pos.computeHash(); cnt++;
+        if (h !== pos.hh || l !== pos.hl) bad++;
+        if (d > 1) walk(pos, d - 1);
+      }
+      pos.unmake();
+    }
+  }
+  walk(new E.Position('r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1'), 3);
+  walk(new E.Position('8/2p5/3p4/KP5r/1R3p1k/8/4P1P1/8 w - - 0 1'), 4);
+  check('hash Zobrist incremental (' + cnt + ' posicoes)', bad, 0);
+  const p = new E.Position(); const h0 = p.hl; p.makeNull(); p.unmakeNull(); check('lance nulo restaura hash', p.hl, h0);
+})();
+// mate em 2: o resolvedor acha a solucao e a IA forte tambem
+[['r2qkb1r/pp2nppp/3p4/2pNN1B1/2BnP3/3P4/PPP2PPP/R2bK2R w KQkq - 1 1', 'd5f6'],
+ ['6k1/5ppp/8/8/8/8/1Q3PPP/1R4K1 w - - 0 1', null]].forEach(function (c, i) {
+  const pos = new E.Position(c[0]);
+  const sols = E.mateSolutions(pos, 2).map(E.uci);
+  if (c[1]) check('mate em 2 #' + (i + 1) + ' solucao', sols.indexOf(c[1]) >= 0, true);
+  check('mate em 2 #' + (i + 1) + ' tem solucao', sols.length > 0, true);
+  ['dificil', 'mestre'].forEach(function (lv) {
+    const t0 = Date.now(); const m = E.think(new E.Position(c[0]), lv, { timeMs: 1500 });
+    check('IA ' + lv + ' resolve mate em 2 #' + (i + 1) + ' (' + E.uci(m) + ', ' + (Date.now() - t0) + 'ms)', sols.indexOf(E.uci(m)) >= 0, true);
+  });
+});
+// livro de aberturas: todas as linhas legais e variadas
+(function () {
+  const first = E.bookMoves(new E.Position());
+  check('livro: lances iniciais variados (' + first.join(',') + ')', first.length >= 4, true);
+  const g = new E.Game(); g.playUci('e2e4');
+  check('livro responde a e4', E.bookMoves(g.pos).length >= 4, true);
+})();
+// todos os niveis jogam lances legais
+['iniciante', 'facil', 'medio', 'dificil', 'mestre'].forEach(function (lv) {
+  const g = new E.Game(); let okAll = true;
+  for (let i = 0; i < 6; i++) { const m = E.think(g.pos, lv, { timeMs: 200 }); if (!m) { okAll = false; break; } g.play(m); }
+  check('nivel ' + lv + ' joga', okAll, true);
+});
 console.log(fail ? fail + ' FALHAS' : 'TODOS OS TESTES PASSARAM');
 process.exit(fail ? 1 : 0);
