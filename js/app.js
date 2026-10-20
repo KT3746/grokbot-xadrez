@@ -8,7 +8,7 @@
   var COLOR_NAME = { 0: 'brancas', 8: 'pretas' };
 
   var prefs = load(PREFS) || {};
-  prefs = { theme: prefs.theme || 'classico', clock: prefs.clock || '0', view: prefs.view || '3d', sound: prefs.sound !== false, music: prefs.music !== false, vibe: prefs.vibe !== false, learn: !!prefs.learn, level: prefs.level || 'medio', color: prefs.color || 'w', flip: prefs.flip !== false };
+  prefs = { style: prefs.style || 'classico', env: prefs.env || 'sala', theme: prefs.theme || 'classico', clock: prefs.clock || '0', view: prefs.view || '3d', sound: prefs.sound !== false, music: prefs.music !== false, vibe: prefs.vibe !== false, learn: !!prefs.learn, level: prefs.level || 'medio', color: prefs.color || 'w', flip: prefs.flip !== false };
 
   var app = {
     game: null, mode: 'ai', level: 'medio', human: 0, autoFlip: true, orient: 0,
@@ -664,12 +664,14 @@
       prefs.theme = v; savePrefs(); app.theme = v; document.body.dataset.theme = v;
       if (app.view3d) app.view3d.setTheme(v);
     });
+    segInit('segStyle', prefs.style, function (v) { prefs.style = v; savePrefs(); app.pieceStyle = v; if (app.view3d) app.view3d.setStyle(v); });
+    segInit('segEnv', prefs.env, function (v) { prefs.env = v; savePrefs(); app.env = v; if (app.view3d) app.view3d.setEnv(v); });
     var markView = segInit('segView', prefs.view, function (v) {
       prefs.view = v; savePrefs();
       if (v === '3d') init3d().then(function () { if (!app.view3d) { prefs.view = '2d'; markView('2d'); } showScreen('menu'); });
       else showScreen('menu');
     });
-    if (!app.has3d) $('segView').hidden = true;
+    if (!app.has3d) { $('segView').hidden = true; $('set3d').hidden = true; }
     $('bStartAI').onclick = function () {
       var c = prefs.color === 'r' ? (Math.random() < 0.5 ? 'w' : 'b') : prefs.color;
       startGame({ mode: 'ai', learn: prefs.learn, level: prefs.level, human: c === 'b' ? 8 : 0, clock: clockOpt() });
@@ -703,7 +705,7 @@
 
   function boot() {
     app.has3d = webglOK();
-    app.theme = prefs.theme; document.body.dataset.theme = prefs.theme;
+    app.theme = prefs.theme; document.body.dataset.theme = prefs.theme; app.pieceStyle = prefs.style; app.env = prefs.env;
     app.view2d = new View2D($('board2d'), app);
     app.v = app.view2d;
     bind(); soundUI(); vibeUI();

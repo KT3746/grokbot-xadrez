@@ -9,7 +9,7 @@
 <meta name="description" content="XADREZÃO: xadrez bonito para jogar no celular, contra o computador ou com um amigo.">
 <title>XADREZÃO</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%231d2740'/%3E%3Cpath fill='%23f5c84c' d='M46.5 8h7v6h6v7h-6v7h-7v-7h-6v-7h6zM28 42c0-9 10-12 19-8l3 3 3-3c9-4 19-1 19 8 0 10-8 18-10 24H38c-2-6-10-14-10-24zM36 68h28l2 8H34zM26 80h48v10H26z'/%3E%3C/svg%3E">
-<link rel="stylesheet" href="css/style.css?v=202610201422">
+<link rel="stylesheet" href="css/style.css?v=202610201430">
 </head>
 <body>
 <canvas id="c3d" aria-label="Tabuleiro 3D"></canvas>
@@ -42,7 +42,12 @@
       <div class="seg" id="segView"><button data-v="3d">Visual 3D</button><button data-v="2d">Visual 2D</button></div>
       <label>Cor do tabuleiro</label>
       <div class="seg" id="segTheme" aria-label="Cor do tabuleiro"><button data-v="classico">Clássico</button><button data-v="madeira">Madeira</button><button data-v="azul">Azul</button></div>
-      <div id="set3d"></div>
+      <div id="set3d">
+        <label>Peças 3D</label>
+        <div class="seg" id="segStyle"><button data-v="classico">Clássico</button><button data-v="moderno">Moderno</button><button data-v="metal">Metal</button></div>
+        <label>Cenário 3D</label>
+        <div class="seg" id="segEnv"><button data-v="sala">Sala</button><button data-v="jardim">Jardim</button><button data-v="espaco">Espaço</button></div>
+      </div>
       <label>Som e vibração</label>
       <div class="toggles">
         <button class="tog" id="mSound"></button>
@@ -148,14 +153,14 @@
 <div id="achPop" hidden><div class="ai"></div><div class="at"><em>Conquista desbloqueada!</em><b></b><small></small></div></div>
 <div id="banner" hidden><b></b><span></span></div>
 
-<script>window.XV = '202610201422';</script>
-<script src="js/engine.js?v=202610201422"></script>
-<script src="js/pieces.js?v=202610201422"></script>
-<script src="js/sound.js?v=202610201422"></script>
-<script src="js/view2d.js?v=202610201422"></script>
-<script src="js/stats.js?v=202610201422"></script>
-<script src="js/puzzles.js?v=202610201422"></script>
-<script src="js/learn.js?v=202610201422"></script>
-<script src="js/app.js?v=202610201422"></script>
+<script>window.XV = '202610201430';</script>
+<script src="js/engine.js?v=202610201430"></script>
+<script src="js/pieces.js?v=202610201430"></script>
+<script src="js/sound.js?v=202610201430"></script>
+<script src="js/view2d.js?v=202610201430"></script>
+<script src="js/stats.js?v=202610201430"></script>
+<script src="js/puzzles.js?v=202610201430"></script>
+<script src="js/learn.js?v=202610201430"></script>
+<script src="js/app.js?v=202610201430"></script>
 </body>
 </html>

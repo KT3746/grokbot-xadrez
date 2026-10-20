@@ -309,6 +309,95 @@ function buildGeometries(seg) {
   return G;
 }
 
+
+// ---------- Estilo Moderno (minimalista) ----------
+const BASE_M = [[0, 0], [0.32, 0], [0.338, 0.016], [0.338, 0.062], [0.322, 0.078], [0.255, 0.088], [0.235, 0.105]];
+function buildModernGeometries(seg) {
+  const G = {};
+  G[E.P] = mergeGeometries([tint(lathe([...BASE_M, [0.15, 0.13], [0.118, 0.3], [0.112, 0.42], [0.165, 0.435], [0.165, 0.468], [0.1, 0.48], ...arc(0.6, 0.125, -55, 90, 14)], seg), 1)]);
+  {
+    const body = lathe([...BASE_M, [0.215, 0.13], [0.198, 0.6], [0.255, 0.62], [0.255, 0.77], [0.175, 0.77], [0.175, 0.72], [0, 0.72]], seg);
+    const parts = [tint(body, 1), tint(collar(0.63, 0.257, 0.008, seg), 0.55)];
+    for (let i = 0; i < 4; i++) { const a = i / 4 * Math.PI * 2 + Math.PI / 4, b = new THREE.BoxGeometry(0.05, 0.08, 0.1); b.rotateY(-a); b.translate(Math.cos(a) * 0.235, 0.745, Math.sin(a) * 0.235); parts.push(tint(b, 0.35)); }
+    G[E.R] = mergeGeometries(parts);
+  }
+  {
+    const s = new THREE.Shape();
+    const pts = [[-0.17, 0.1], [0.17, 0.1], [0.12, 0.36], [0.33, 0.6], [0.33, 0.72], [0.1, 0.84], [0.05, 0.98], [-0.02, 0.88], [-0.15, 0.78], [-0.19, 0.46]];
+    s.moveTo(pts[0][0], pts[0][1]); for (let i = 1; i < pts.length; i++) s.lineTo(pts[i][0], pts[i][1]); s.lineTo(pts[0][0], pts[0][1]);
+    const head = new THREE.ExtrudeGeometry(s, { depth: 0.16, bevelEnabled: true, bevelThickness: 0.035, bevelSize: 0.03, bevelSegments: 3, curveSegments: 4 });
+    head.translate(0, 0, -0.08);
+    const base = lathe([...BASE_M, [0.22, 0.12], [0, 0.12]], seg);
+    const eye = new THREE.BoxGeometry(0.05, 0.03, 0.25); eye.translate(0.16, 0.74, 0);
+    const g = mergeGeometries([tint(base, 1), tint(head, 1), tint(eye, 0.3)]);
+    g.rotateY(Math.PI / 2);
+    G[E.N] = g;
+  }
+  {
+    const body = lathe([...BASE_M, ...smooth([[0.2, 0.13], [0.13, 0.3], [0.1, 0.5]]), [0.16, 0.52], [0.16, 0.555], [0.1, 0.565],
+      ...smooth([[0.12, 0.62], [0.152, 0.72], [0.128, 0.84], [0.07, 0.92], [0.025, 0.95]]), ...arc(0.99, 0.042, -50, 90, 8)], seg);
+    const slit = new THREE.BoxGeometry(0.03, 0.025, 0.34); slit.rotateX(0.75); slit.translate(0, 0.78, 0); slit.rotateY(Math.PI / 2);
+    const cut = new THREE.BoxGeometry(0.34, 0.022, 0.035); cut.rotateZ(0.7); cut.translate(0.02, 0.79, 0.13);
+    G[E.B] = mergeGeometries([tint(body, 1), tint(cut, 0.3)]);
+  }
+  {
+    const body = lathe([...BASE_M, ...smooth([[0.21, 0.13], [0.145, 0.45], [0.122, 0.76]]), [0.19, 0.78], [0.19, 0.81], [0.12, 0.82],
+      [0.14, 0.86], [0.215, 1.0], [0.2, 1.025], [0.08, 0.99], ...arc(1.07, 0.06, -60, 90, 10)], seg);
+    G[E.Q] = mergeGeometries([tint(body, 1), tint(collar(0.795, 0.192, 0.01, seg), 0.5)]);
+  }
+  {
+    const body = lathe([...BASE_M, ...smooth([[0.225, 0.13], [0.155, 0.48], [0.13, 0.82]]), [0.205, 0.84], [0.205, 0.875], [0.13, 0.885],
+      [0.15, 0.93], [0.2, 1.1], [0.2, 1.13], [0, 1.13]], seg);
+    const v = new THREE.BoxGeometry(0.065, 0.25, 0.065); v.translate(0, 1.25, 0);
+    const h = new THREE.BoxGeometry(0.19, 0.065, 0.065); h.translate(0, 1.27, 0);
+    G[E.K] = mergeGeometries([tint(body, 1), tint(collar(0.86, 0.207, 0.01, seg), 0.5), tint(v, 1), tint(h, 1)]);
+  }
+  for (const k in G) G[k].computeBoundingSphere();
+  return G;
+}
+
+// ---------- Cenarios ----------
+export const ENVS = {
+  sala: { bg: ['#1d2740', '#0f1424', '#07090f'], fog: 0x0b0e18, hemi: [0xdfe7ff, 0x2a1d14, 0.55], key: [0xfff0dc, 2.4, [4.5, 11, 5.5]], rim: [0xfff1de, 1.7], rim2: [0x9db8ff, 0.5], table: 0x0e0c0b, pool: 'rgba(255,210,150,0.22)', exp: 1.05 },
+  jardim: { bg: ['#3a2c5c', '#b45f6c', '#f4a95e'], fog: 0x4a3446, hemi: [0xffd9bd, 0x24301c, 0.62], key: [0xffc08a, 2.5, [9, 7, 2.5]], rim: [0xffa38f, 1.7], rim2: [0x9aa6ff, 0.6], table: 0x24361d, pool: 'rgba(255,200,140,0.2)', exp: 1.0 },
+  espaco: { bg: ['#060818', '#0b1030', '#020309'], fog: 0x03040b, hemi: [0xc4d4ff, 0x0d0f1a, 0.5], key: [0xeef2ff, 2.5, [5, 10, 4]], rim: [0x86dcff, 1.9], rim2: [0xff86df, 0.75], table: null, pool: 'rgba(110,190,255,0.28)', exp: 1.05 }
+};
+function bgCanvasFor(c3) {
+  const c = document.createElement('canvas'); c.width = 16; c.height = 256;
+  const g = c.getContext('2d'), grd = g.createLinearGradient(0, 0, 0, 256);
+  grd.addColorStop(0, c3[0]); grd.addColorStop(0.55, c3[1]); grd.addColorStop(1, c3[2]);
+  g.fillStyle = grd; g.fillRect(0, 0, 16, 256); return c;
+}
+// panorama do jardim: ceu do entardecer, sol, morros e arvores em silhueta
+function gardenCanvas() {
+  const w = 2048, h = 512, c = document.createElement('canvas'); c.width = w; c.height = h;
+  const g = c.getContext('2d');
+  const sky = g.createLinearGradient(0, 0, 0, h * 0.72);
+  sky.addColorStop(0, '#2c2452'); sky.addColorStop(0.45, '#8d4d78'); sky.addColorStop(0.78, '#e7835f'); sky.addColorStop(1, '#ffc27a');
+  g.fillStyle = sky; g.fillRect(0, 0, w, h);
+  const sx = w * 0.3, sy = h * 0.66;
+  const sun = g.createRadialGradient(sx, sy, 0, sx, sy, 260); sun.addColorStop(0, 'rgba(255,240,200,1)'); sun.addColorStop(0.12, 'rgba(255,220,150,0.9)'); sun.addColorStop(0.4, 'rgba(255,170,100,0.25)'); sun.addColorStop(1, 'rgba(255,150,90,0)');
+  g.fillStyle = sun; g.fillRect(0, 0, w, h);
+  for (let i = 0; i < 9; i++) { g.fillStyle = `rgba(255,${190 + i * 5},${170 + i * 6},${rnd(0.08, 0.2)})`; g.beginPath(); g.ellipse(rnd(0, w), rnd(h * 0.12, h * 0.5), rnd(120, 300), rnd(8, 22), 0, 0, Math.PI * 2); g.fill(); }
+  const hill = (base, amp, col, n) => { g.fillStyle = col; g.beginPath(); g.moveTo(0, h); for (let x = 0; x <= w; x += 16) g.lineTo(x, base - Math.sin(x / w * Math.PI * 2 * n + base) * amp - Math.sin(x / 97) * amp * 0.15); g.lineTo(w, h); g.fill(); };
+  hill(h * 0.74, 18, '#6b3f5e', 3); hill(h * 0.79, 14, '#45294a', 5);
+  g.fillStyle = '#1f1828';
+  for (let i = 0; i < 70; i++) {
+    const x = rnd(0, w), y = h * rnd(0.8, 0.86), r = rnd(14, 46);
+    g.beginPath(); g.arc(x, y - r * 0.6, r, 0, Math.PI * 2); g.arc(x + r * 0.6, y - r * 0.3, r * 0.75, 0, Math.PI * 2); g.arc(x - r * 0.6, y - r * 0.25, r * 0.7, 0, Math.PI * 2); g.fill();
+    g.fillRect(x - 3, y - r * 0.3, 6, r * 0.9);
+  }
+  for (let i = 0; i < 14; i++) { const x = rnd(0, w), y = h * 0.86, hh = rnd(70, 140); g.beginPath(); g.moveTo(x - 18, y); g.lineTo(x, y - hh); g.lineTo(x + 18, y); g.fill(); }
+  g.fillStyle = '#16120f'; g.fillRect(0, h * 0.85, w, h);
+  return c;
+}
+function planetCanvas() {
+  const c = document.createElement('canvas'); c.width = 256; c.height = 128;
+  const g = c.getContext('2d');
+  for (let y = 0; y < 128; y++) { const t = y / 128, b = Math.sin(t * 19) * 0.5 + Math.sin(t * 7 + 1) * 0.5; g.fillStyle = `rgb(${Math.round(120 + b * 50)},${Math.round(90 + b * 40)},${Math.round(170 + b * 40)})`; g.fillRect(0, y, 256, 1); }
+  return c;
+}
+
 // ---------- Particulas ----------
 class Particles {
   constructor(scene, tex) { this.scene = scene; this.tex = tex; this.list = []; }
@@ -370,13 +459,14 @@ export class View3D {
     const qp = new URLSearchParams(location.search).get('q');
     this.lockQ = qp != null; if (this.lockQ) this.level = Math.max(0, Math.min(5, +qp || 0));
     this.scene = new THREE.Scene();
-    const bg = new THREE.CanvasTexture(bgCanvas()); bg.colorSpace = THREE.SRGBColorSpace; this.scene.background = bg; this.scene.fog = new THREE.Fog(0x0b0e18, 16, 34);
+    this.scene.fog = new THREE.Fog(0x0b0e18, 16, 34);
     const pmrem = new THREE.PMREMGenerator(renderer);
     this.scene.environment = pmrem.fromScene(new RoomEnvironment(renderer), 0.04).texture;
     this.camera = new THREE.PerspectiveCamera(36, 1, 0.1, 100);
 
     this.buildLights(); this.buildBoard(mobile);
-    this.geos = buildGeometries(mobile ? 28 : 40);
+    this.seg = mobile ? 28 : 40;
+    this.geos = buildGeometries(this.seg);
     const ivory = noiseCanvas(256, '#f8e6c2', 12, { n: 26, col: () => `rgba(190,160,115,${rnd(0.05, 0.16)})` });
     const ebony = noiseCanvas(256, '#2b1c15', 10, { n: 60, col: () => Math.random() < 0.5 ? `rgba(10,5,3,${rnd(0.2, 0.5)})` : `rgba(110,70,45,${rnd(0.08, 0.25)})` });
     const rough = noiseCanvas(128, '#5a5a5a', 60);
@@ -393,6 +483,9 @@ export class View3D {
       return m;
     };
     this.outlineMats = { 0: hull(0x2a180a, 0.013), 8: hull(0x5e4a3a, 0.007) };
+    this.mats[0].userData = { cc: 0.6, sh: 0.3 }; this.mats[8].userData = { cc: 0.95, sh: 0 };
+    this.styles = { classico: { geos: this.geos, mats: this.mats } };
+    this.style = 'classico';
     const aoC = glowCanvas('rgba(0,0,0,0.78)', 'rgba(0,0,0,0)');
     this.aoMat = new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(aoC), transparent: true, depthWrite: false, toneMapped: false });
     this.aoGeo = new THREE.PlaneGeometry(0.98, 0.98); this.aoGeo.rotateX(-Math.PI / 2);
@@ -404,6 +497,8 @@ export class View3D {
     this.orient = 0; this.menu = false; this.active = true;
     this.hl = {}; this.selSq = -1; this._animMeshes = new Set();
     this.fps = { frames: 0, time: 0, last: 0 };
+    this.setEnv(app.env || 'sala', true);
+    if (app.pieceStyle && app.pieceStyle !== 'classico') this.setStyle(app.pieceStyle, true);
     this.applyQuality();
     this.bindInput();
     this.resize();
@@ -415,7 +510,7 @@ export class View3D {
 
   buildLights() {
     const s = this.scene;
-    s.add(new THREE.HemisphereLight(0xdfe7ff, 0x2a1d14, 0.55));
+    this.hemi = new THREE.HemisphereLight(0xdfe7ff, 0x2a1d14, 0.55); s.add(this.hemi);
     const key = new THREE.DirectionalLight(0xfff0dc, 2.4);
     key.position.set(4.5, 11, 5.5); key.castShadow = true;
     const sc = key.shadow.camera; sc.left = -6.5; sc.right = 6.5; sc.top = 6.5; sc.bottom = -6.5; sc.near = 2; sc.far = 25;
@@ -443,19 +538,6 @@ export class View3D {
     const frame = new THREE.Mesh(frameG, new THREE.MeshPhysicalMaterial({ map: stex, roughness: 0.42, clearcoat: 0.6, clearcoatRoughness: 0.25 }));
     stex.wrapS = stex.wrapT = THREE.RepeatWrapping; stex.repeat.set(0.1, 0.1);
     frame.position.y = -0.21 - 0.0; frame.castShadow = true; frame.receiveShadow = true; s.add(frame);
-    const table = new THREE.Mesh(new THREE.CircleGeometry(40, 48), new THREE.MeshStandardMaterial({ color: 0x0e0c0b, roughness: 0.95 }));
-    table.rotation.x = -Math.PI / 2; table.position.y = -0.42; table.receiveShadow = true; s.add(table);
-    const pool = new THREE.Mesh(new THREE.PlaneGeometry(22, 22), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(glowCanvas('rgba(255,210,150,0.22)', 'rgba(255,210,150,0)')), transparent: true, depthWrite: false }));
-    pool.rotation.x = -Math.PI / 2; pool.position.y = -0.415; s.add(pool);
-    // luzes desfocadas ao fundo (ambiente)
-    const bok = new THREE.CanvasTexture(glowCanvas('rgba(255,255,255,1)', 'rgba(255,255,255,0)'));
-    const cols = [0xffc27a, 0xffe2b0, 0x8fb4ff, 0xffa060];
-    for (let i = 0; i < 26; i++) {
-      const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: bok, color: cols[i % 4], transparent: true, opacity: rnd(0.08, 0.28), depthWrite: false, fog: false, blending: THREE.AdditiveBlending }));
-      const a = Math.random() * Math.PI * 2, d = rnd(16, 26);
-      sp.position.set(Math.cos(a) * d, rnd(1.5, 9), Math.sin(a) * d); const sz = rnd(1.2, 3.5); sp.scale.set(sz, sz, 1); s.add(sp);
-    }
-
     // marcas de casas
     this.marks = {};
     const planeG = new THREE.PlaneGeometry(0.98, 0.98); planeG.rotateX(-Math.PI / 2);
@@ -479,6 +561,93 @@ export class View3D {
     }
   }
 
+  // estilo das pecas: classico | moderno | metal
+  getStyle(name) {
+    if (this.styles[name]) return this.styles[name];
+    let st;
+    if (name === 'moderno') {
+      st = { geos: buildModernGeometries(this.seg), mats: {
+        0: new THREE.MeshPhysicalMaterial({ color: 0xf6ead2, roughness: 0.34, metalness: 0, clearcoat: 0.45, clearcoatRoughness: 0.25, vertexColors: true, envMapIntensity: 0.8 }),
+        8: new THREE.MeshPhysicalMaterial({ color: 0x2a2c33, roughness: 0.3, metalness: 0, clearcoat: 0.7, clearcoatRoughness: 0.15, vertexColors: true, envMapIntensity: 0.9 }) } };
+      st.mats[0].userData = { cc: 0.45, sh: 0 }; st.mats[8].userData = { cc: 0.7, sh: 0 };
+    } else if (name === 'metal') {
+      const brushed = ctex(noiseCanvas(256, '#808080', 50, { n: 120, col: () => `rgba(${Math.random() < 0.5 ? 40 : 220},${Math.random() < 0.5 ? 40 : 220},${Math.random() < 0.5 ? 40 : 220},0.08)` }), false);
+      st = { geos: this.styles.classico.geos, mats: {
+        0: new THREE.MeshPhysicalMaterial({ color: 0xeef0f4, roughness: 0.2, roughnessMap: brushed, metalness: 1, clearcoat: 0.3, clearcoatRoughness: 0.1, vertexColors: true, envMapIntensity: 1.35 }),
+        8: new THREE.MeshPhysicalMaterial({ color: 0x3c3f46, roughness: 0.3, roughnessMap: brushed, metalness: 1, clearcoat: 0.5, clearcoatRoughness: 0.12, vertexColors: true, envMapIntensity: 0.8 }) } };
+      st.mats[0].userData = { cc: 0.3, sh: 0 }; st.mats[8].userData = { cc: 0.5, sh: 0 };
+    } else return this.styles.classico;
+    this.styles[name] = st;
+    return st;
+  }
+  setStyle(name, quiet) {
+    const st = this.getStyle(name);
+    this.style = name; this.geos = st.geos; this.mats = st.mats; this.checkMats = null; this.checkKing = null;
+    for (const k in this.meshes) this.pieceGroup.remove(this.meshes[k]);
+    this.meshes = {};
+    if (this.board) this.sync(this.board);
+    if (!quiet) { this.applyQuality(); if (this.hl) this.highlight(this.hl); }
+    this.dirty = true; this.shadowDirty = true;
+  }
+  // cenario: sala | jardim | espaco
+  setEnv(name, quiet) {
+    const P = ENVS[name] || ENVS.sala, s = this.scene;
+    this.envName = ENVS[name] ? name : 'sala';
+    if (this.envGroup) { s.remove(this.envGroup); this.envGroup.traverse((o) => { if (o.geometry) o.geometry.dispose(); if (o.material) { if (o.material.map) o.material.map.dispose(); o.material.dispose(); } }); }
+    const grp = new THREE.Group(); this.envGroup = grp; s.add(grp);
+    if (s.background && s.background.dispose) s.background.dispose();
+    const bg = new THREE.CanvasTexture(bgCanvasFor(P.bg)); bg.colorSpace = THREE.SRGBColorSpace; s.background = bg;
+    s.fog.color.set(P.fog);
+    this.hemi.color.set(P.hemi[0]); this.hemi.groundColor.set(P.hemi[1]); this.hemi.intensity = P.hemi[2];
+    this.key.color.set(P.key[0]); this.key.intensity = P.key[1]; this.key.position.set(P.key[2][0], P.key[2][1], P.key[2][2]);
+    this.rim.color.set(P.rim[0]); this.rim.intensity = P.rim[1]; this.rim2.color.set(P.rim2[0]); this.rim2.intensity = P.rim2[1];
+    this.renderer.toneMappingExposure = P.exp;
+    if (P.table != null) {
+      const tmat = this.envName === 'jardim'
+        ? new THREE.MeshStandardMaterial({ color: 0xffffff, map: ctex(noiseCanvas(256, '#2f4524', 16, { n: 70, col: () => `rgba(${rnd(30, 70) | 0},${rnd(70, 110) | 0},${rnd(25, 45) | 0},0.18)` }), true, 9), roughness: 1 })
+        : new THREE.MeshStandardMaterial({ color: P.table, roughness: 0.95 });
+      const table = new THREE.Mesh(new THREE.CircleGeometry(this.envName === 'jardim' ? 26 : 40, 48), tmat);
+      table.rotation.x = -Math.PI / 2; table.position.y = -0.42; table.receiveShadow = true; grp.add(table);
+    }
+    const pool = new THREE.Mesh(new THREE.PlaneGeometry(22, 22), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(glowCanvas(P.pool, P.pool.replace(/[\d.]+\)$/, '0)'))), transparent: true, depthWrite: false }));
+    pool.rotation.x = -Math.PI / 2; pool.position.y = this.envName === 'espaco' ? -0.6 : -0.415; grp.add(pool);
+    const bok = new THREE.CanvasTexture(glowCanvas('rgba(255,255,255,1)', 'rgba(255,255,255,0)'));
+    if (this.envName === 'sala') {
+      const cols = [0xffc27a, 0xffe2b0, 0x8fb4ff, 0xffa060];
+      for (let i = 0; i < 26; i++) {
+        const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: bok, color: cols[i % 4], transparent: true, opacity: rnd(0.08, 0.28), depthWrite: false, fog: false, blending: THREE.AdditiveBlending }));
+        const a = Math.random() * Math.PI * 2, d = rnd(16, 26);
+        sp.position.set(Math.cos(a) * d, rnd(1.5, 9), Math.sin(a) * d); const sz = rnd(1.2, 3.5); sp.scale.set(sz, sz, 1); grp.add(sp);
+      }
+    } else if (this.envName === 'jardim') {
+      const pt = new THREE.CanvasTexture(gardenCanvas()); pt.colorSpace = THREE.SRGBColorSpace; pt.wrapS = THREE.RepeatWrapping; pt.repeat.x = 2;
+      const pano = new THREE.Mesh(new THREE.CylinderGeometry(26, 26, 26, 48, 1, true), new THREE.MeshBasicMaterial({ map: pt, side: THREE.BackSide, fog: false, depthWrite: false }));
+      pano.position.y = 8.7; pano.renderOrder = -2; grp.add(pano);
+      for (let i = 0; i < 34; i++) {
+        const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: bok, color: i % 3 ? 0xfff3a0 : 0xd8ff9a, transparent: true, opacity: rnd(0.35, 0.8), depthWrite: false, fog: false, blending: THREE.AdditiveBlending }));
+        const a = Math.random() * Math.PI * 2, d = rnd(7, 16);
+        sp.position.set(Math.cos(a) * d, rnd(0.2, 3.5), Math.sin(a) * d); const sz = rnd(0.12, 0.3); sp.scale.set(sz, sz, 1); grp.add(sp);
+      }
+    } else {
+      const n = 1400, pos = new Float32Array(n * 3), col = new Float32Array(n * 3);
+      for (let i = 0; i < n; i++) {
+        const u = Math.random() * 2 - 1, th = Math.random() * Math.PI * 2, r = rnd(38, 48), q = Math.sqrt(1 - u * u);
+        pos[i * 3] = Math.cos(th) * q * r; pos[i * 3 + 1] = u * r; pos[i * 3 + 2] = Math.sin(th) * q * r;
+        const w = rnd(0.6, 1), tnt = Math.random(); col[i * 3] = w * (tnt < 0.2 ? 0.75 : 1); col[i * 3 + 1] = w * (tnt < 0.2 ? 0.85 : tnt > 0.9 ? 0.85 : 1); col[i * 3 + 2] = w;
+      }
+      const sg = new THREE.BufferGeometry(); sg.setAttribute('position', new THREE.BufferAttribute(pos, 3)); sg.setAttribute('color', new THREE.BufferAttribute(col, 3));
+      grp.add(new THREE.Points(sg, new THREE.PointsMaterial({ size: 2.2, sizeAttenuation: false, map: bok, vertexColors: true, transparent: true, depthWrite: false, fog: false, blending: THREE.AdditiveBlending })));
+      const neb = [[0x6a3cff, -20, 10, -30, 26], [0xff3ca8, 25, 6, -24, 20], [0x2aa8ff, 6, 16, 32, 24]];
+      for (const [c, x, y, z, sz] of neb) { const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: bok, color: c, transparent: true, opacity: 0.16, depthWrite: false, fog: false, blending: THREE.AdditiveBlending })); sp.position.set(x, y, z); sp.scale.set(sz, sz, 1); grp.add(sp); }
+      const pl = new THREE.Mesh(new THREE.SphereGeometry(5, 40, 20), new THREE.MeshStandardMaterial({ map: (() => { const t = new THREE.CanvasTexture(planetCanvas()); t.colorSpace = THREE.SRGBColorSpace; return t; })(), roughness: 0.9, fog: false }));
+      pl.position.set(-24, 9, -26); pl.rotation.z = 0.4; grp.add(pl);
+      const ringG = new THREE.RingGeometry(6.5, 9, 64); const ring = new THREE.Mesh(ringG, new THREE.MeshBasicMaterial({ color: 0xc8b4ff, transparent: true, opacity: 0.28, side: THREE.DoubleSide, fog: false, depthWrite: false }));
+      ring.position.copy(pl.position); ring.rotation.x = 1.25; ring.rotation.y = 0.3; grp.add(ring);
+    }
+    if (!quiet) { this.applyQuality(); }
+    this.dirty = true; this.shadowDirty = true;
+  }
+
   setTheme(name) {
     const mc = marbleCanvas(this.mobile ? 1024 : 2048, name);
     const mat = this.boardTop.material;
@@ -499,7 +668,7 @@ export class View3D {
     }
     if (this.mats) {
       const lo = this.level >= 3;
-      this.mats[0].clearcoat = lo ? 0 : 0.6; this.mats[0].sheen = lo ? 0 : 0.3; this.mats[8].clearcoat = lo ? 0.5 : 0.95;
+      for (const c of [0, 8]) { const m = this.mats[c], u = m.userData || {}; m.clearcoat = lo ? (c ? (u.cc || 0) * 0.5 : 0) : (u.cc || 0); m.sheen = lo ? 0 : (u.sh || 0); }
     }
     this.scene.traverse((o) => { if (o.material) o.material.needsUpdate = true; });
     this.shadowDirty = true;
@@ -723,7 +892,7 @@ export class View3D {
   setMenu(on) {
     const was = this.menu;
     this.menu = on;
-    if (on) { this.cam.phi = 0.55; this.cam.rFactor = 1.15; this.cam.target = null; }
+    if (on) { this.cam.phi = this.envName && this.envName !== 'sala' ? 0.42 : 0.55; this.cam.rFactor = 1.15; this.cam.target = null; }
     else if (was) {
       const p0 = this.cam.phi, r0 = this.cam.rFactor, t0 = this.cam.theta, goal = this.thetaFor(this.orient);
       const d = ((goal - t0) % (Math.PI * 2) + Math.PI * 3) % (Math.PI * 2) - Math.PI;

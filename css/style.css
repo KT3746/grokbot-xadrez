@@ -287,3 +287,6 @@ body[data-theme="azul"] { --sqL1: #c3cdd5; --sqL2: #adb9c4; --sqD1: #5a7590; --s
 #achPop.go .ai { animation: achSpin 1s .2s ease both; }
 @keyframes achIn { 0% { opacity: 0; transform: translate(-50%, -120%) scale(.9); } 12%, 85% { opacity: 1; transform: translate(-50%, 0); } 100% { opacity: 0; transform: translate(-50%, -60%); } }
 @keyframes achSpin { from { transform: rotateY(180deg) scale(.6); } to { transform: none; } }
+
+#set3d { display: flex; flex-direction: column; gap: 10px; }
+#pSettings { max-height: 62vh; overflow-y: auto; touch-action: pan-y; }
