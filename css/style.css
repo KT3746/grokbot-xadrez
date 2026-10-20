@@ -234,3 +234,21 @@ body[data-theme="azul"] { --sqL1: #c3cdd5; --sqL2: #adb9c4; --sqD1: #5a7590; --s
 #coach.pop { animation: coachPop .35s ease; }
 @keyframes coachPop { 0% { transform: scale(.96); opacity: .4; } 100% { transform: none; opacity: 1; } }
 #coachWhy { flex: none; min-height: 40px; padding: 0 10px; border-radius: 11px; font-weight: 800; font-size: 13.5px; background: rgba(80, 170, 255, .2); border: 1px solid rgba(120, 190, 255, .45); color: #bfe3ff; }
+
+/* ===== Desafios ===== */
+.pzsum { text-align: center; font-size: 17px; padding: 10px; border-radius: 16px; background: rgba(255, 255, 255, .06); border: 1px solid rgba(255, 255, 255, .1); }
+.pzsum b { color: var(--gold); font-size: 22px; }
+.pzsum .stars { margin-left: 10px; color: var(--mute); }
+.stars i { font-style: normal; color: rgba(255, 255, 255, .18); }
+.stars i.on { color: #ffc93c; text-shadow: 0 0 6px rgba(255, 190, 60, .6); }
+.pzg { margin-bottom: 6px; }
+.pzg h4 { display: flex; align-items: baseline; gap: 8px; margin: 6px 2px 8px; font-size: 18px; color: var(--gold); }
+.pzg h4 small { color: var(--mute); font-size: 13px; font-weight: 700; flex: 1; }
+.pzg h4 span { color: var(--mute); font-size: 14px; }
+.pzgrid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
+.pzgrid button { aspect-ratio: 1; border-radius: 14px; background: linear-gradient(180deg, rgba(255, 255, 255, .12), rgba(255, 255, 255, .04)); border: 1px solid rgba(255, 255, 255, .14); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; transition: transform .1s; }
+.pzgrid button:active { transform: scale(.93); }
+.pzgrid button b { font-size: 20px; }
+.pzgrid button .stars { font-size: 11px; letter-spacing: -1px; }
+.pzgrid button.done { background: linear-gradient(180deg, rgba(245, 200, 76, .28), rgba(245, 200, 76, .08)); border-color: rgba(245, 200, 76, .45); }
+.bigstars { display: block; font-size: 44px; letter-spacing: 6px; margin: 4px 0 10px; }

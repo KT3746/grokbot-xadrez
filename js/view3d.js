@@ -533,8 +533,12 @@ export class View3D {
     this.dirty = true; this.shadowDirty = true;
   }
 
-  tween(dur, fn, delay = 0) {
-    return new Promise((res) => { this.tweens.push({ t0: now() + delay, dur, fn, res }); this.dirty = true; });
+  tween(dur, fn, delay = 0, tag) {
+    return new Promise((res) => { this.tweens.push({ t0: now() + delay, dur, fn, res, tag }); this.dirty = true; });
+  }
+  // cancela animacoes de camera em andamento (ex.: cinema do xeque-mate) antes de uma nova
+  cancelCam() {
+    this.tweens = this.tweens.filter((tw) => { if (tw.tag === 'cam') { tw.res(); return false; } return true; });
   }
 
   animate(m, board, opts) {
@@ -660,7 +664,7 @@ export class View3D {
           const e = ease(k);
           this.cam.target.lerpVectors(look, kp, e); this.cam.dist = d0 + (8.5 - d0) * e;
           this.cam.phi = p0 + (0.5 - p0) * e; this.cam.theta = th0 + 0.8 * e;
-        }, 0.2);
+        }, 0.2, 'cam');
       }
     } else {
       this.particles.burst(new THREE.Vector3(0, 0.5, 0), { colors: ['#9fd8ff', '#ffffff', '#c8b8ff'], count: 90, up: 3.5, speed: 3, life: 1.6, grav: 3 });
@@ -706,13 +710,15 @@ export class View3D {
   }
   defaultPhi() { const a = this.stageAspect || 0.6; return a < 0.8 ? 0.92 : 0.85; }
 
-  intro() {
+  intro(short) {
+    this.cancelCam(); this.cam.target = null; this._fitKey = null;
     const goalT = this.thetaFor(this.orient), goalP = this.defaultPhi();
-    this.cam.theta = goalT + 2.4; this.cam.phi = 0.32; this.cam.rFactor = 1.7;
-    this.tween(2.2, (k) => {
+    const dT = short ? 0.9 : 2.4, p0 = short ? 0.6 : 0.32, r0 = short ? 1.25 : 1.7;
+    this.cam.theta = goalT + dT; this.cam.phi = p0; this.cam.rFactor = r0;
+    this.tween(short ? 1.3 : 2.2, (k) => {
       const e = ease(k);
-      this.cam.theta = goalT + 2.4 * (1 - e); this.cam.phi = 0.32 + (goalP - 0.32) * e; this.cam.rFactor = 1.7 - 0.7 * e;
-    });
+      this.cam.theta = goalT + dT * (1 - e); this.cam.phi = p0 + (goalP - p0) * e; this.cam.rFactor = r0 - (r0 - 1) * e;
+    }, 0, 'cam');
   }
   setMenu(on) {
     const was = this.menu;

@@ -128,5 +128,18 @@ console.log('partida medio x facil terminou:', g.status().reason || 'limite', 'a
   check('por que: ameaca de mate', /ameaça dar xeque-mate/.test(w), true);
   check('sem travessao nos textos', /\u2014/.test(require('fs').readFileSync(__dirname + '/../js/learn.js', 'utf8') + require('fs').readFileSync(__dirname + '/../index.html', 'utf8')), false);
 })();
+
+// Desafios: cada um tem solucao unica verificada pelo resolvedor exato
+(function () {
+  const w = {}; new Function('window', require('fs').readFileSync(__dirname + '/../js/puzzles.js', 'utf8'))(w);
+  let bad = 0, n1 = 0, n2 = 0; const t0 = Date.now();
+  w.XPuzzles.forEach(function (p) {
+    const pos = new E.Position(p.fen), s1 = E.mateSolutions(pos, 1).map(E.uci);
+    if (p.n === 1) { n1++; if (s1.length !== 1 || s1[0] !== p.sol) { bad++; console.log('  desafio ruim', p.id); } }
+    else { n2++; const s2 = E.mateSolutions(pos, 2).map(E.uci); if (s1.length || s2.length !== 1 || s2[0] !== p.sol) { bad++; console.log('  desafio ruim', p.id); } }
+  });
+  check('desafios verificados (' + n1 + ' mate em 1, ' + n2 + ' mate em 2, ' + (Date.now() - t0) + 'ms)', bad, 0);
+  check('pelo menos 30 desafios', w.XPuzzles.length >= 30, true);
+})();
 console.log(fail ? fail + ' FALHAS' : 'TODOS OS TESTES PASSARAM');
 process.exit(fail ? 1 : 0);

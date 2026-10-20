@@ -834,10 +834,19 @@
     return out;
   }
   // depois do lance do atacante: verdadeiro se o defensor esta mateado ou toda defesa leva a mate em n
+  function hasLegal(pos) {
+    var ps = pos.pseudo(false), us = pos.turn;
+    for (var i = 0; i < ps.length; i++) {
+      pos.make(ps[i]); var ok = !pos.attacked(pos.kings[us >> 3], us ^ 8); pos.unmake();
+      if (ok) return true;
+    }
+    return false;
+  }
   function forcedMate(pos, n) {
+    var chk = pos.inCheck();
+    if (n <= 0) return chk && !hasLegal(pos);
     var def = pos.legal();
-    if (!def.length) return pos.inCheck();
-    if (n <= 0) return false;
+    if (!def.length) return chk;
     for (var i = 0; i < def.length; i++) {
       pos.make(def[i]);
       var ok = false, att = pos.legal();

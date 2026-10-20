@@ -21,7 +21,7 @@
   function store(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { } }
   function savePrefs() { store(PREFS, prefs); }
   function saveGame() {
-    if (!app.game) return;
+    if (!app.game || app.mode === 'puzzle') return;
     store(SAVE, { learn: app.learn, mode: app.mode, level: app.level, human: app.human, autoFlip: app.autoFlip, orient: app.orient, moves: app.game.moves.map(E.uci), t: Date.now(), clock: app.clock ? { limit: app.clock.limit, left: app.clock.left } : null });
   }
   function sfx(n) { XSound.play(n); }
@@ -74,11 +74,11 @@
   }
 
   // ===== Partida =====
-  function isHumanTurn() { return app.mode === '2p' || app.game.pos.turn === app.human; }
+  function isHumanTurn() { return app.mode === '2p' || (app.game.pos.turn === app.human && !(app.mode === 'puzzle' && app.pz && app.pz.lock)); }
   function startGame(opts) {
     app.learn = !!opts.learn && opts.mode === 'ai'; app.gameId = (app.gameId || 0) + 1; app.coach = { before: null, lastAI: null };
     app.mode = opts.mode; app.level = opts.level || 'medio'; app.human = opts.human || 0; app.autoFlip = !!opts.autoFlip;
-    app.game = new E.Game();
+    app.game = new E.Game(opts.fen);
     var moves = opts.moves || [];
     for (var i = 0; i < moves.length; i++) if (!app.game.playUci(moves[i])) break;
     app.orient = opts.orient != null ? opts.orient : (app.mode === 'ai' ? app.human : 0);
@@ -90,10 +90,11 @@
     $('banner').hidden = true; clearTimeout(app.overT);
     showScreen('game');
     useView(prefs.view);
-    if (app.v === app.view3d && !moves.length) app.view3d.intro();
+    if (app.v === app.view3d) app.view3d.intro(!!moves.length || opts.mode === 'puzzle');
     refreshAll();
     saveGame();
     if (!moves.length) sfx('start');
+    puzzleUI();
     var st = app.game.status();
     if (st.over) app.over = st;
     else maybeAI();
@@ -154,6 +155,7 @@
   }
   function statusText(st) {
     var g = app.game, turn = g.pos.turn;
+    if (app.mode === 'puzzle') return app.pz ? app.pz.msg : '';
     if (st.over) {
       if (st.reason === 'time') {
         if (app.mode === 'ai') return st.winner === app.human ? 'O tempo do computador acabou. Você venceu!' : 'Seu tempo acabou. O computador venceu';
@@ -185,6 +187,7 @@
     g.moves.forEach(function (m) { if (m.cap) taken[m.piece & 8].push(m.cap); if (m.promo) mat[m.piece & 8] += VALS[m.promo] - 1; });
     [0, 8].forEach(function (c) { taken[c].forEach(function (p) { mat[c] += VALS[p & 7]; }); });
     function name(c) {
+      if (app.mode === 'puzzle') return c === app.human ? 'Você (' + COLOR_NAME[c] + ')' : 'Desafio ' + app.pz.num + ': mate em ' + app.pz.p.n;
       if (app.mode === 'ai') return c === app.human ? 'Você (' + COLOR_NAME[c] + ')' : 'Computador (' + LEVEL_NAME[app.level] + ')';
       return c === 0 ? 'Brancas' : 'Pretas';
     }
@@ -241,6 +244,7 @@
   // ===== Dica =====
   function hint() {
     if (!app.game || app.over || app.busy || !isHumanTurn()) return;
+    if (app.mode === 'puzzle') { puzzleHint(); return; }
     sfx('click');
     var id = ++app.hintReq, fen = app.game.pos.fen(), mvCount = app.game.moves.length;
     app.hintText = 'Pensando numa dica...'; refreshStatus();
@@ -265,7 +269,7 @@
     if (app.mode === '2p') return g.moves.length > 0;
     return g.moves.some(function (m) { return (m.piece & 8) === app.human; });
   }
-  function refreshButtons() { $('cUndo').disabled = !hasHumanMove(); $('cHint').disabled = !!app.over; refreshClocks(); }
+  function refreshButtons() { $('cUndo').disabled = app.mode === 'puzzle' ? false : !hasHumanMove(); $('cHint').disabled = !!app.over; refreshClocks(); }
 
   app.clearSel = function () { app.sel = -1; app.dests = {}; if (app.hintMove) { clearHint(); refreshStatus(); } refreshHL(); };
   function select(sq) {
@@ -325,6 +329,7 @@
       app.busy = false;
       moveSound(m, st);
       refreshHL();
+      if (app.mode === 'puzzle') { puzzleStep(m, st); return; }
       if (st.over) { gameOver(st); return; }
       if (app.mode === '2p' && app.autoFlip) { app.orient = app.game.pos.turn; app.v.setOrient(app.orient, true); refreshPlayers(); if (app.v === app.view3d) sfx('whoosh'); }
       if (app.pendingAI) { var pm = app.pendingAI; app.pendingAI = null; applyAI(pm); }
@@ -402,8 +407,112 @@
     if (m) doMove(m);
   }
 
+  // ===== Desafios =====
+  var PZ = 'xadrezao.desafios.v1';
+  var pzProg = load(PZ) || {};
+  var GROUPS = [['facil', 'Fácil', 'Mate em 1 lance'], ['medio', 'Médio', 'Mate em 1 lance, mais peças'], ['dificil', 'Difícil', 'Mate em 2 lances'], ['mestre', 'Mestre', 'Mate em 2, o primeiro lance é silencioso']];
+  function starsHtml(n, max) { var o = ''; for (var i = 0; i < (max || 3); i++) o += '<i class="' + (i < n ? 'on' : '') + '">★</i>'; return o; }
+  function buildPuzzleList() {
+    var list = window.XPuzzles || [], el = $('pzList'), total = 0, solved = 0, html = '';
+    list.forEach(function (p) { var st = pzProg[p.id] || 0; total += st; if (st) solved++; });
+    $('pzSum').innerHTML = '<b>' + solved + '</b> de ' + list.length + ' resolvidos <span class="stars">' + starsHtml(1, 1) + ' ' + total + ' de ' + list.length * 3 + '</span>';
+    GROUPS.forEach(function (g) {
+      var items = list.map(function (p, i) { return { p: p, i: i }; }).filter(function (o) { return o.p.g === g[0]; });
+      if (!items.length) return;
+      var done = items.filter(function (o) { return pzProg[o.p.id]; }).length;
+      html += '<div class="pzg"><h4>' + g[1] + ' <small>' + g[2] + '</small><span>' + done + '/' + items.length + '</span></h4><div class="pzgrid">';
+      items.forEach(function (o, k) {
+        var st = pzProg[o.p.id] || 0;
+        html += '<button data-i="' + o.i + '" class="' + (st ? 'done' : '') + '"><b>' + (k + 1) + '</b><span class="stars">' + starsHtml(st) + '</span></button>';
+      });
+      html += '</div></div>';
+    });
+    el.innerHTML = html;
+  }
+  function startPuzzle(idx) {
+    var list = window.XPuzzles || [], p = list[idx]; if (!p) return;
+    var grp = list.filter(function (q) { return q.g === p.g; });
+    var turn = p.fen.split(' ')[1] === 'b' ? 8 : 0;
+    app.pz = { idx: idx, p: p, num: grp.indexOf(p) + 1, mistakes: 0, hints: 0, lock: false, solved: false,
+      msg: (turn ? 'Pretas' : 'Brancas') + ' jogam e dão mate em ' + p.n + (p.n > 1 ? ' lances' : ' lance') };
+    startGame({ mode: 'puzzle', fen: p.fen, human: turn, orient: turn });
+  }
+  function puzzleUI() {
+    var pzm = app.mode === 'puzzle';
+    $('cNew').querySelector('span').textContent = pzm ? 'Lista' : 'Novo';
+    $('cUndo').querySelector('span').textContent = pzm ? 'Recomeçar' : 'Desfazer';
+    $('gMenu').querySelector('span').textContent = pzm ? 'Desafios' : 'Menu';
+  }
+  function pzSay(msg, cls) { app.pz.msg = msg; refreshStatus(); if (cls) $('status').className = cls; }
+  function puzzleStep(m, st) {
+    var pz = app.pz, g = app.game, ply = g.moves.length;
+    if ((m.piece & 8) !== app.human) return; // resposta do computador
+    var ok = ply === 1 ? (E.uci(m) === pz.p.sol || (st.over && st.reason === 'mate')) : (st.over && st.reason === 'mate');
+    if (!ok) {
+      pz.mistakes++; pz.lock = true;
+      pzSay('Não é esse lance. Tente de novo!', 'check'); sfx('illegal'); buzz('illegal');
+      setTimeout(function () {
+        if (app.pz !== pz) return;
+        g.undo(); app.over = null; app.v.sync(g.pos.board); pz.lock = false;
+        pzSay(pz.msg0 || ((app.human ? 'Pretas' : 'Brancas') + ' jogam e dão mate em ' + pz.p.n + (pz.p.n > 1 ? ' lances' : ' lance')));
+        refreshAll();
+      }, 1100);
+      return;
+    }
+    if (st.over && st.reason === 'mate') {
+      pz.solved = true;
+      var stars = pz.mistakes + pz.hints === 0 ? 3 : pz.mistakes + pz.hints <= 1 ? 2 : 1;
+      var prev = pzProg[pz.p.id] || 0;
+      if (stars > prev) { pzProg[pz.p.id] = stars; store(PZ, pzProg); }
+      app.over = st;
+      pzSay('Xeque-mate! Desafio resolvido!', 'over');
+      app.v.celebrate({ reason: 'mate', winner: app.human, kingSq: g.pos.kings[(app.human ^ 8) >> 3] });
+      sfx('mate'); buzz('mate');
+      setTimeout(function () { banner('RESOLVIDO!', stars === 3 ? 'Perfeito, de primeira!' : stars === 2 ? 'Muito bem!' : 'Conseguiu!'); }, 500);
+      if (window.XStats) XStats.onPuzzle(pz.p, stars, m);
+      clearTimeout(app.overT);
+      app.overT = setTimeout(function () {
+        if (app.pz !== pz) return;
+        var next = (window.XPuzzles || [])[pz.idx + 1];
+        modalHtml('Desafio resolvido!', '<span class="stars bigstars">' + starsHtml(stars) + '</span>' + (stars < 3 ? 'Resolva sem errar e sem dica para ganhar 3 estrelas.' : 'Três estrelas!'),
+          [{ t: 'Lista', fn: function () { showScreen('puzzles'); } }].concat(next ? [{ t: 'Próximo', pri: true, fn: function () { startPuzzle(pz.idx + 1); } }] : []));
+      }, 2600);
+      return;
+    }
+    // primeiro lance certo do mate em 2: o computador defende
+    pz.lock = true;
+    pzSay('Isso! Agora o computador responde...', 'hint');
+    setTimeout(function () {
+      if (app.pz !== pz) return;
+      var r = E.analyse(g.pos, { maxDepth: 3, timeMs: 300 });
+      pz.lock = false;
+      pz.msg0 = 'Agora dê o xeque-mate!';
+      if (r.move) { doMove(r.move).then(function () { if (app.pz === pz) pzSay('Agora dê o xeque-mate!', 'hint'); }); }
+    }, 700);
+  }
+  function puzzleHint() {
+    var pz = app.pz, g = app.game; sfx('click');
+    var target = null;
+    if (g.moves.length === 0) target = pz.p.sol;
+    else { var ms = E.mateSolutions(g.pos, 1); if (ms.length) target = E.uci(ms[0]); }
+    if (!target) return;
+    var f = E.sqFromName(target.slice(0, 2)), t = E.sqFromName(target.slice(2, 4));
+    pz.hints++;
+    if (pz.hintStage !== g.moves.length + ':1') {
+      pz.hintStage = g.moves.length + ':1';
+      app.hintMove = { from: f, to: -1 }; select(f);
+      app.hintText = 'Dica: use ' + (XPieces.names[g.pos.board[f] & 7] || '').toLowerCase() + ' de ' + target.slice(0, 2);
+    } else {
+      app.hintMove = { from: f, to: t }; select(f);
+      app.hintText = 'Dica: ' + (XPieces.names[g.pos.board[f] & 7] || '') + ' para ' + target.slice(2, 4);
+    }
+    refreshHL(); refreshStatus(); buzz('select');
+  }
+  function modalHtml(title, html, btns) { modal(title, '', btns); $('mText').innerHTML = html; }
+
   // ===== Botoes =====
   function undo() {
+    if (app.mode === 'puzzle') { if (!app.busy) startPuzzle(app.pz.idx); return; }
     if (app.busy || !hasHumanMove()) return;
     app.aiReq++; app.thinking = false; app.pendingAI = null; clearHint();
     var g = app.game;
@@ -455,6 +564,7 @@
   function showScreen(s) {
     app.screen = s;
     [].forEach.call(document.querySelectorAll('.screen'), function (el) { el.classList.toggle('show', el.id === s); });
+    if (s === 'puzzles') buildPuzzleList();
     if (s === 'guide') { if (app.stopGuide) app.stopGuide(); app.stopGuide = XLearn.buildGuide($('guideList')); }
     if (app.view3d) app.view3d.setMenu(s === 'menu');
     if (s === 'menu') {
@@ -556,12 +666,15 @@
     };
     $('bStart2').onclick = function () { startGame({ mode: '2p', autoFlip: prefs.flip, clock: clockOpt() }); };
     $('cHint').onclick = hint;
+    $('pzList').addEventListener('click', function (e) { var b = e.target.closest('button[data-i]'); if (!b) return; sfx('click'); startPuzzle(+b.dataset.i); });
     $('mSound').onclick = toggleSound; $('gSound').onclick = toggleSound;
     $('mMusic').onclick = toggleMusic; $('gMusic').onclick = toggleMusic;
     $('mVibe').onclick = toggleVibe; $('gVibe').onclick = toggleVibe;
-    $('gMenu').onclick = function () { sfx('click'); saveGame(); app.aiReq++; app.thinking = false; app.pendingAI = null; showScreen('menu'); };
+    $('gMenu').onclick = function () { sfx('click'); saveGame(); app.aiReq++; app.thinking = false; app.pendingAI = null; clearTimeout(app.overT); $('modal').hidden = true; showScreen(app.mode === 'puzzle' ? 'puzzles' : 'menu'); };
+    $('tPuzzles').onclick = function () { sfx('click'); showScreen('puzzles'); };
     $('cNew').onclick = function () {
       sfx('click');
+      if (app.mode === 'puzzle') { showScreen('puzzles'); return; }
       if (app.game && app.game.moves.length && !app.over) modal('Novo jogo?', 'A partida atual será perdida.', [{ t: 'Não' }, { t: 'Sim, começar', pri: true, fn: newSame }]);
       else newSame();
     };
