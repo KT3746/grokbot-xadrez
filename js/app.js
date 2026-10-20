@@ -76,6 +76,7 @@
   // ===== Partida =====
   function isHumanTurn() { return app.mode === '2p' || (app.game.pos.turn === app.human && !(app.mode === 'puzzle' && app.pz && app.pz.lock)); }
   function startGame(opts) {
+    app.recorded = false;
     app.learn = !!opts.learn && opts.mode === 'ai'; app.gameId = (app.gameId || 0) + 1; app.coach = { before: null, lastAI: null };
     app.mode = opts.mode; app.level = opts.level || 'medio'; app.human = opts.human || 0; app.autoFlip = !!opts.autoFlip;
     app.game = new E.Game(opts.fen);
@@ -315,6 +316,7 @@
     var learnHuman = app.learn && (m.piece & 8) === app.human, fenB = app.game.pos.fen(), plyB = app.game.moves.length;
     var sanB = app.game.sans.length;
     app.game.play(m);
+    if (window.XStats && (app.mode === '2p' || (app.mode === 'ai' && (m.piece & 8) === app.human))) XStats.onMove(m, E);
     if (learnHuman) { $('coachWhy').hidden = true; $('coachWhy').textContent = 'Por quê?'; coachAfterHuman(fenB, m, plyB); }
     else if (app.learn && app.coach.pendingAI) { var pa = app.coach.pendingAI; app.coach.pendingAI = null; pa.san = app.game.sans[sanB]; app.coach.lastAI = pa; $('coachWhy').hidden = false; $('coachWhy').textContent = 'Por quê?'; }
     app.sel = -1; app.dests = {};
@@ -338,6 +340,12 @@
   }
   function gameOver(st) {
     app.over = st;
+    if (!app.recorded && window.XStats && app.mode !== 'puzzle') {
+      app.recorded = true;
+      var lmv = lastMove(), res = st.winner === -1 ? 'draw' : (app.mode === 'ai' ? (st.winner === app.human ? 'win' : 'loss') : 'win');
+      XStats.onGameEnd({ mode: app.mode, level: app.level, result: res, learn: app.learn, plies: app.game.moves.length,
+        mateType: st.reason === 'mate' && lmv && (app.mode === '2p' || (lmv.piece & 8) === app.human) ? (lmv.piece & 7) : 0 });
+    }
     clearHint(); refreshStatus(); refreshButtons();
     refreshPlayers();
     var g = app.game;
@@ -469,7 +477,7 @@
       app.v.celebrate({ reason: 'mate', winner: app.human, kingSq: g.pos.kings[(app.human ^ 8) >> 3] });
       sfx('mate'); buzz('mate');
       setTimeout(function () { banner('RESOLVIDO!', stars === 3 ? 'Perfeito, de primeira!' : stars === 2 ? 'Muito bem!' : 'Conseguiu!'); }, 500);
-      if (window.XStats) XStats.onPuzzle(pz.p, stars, m);
+      if (window.XStats) XStats.onPuzzle(pz.p, stars, m, pzProg, (window.XPuzzles || []).length);
       clearTimeout(app.overT);
       app.overT = setTimeout(function () {
         if (app.pz !== pz) return;
@@ -565,6 +573,8 @@
     app.screen = s;
     [].forEach.call(document.querySelectorAll('.screen'), function (el) { el.classList.toggle('show', el.id === s); });
     if (s === 'puzzles') buildPuzzleList();
+    if (s === 'achv') XStats.render($('achList'), pzProg, (window.XPuzzles || []).length);
+    if (s === 'menu') { var cn = XStats.count(); $('tAchvN').textContent = cn.got + '/' + cn.total; }
     if (s === 'guide') { if (app.stopGuide) app.stopGuide(); app.stopGuide = XLearn.buildGuide($('guideList')); }
     if (app.view3d) app.view3d.setMenu(s === 'menu');
     if (s === 'menu') {
@@ -672,6 +682,8 @@
     $('mVibe').onclick = toggleVibe; $('gVibe').onclick = toggleVibe;
     $('gMenu').onclick = function () { sfx('click'); saveGame(); app.aiReq++; app.thinking = false; app.pendingAI = null; clearTimeout(app.overT); $('modal').hidden = true; showScreen(app.mode === 'puzzle' ? 'puzzles' : 'menu'); };
     $('tPuzzles').onclick = function () { sfx('click'); showScreen('puzzles'); };
+    $('tAchv').onclick = function () { sfx('click'); showScreen('achv'); };
+    XStats.onUnlock = function () { setTimeout(function () { sfx('promote'); buzz('capture'); }, 250); };
     $('cNew').onclick = function () {
       sfx('click');
       if (app.mode === 'puzzle') { showScreen('puzzles'); return; }

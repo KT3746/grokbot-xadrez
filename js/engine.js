@@ -766,6 +766,8 @@
     var sc0 = new Searcher({});
     sc0.order(ms, 0, 0);
     for (var d = 1; d <= maxDepth; d++) {
+      // a profundidade 1 sempre termina (garante um lance com nota mesmo com o aparelho lento)
+      s.deadline = d === 1 ? Infinity : start + limit;
       var r = s.root(pos, d, ms, !!opts.exact);
       if (!r || !r.move) break;
       res = { move: r.move, score: r.score, depth: d, moves: ms.slice() };
@@ -773,6 +775,7 @@
       if (Date.now() - start > limit * 0.5) break;
     }
     if (!res.moves) res.moves = ms;
+    for (var i = 0; i < res.moves.length; i++) if (typeof res.moves[i].score !== 'number') res.moves[i].score = -MATE;
     return res;
   }
 
