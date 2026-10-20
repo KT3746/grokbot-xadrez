@@ -806,7 +806,7 @@
       var bm = bookMoves(pos);
       if (bm.length) {
         var u = pick(bm);
-        for (i = 0; i < ms.length; i++) if (uci(ms[i]) === u) return ms[i];
+        for (i = 0; i < ms.length; i++) if (uci(ms[i]) === u) { ms[i].book = true; return ms[i]; }
       }
     }
     if (L.depth) {

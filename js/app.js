@@ -8,7 +8,7 @@
   var COLOR_NAME = { 0: 'brancas', 8: 'pretas' };
 
   var prefs = load(PREFS) || {};
-  prefs = { theme: prefs.theme || 'classico', clock: prefs.clock || '0', view: prefs.view || '3d', sound: prefs.sound !== false, music: prefs.music !== false, vibe: prefs.vibe !== false, level: prefs.level || 'medio', color: prefs.color || 'w', flip: prefs.flip !== false };
+  prefs = { theme: prefs.theme || 'classico', clock: prefs.clock || '0', view: prefs.view || '3d', sound: prefs.sound !== false, music: prefs.music !== false, vibe: prefs.vibe !== false, learn: !!prefs.learn, level: prefs.level || 'medio', color: prefs.color || 'w', flip: prefs.flip !== false };
 
   var app = {
     game: null, mode: 'ai', level: 'medio', human: 0, autoFlip: true, orient: 0,
@@ -22,7 +22,7 @@
   function savePrefs() { store(PREFS, prefs); }
   function saveGame() {
     if (!app.game) return;
-    store(SAVE, { mode: app.mode, level: app.level, human: app.human, autoFlip: app.autoFlip, orient: app.orient, moves: app.game.moves.map(E.uci), t: Date.now(), clock: app.clock ? { limit: app.clock.limit, left: app.clock.left } : null });
+    store(SAVE, { learn: app.learn, mode: app.mode, level: app.level, human: app.human, autoFlip: app.autoFlip, orient: app.orient, moves: app.game.moves.map(E.uci), t: Date.now(), clock: app.clock ? { limit: app.clock.limit, left: app.clock.left } : null });
   }
   function sfx(n) { XSound.play(n); }
   var VIBE = { move: 12, capture: [22, 30, 14], check: [25, 60, 25], mate: [40, 70, 40, 70, 160], illegal: 8, select: 6, draw: [30, 80, 30] };
@@ -76,6 +76,7 @@
   // ===== Partida =====
   function isHumanTurn() { return app.mode === '2p' || app.game.pos.turn === app.human; }
   function startGame(opts) {
+    app.learn = !!opts.learn && opts.mode === 'ai'; app.gameId = (app.gameId || 0) + 1; app.coach = { before: null, lastAI: null };
     app.mode = opts.mode; app.level = opts.level || 'medio'; app.human = opts.human || 0; app.autoFlip = !!opts.autoFlip;
     app.game = new E.Game();
     var moves = opts.moves || [];
@@ -96,6 +97,49 @@
     var st = app.game.status();
     if (st.over) app.over = st;
     else maybeAI();
+    coachInit(!!moves.length);
+  }
+
+  // ===== Professor (Modo Aprender) =====
+  function coachSay(kind, text) {
+    var el = $('coach'); el.className = kind || ''; void el.offsetWidth; el.classList.add('pop');
+    $('coachText').textContent = text;
+  }
+  function coachInit(resumed) {
+    $('coach').hidden = !app.learn;
+    $('coachWhy').hidden = true;
+    if (!app.learn) return;
+    coachSay('', resumed ? 'Bem-vindo de volta! Continuo comentando os seus lances.' : 'Olá! Sou o professor. Depois de cada lance seu eu comento. Toque em "Por quê?" para entender o lance do computador.');
+    coachBefore();
+  }
+  // analisa a posicao quando e a vez do jogador (para comparar com o lance que ele fizer)
+  function coachBefore() {
+    if (!app.learn || app.over || app.game.pos.turn !== app.human) return;
+    var ply = app.game.moves.length, gid = app.gameId;
+    analyseAsync(app.game.startFen, app.game.moves.map(E.uci), 700, function (r) {
+      if (gid !== app.gameId) return;
+      app.coach.before = { ply: ply, score: r.score, move: r.move };
+    });
+  }
+  function coachAfterHuman(fenBefore, m, ply) {
+    var gid = app.gameId, u = E.uci(m);
+    analyseAsync(app.game.startFen, app.game.moves.map(E.uci), 700, function (r) {
+      if (gid !== app.gameId) return;
+      var b = app.coach.before && app.coach.before.ply === ply ? app.coach.before : null;
+      var c = XLearn.comment({ fenBefore: fenBefore, move: u, before: b, after: r.score == null ? null : -r.score });
+      if (c) { coachSay(c.kind, c.text); if (c.kind === 'bad') buzz('illegal'); }
+      app.coach.lastText = c && c.text;
+    });
+  }
+  function coachWhy() {
+    var a = app.coach && app.coach.lastAI; if (!a) return;
+    sfx('click');
+    var el = $('coach');
+    if (el.classList.contains('why') && app.coach.lastText) { coachSay(app.coach.lastKind || 'ok', app.coach.lastText); $('coachWhy').textContent = 'Por quê?'; return; }
+    app.coach.lastKind = [].filter.call(el.classList, function (k) { return k !== 'pop'; })[0];
+    app.coach.lastText = $('coachText').textContent;
+    coachSay('why', 'O computador jogou ' + a.san + '. ' + XLearn.why(a));
+    $('coachWhy').textContent = 'Voltar';
   }
 
   function lastMove() { var m = app.game.moves; return m.length ? m[m.length - 1] : null; }
@@ -264,7 +308,11 @@
   }
   function doMove(m, opts) {
     clearHint();
+    var learnHuman = app.learn && (m.piece & 8) === app.human, fenB = app.game.pos.fen(), plyB = app.game.moves.length;
+    var sanB = app.game.sans.length;
     app.game.play(m);
+    if (learnHuman) { $('coachWhy').hidden = true; $('coachWhy').textContent = 'Por quê?'; coachAfterHuman(fenB, m, plyB); }
+    else if (app.learn && app.coach.pendingAI) { var pa = app.coach.pendingAI; app.coach.pendingAI = null; pa.san = app.game.sans[sanB]; app.coach.lastAI = pa; $('coachWhy').hidden = false; $('coachWhy').textContent = 'Por quê?'; }
     app.sel = -1; app.dests = {};
     app.busy = true;
     var st = app.game.status();
@@ -280,6 +328,7 @@
       if (st.over) { gameOver(st); return; }
       if (app.mode === '2p' && app.autoFlip) { app.orient = app.game.pos.turn; app.v.setOrient(app.orient, true); refreshPlayers(); if (app.v === app.view3d) sfx('whoosh'); }
       if (app.pendingAI) { var pm = app.pendingAI; app.pendingAI = null; applyAI(pm); }
+      if (app.learn && !app.thinking && app.game.pos.turn === app.human) coachBefore();
     });
   }
   function gameOver(st) {
@@ -349,6 +398,7 @@
     var ms = app.game.legal(), m = null;
     for (var i = 0; i < ms.length; i++) if (E.uci(ms[i]) === d.move) m = ms[i];
     if (!m) m = E.think(app.game.pos, 'facil');
+    if (m && app.learn) app.coach.pendingAI = { fenBefore: app.game.pos.fen(), move: E.uci(m), score: d.score, book: d.book };
     if (m) doMove(m);
   }
 
@@ -364,11 +414,12 @@
     if (app.v.resetView) app.v.resetView();
     app.v.sync(g.pos.board);
     refreshAll(); saveGame(); sfx('whoosh');
+    if (app.learn) { app.gameId++; app.coach = { before: null, lastAI: null }; $('coachWhy').hidden = true; coachSay('', 'Lance desfeito. Tente outra ideia!'); coachBefore(); }
   }
   function newSame() {
     var human = app.human;
     if (app.mode === 'ai' && prefs.color === 'r') human = Math.random() < 0.5 ? 0 : 8;
-    startGame({ mode: app.mode, level: app.level, human: human, autoFlip: app.autoFlip, clock: app.clock ? { limit: app.clock.limit } : null });
+    startGame({ learn: app.learn, mode: app.mode, level: app.level, human: human, autoFlip: app.autoFlip, clock: app.clock ? { limit: app.clock.limit } : null });
   }
   function flip() {
     if (!app.game) return;
@@ -403,24 +454,26 @@
   // ===== Telas =====
   function showScreen(s) {
     app.screen = s;
-    $('menu').classList.toggle('show', s === 'menu');
-    $('game').classList.toggle('show', s === 'game');
+    [].forEach.call(document.querySelectorAll('.screen'), function (el) { el.classList.toggle('show', el.id === s); });
+    if (s === 'guide') { if (app.stopGuide) app.stopGuide(); app.stopGuide = XLearn.buildGuide($('guideList')); }
     if (app.view3d) app.view3d.setMenu(s === 'menu');
     if (s === 'menu') {
       showPanel('pMain'); updateContinue();
       var want3d = prefs.view === '3d' && app.view3d;
       document.body.classList.toggle('three', !!want3d);
       if (app.view3d) { app.view3d.setActive(!!want3d); if (app.game) app.view3d.sync(app.game.pos.board); else app.view3d.sync(new E.Position().board); app.view3d.highlight({}); }
-    } else {
+    } else if (s !== 'game') {
+      if (app.view3d) app.view3d.setActive(false);
+    } else if (s === 'game') {
       requestAnimationFrame(function () { fit2d(); if (app.view3d) app.view3d.resize(); });
     }
   }
-  function showPanel(id) { ['pMain', 'pAI', 'pTwo'].forEach(function (p) { $(p).hidden = p !== id; }); }
+  function showPanel(id) { ['pMain', 'pAI', 'pTwo', 'pSettings'].forEach(function (p) { $(p).hidden = p !== id; }); }
   function updateContinue() {
     var s = load(SAVE), b = $('bContinue');
     if (s && s.moves && s.moves.length) {
       b.hidden = false;
-      $('contInfo').textContent = (s.mode === 'ai' ? 'Contra o computador (' + LEVEL_NAME[s.level] + ')' : '2 jogadores') + ', ' + Math.ceil(s.moves.length / 2) + ' lances';
+      $('contInfo').textContent = (s.mode === 'ai' ? 'Contra o computador (' + (LEVEL_NAME[s.level] || '') + (s.learn ? ', aprendendo' : '') + ')' : '2 jogadores') + ', ' + Math.ceil(s.moves.length / 2) + ' lances';
     } else b.hidden = true;
   }
   function segInit(id, val, onChange) {
@@ -468,10 +521,16 @@
 
     $('bVsAI').onclick = function () { sfx('click'); showPanel('pAI'); };
     $('bTwo').onclick = function () { sfx('click'); showPanel('pTwo'); };
+    $('tSettings').onclick = function () { sfx('click'); showPanel('pSettings'); };
+    $('tGuide').onclick = function () { sfx('click'); showScreen('guide'); };
+    [].forEach.call(document.querySelectorAll('[data-home]'), function (b) { b.onclick = function () { sfx('click'); showScreen('menu'); }; });
+    $('bLearnPlay').onclick = function () { sfx('click'); startGame({ mode: 'ai', learn: true, level: 'iniciante', human: 0 }); };
+    $('coachWhy').onclick = coachWhy;
+    segInit('segLearn', prefs.learn ? '1' : '0', function (v) { prefs.learn = v === '1'; savePrefs(); });
     [].forEach.call(document.querySelectorAll('[data-back]'), function (b) { b.onclick = function () { sfx('click'); showPanel('pMain'); }; });
     $('bContinue').onclick = function () {
       var s = load(SAVE); if (!s) return;
-      startGame({ mode: s.mode, level: s.level, human: s.human, autoFlip: s.autoFlip, orient: s.orient, moves: s.moves, clock: s.clock });
+      startGame({ learn: s.learn, mode: s.mode, level: s.level, human: s.human, autoFlip: s.autoFlip, orient: s.orient, moves: s.moves, clock: s.clock });
     };
     segInit('segLevel', prefs.level, function (v) { prefs.level = v; savePrefs(); aiHint(v); }); aiHint(prefs.level);
     segInit('segColor', prefs.color, function (v) { prefs.color = v; savePrefs(); });
@@ -493,7 +552,7 @@
     if (!app.has3d) $('segView').hidden = true;
     $('bStartAI').onclick = function () {
       var c = prefs.color === 'r' ? (Math.random() < 0.5 ? 'w' : 'b') : prefs.color;
-      startGame({ mode: 'ai', level: prefs.level, human: c === 'b' ? 8 : 0, clock: clockOpt() });
+      startGame({ mode: 'ai', learn: prefs.learn, level: prefs.level, human: c === 'b' ? 8 : 0, clock: clockOpt() });
     };
     $('bStart2').onclick = function () { startGame({ mode: '2p', autoFlip: prefs.flip, clock: clockOpt() }); };
     $('cHint').onclick = hint;

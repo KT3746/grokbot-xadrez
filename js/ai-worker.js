@@ -27,6 +27,7 @@ self.onmessage = function (e) {
     } else {
       var m = E.think(b.pos, d.level, { timeMs: d.timeMs, reps: b.reps });
       out.move = m ? E.uci(m) : null;
+      if (m) { out.score = m.score; out.book = !!m.book; }
     }
   } catch (err) { out.move = null; out.error = String(err); }
   self.postMessage(out);

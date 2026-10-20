@@ -112,5 +112,21 @@ console.log('partida medio x facil terminou:', g.status().reason || 'limite', 'a
   for (let i = 0; i < 6; i++) { const m = E.think(g.pos, lv, { timeMs: 200 }); if (!m) { okAll = false; break; } g.play(m); }
   check('nivel ' + lv + ' joga', okAll, true);
 });
+
+// Modo Aprender: comentarios
+(function () {
+  global.XEngine = E; const L = require('../js/learn.js');
+  let c = L.comment({ fenBefore: 'rnbqkbnr/pppp1ppp/8/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R w KQkq - 0 2', move: 'f3g5', before: { score: 30, move: 'b1c3' }, after: -250 });
+  check('aprender: cavalo sem defesa', /cavalo ficou sem defesa/.test(c.text), true);
+  c = L.comment({ fenBefore: 'r1bqkbnr/pppp1ppp/2n5/4p2Q/2B1P3/8/PPPP1PPP/RNB1K1NR w KQkq - 2 4', move: 'd2d3', before: { score: 99990, move: 'h5f7' }, after: 50 });
+  check('aprender: perdeu o mate', /xeque-mate com a dama em f7/.test(c.text), true);
+  c = L.comment({ fenBefore: 'rnb1kbnr/pppp1ppp/8/4p3/3qP3/2N5/PPP2PPP/R1BQKBNR w KQkq - 0 4', move: 'a2a3', before: { score: 800, move: 'd1d4' }, after: -100 });
+  check('aprender: perdeu captura da dama', /chance de capturar a dama/.test(c.text), true);
+  c = L.comment({ fenBefore: E.START, move: 'e2e4', before: { score: 30, move: 'e2e4' }, after: 25 });
+  check('aprender: bom lance', c.kind, 'great');
+  const w = L.why({ fenBefore: 'rnbqkbnr/pppp1ppp/8/4p3/2B1P3/8/PPPP1PPP/RNBQK1NR w KQkq - 1 2', move: 'd1h5', score: 40 });
+  check('por que: ameaca de mate', /ameaça dar xeque-mate/.test(w), true);
+  check('sem travessao nos textos', /\u2014/.test(require('fs').readFileSync(__dirname + '/../js/learn.js', 'utf8') + require('fs').readFileSync(__dirname + '/../index.html', 'utf8')), false);
+})();
 console.log(fail ? fail + ' FALHAS' : 'TODOS OS TESTES PASSARAM');
 process.exit(fail ? 1 : 0);

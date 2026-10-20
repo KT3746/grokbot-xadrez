@@ -9,7 +9,7 @@
 <meta name="description" content="XADREZÃO: xadrez bonito para jogar no celular, contra o computador ou com um amigo.">
 <title>XADREZÃO</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%231d2740'/%3E%3Cpath fill='%23f5c84c' d='M46.5 8h7v6h6v7h-6v7h-7v-7h-6v-7h6zM28 42c0-9 10-12 19-8l3 3 3-3c9-4 19-1 19 8 0 10-8 18-10 24H38c-2-6-10-14-10-24zM36 68h28l2 8H34zM26 80h48v10H26z'/%3E%3C/svg%3E">
-<link rel="stylesheet" href="css/style.css?v=202610201403">
+<link rel="stylesheet" href="css/style.css?v=202610201408">
 </head>
 <body>
 <canvas id="c3d" aria-label="Tabuleiro 3D"></canvas>
@@ -28,16 +28,28 @@
       <button class="big gold" id="bContinue" hidden><span>Continuar partida</span><small id="contInfo"></small></button>
       <button class="big" id="bVsAI"><span>Contra o computador</span><small>Escolha o nível e a sua cor</small></button>
       <button class="big" id="bTwo"><span>2 jogadores</span><small>Os dois jogam no mesmo celular</small></button>
-      <div class="opts">
-        <div class="seg" id="segView"><button data-v="3d">Visual 3D</button><button data-v="2d">Visual 2D</button></div>
-        <label class="optlbl">Cor do tabuleiro</label>
-        <div class="seg" id="segTheme" aria-label="Cor do tabuleiro"><button data-v="classico">Clássico</button><button data-v="madeira">Madeira</button><button data-v="azul">Azul</button></div>
-        <div class="toggles">
-          <button class="tog" id="mSound"></button>
-          <button class="tog" id="mMusic"></button>
-          <button class="tog" id="mVibe"></button>
-        </div>
+      <div class="tiles">
+        <button class="tile" id="tPuzzles" hidden><svg viewBox="0 0 24 24"><path d="M12 2l2.9 6.3 6.9.7-5.2 4.6 1.5 6.8L12 17l-6.1 3.4 1.5-6.8L2.2 9l6.9-.7z"/></svg><span>Desafios</span></button>
+        <button class="tile" id="tGuide"><svg viewBox="0 0 24 24"><path d="M2 8l10-5 10 5-10 5z"/><path d="M6 10.5V16c3 2.5 9 2.5 12 0v-5.5M22 8v6"/></svg><span>Aprender</span></button>
+        <button class="tile" id="tAchv" hidden><svg viewBox="0 0 24 24"><circle cx="12" cy="9" r="6"/><path d="M8.5 14L7 22l5-3 5 3-1.5-8"/></svg><span>Conquistas</span></button>
+        <button class="tile" id="tSettings"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg><span>Ajustes</span></button>
       </div>
+    </div>
+
+    <div class="panel" id="pSettings" hidden>
+      <h2>Ajustes</h2>
+      <label>Visual</label>
+      <div class="seg" id="segView"><button data-v="3d">Visual 3D</button><button data-v="2d">Visual 2D</button></div>
+      <label>Cor do tabuleiro</label>
+      <div class="seg" id="segTheme" aria-label="Cor do tabuleiro"><button data-v="classico">Clássico</button><button data-v="madeira">Madeira</button><button data-v="azul">Azul</button></div>
+      <div id="set3d"></div>
+      <label>Som e vibração</label>
+      <div class="toggles">
+        <button class="tog" id="mSound"></button>
+        <button class="tog" id="mMusic"></button>
+        <button class="tog" id="mVibe"></button>
+      </div>
+      <button class="link" data-back>Voltar</button>
     </div>
 
     <div class="panel" id="pAI" hidden>
@@ -48,6 +60,8 @@
       <div class="seg" id="segColor"><button data-v="w">Brancas</button><button data-v="b">Pretas</button><button data-v="r">Sorteio</button></div>
       <label>Relógio</label>
       <div class="seg segClock"><button data-v="0">Sem relógio</button><button data-v="5">5 min</button><button data-v="10">10 min</button></div>
+      <label>Modo Aprender (um professor comenta os seus lances)</label>
+      <div class="seg" id="segLearn"><button data-v="0">Desligado</button><button data-v="1">Ligado</button></div>
       <p class="hint" id="aiHint"></p>
       <button class="big gold" id="bStartAI"><span>Começar</span></button>
       <button class="link" data-back>Voltar</button>
@@ -68,6 +82,14 @@
   </div>
 </section>
 
+<section id="guide" class="screen page">
+  <header class="ptop"><button class="ico" data-home aria-label="Voltar"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg><span>Menu</span></button><h2>Como as peças andam</h2></header>
+  <div class="pscroll">
+    <button class="big gold" id="bLearnPlay"><span>Jogar com o professor</span><small>Partida fácil com comentários em cada lance</small></button>
+    <div id="guideList"></div>
+  </div>
+</section>
+
 <section id="game" class="screen">
   <header class="top">
     <button class="ico" id="gMenu" aria-label="Voltar ao menu"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg><span>Menu</span></button>
@@ -83,6 +105,7 @@
   <div id="stage"><div id="board2d"></div><div id="loading" hidden>Carregando 3D...</div></div>
   <div class="player" id="plBot"><span class="dot"></span><span class="name"></span><span class="caps"></span><span class="adv"></span><span class="clk"></span></div>
   <div id="status">Vez das brancas</div>
+  <div id="coach" hidden><div class="cav"><svg viewBox="0 0 24 24"><path d="M2 8l10-5 10 5-10 5z"/><path d="M6 10.5V16c3 2.5 9 2.5 12 0v-5.5"/></svg></div><p id="coachText"></p><button id="coachWhy" hidden>Por quê?</button></div>
   <nav class="controls">
     <button id="cNew"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg><span>Novo</span></button>
     <button id="cUndo"><svg viewBox="0 0 24 24"><path d="M9 14L4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/></svg><span>Desfazer</span></button>
@@ -110,11 +133,12 @@
 <div id="toast" hidden></div>
 <div id="banner" hidden><b></b><span></span></div>
 
-<script>window.XV = '202610201403';</script>
-<script src="js/engine.js?v=202610201403"></script>
-<script src="js/pieces.js?v=202610201403"></script>
-<script src="js/sound.js?v=202610201403"></script>
-<script src="js/view2d.js?v=202610201403"></script>
-<script src="js/app.js?v=202610201403"></script>
+<script>window.XV = '202610201408';</script>
+<script src="js/engine.js?v=202610201408"></script>
+<script src="js/pieces.js?v=202610201408"></script>
+<script src="js/sound.js?v=202610201408"></script>
+<script src="js/view2d.js?v=202610201408"></script>
+<script src="js/learn.js?v=202610201408"></script>
+<script src="js/app.js?v=202610201408"></script>
 </body>
 </html>
