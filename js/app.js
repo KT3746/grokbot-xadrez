@@ -7,8 +7,9 @@
   var LEVEL_NAME = { iniciante: 'Iniciante', facil: 'Fácil', medio: 'Médio', dificil: 'Difícil', mestre: 'Mestre' };
   var COLOR_NAME = { 0: 'brancas', 8: 'pretas' };
 
+  var PHONE = Math.min(screen.width, screen.height) < 700;
   var prefs = load(PREFS) || {};
-  prefs = { style: prefs.style || 'classico', env: prefs.env || 'sala', theme: prefs.theme || 'classico', clock: prefs.clock || '0', view: prefs.view || '3d', sound: prefs.sound !== false, music: prefs.music !== false, vibe: prefs.vibe !== false, learn: !!prefs.learn, level: prefs.level || 'medio', color: prefs.color || 'w', flip: prefs.flip !== false };
+  prefs = { style: prefs.style || 'classico', env: prefs.env || 'sala', theme: prefs.theme || 'classico', clock: prefs.clock || '0', view: prefs.view || '3d', sound: prefs.sound !== false, music: prefs.music !== false, vibe: prefs.vibe !== false, learn: !!prefs.learn, level: prefs.level || 'medio', color: prefs.color || 'w', flip: prefs.flip !== false, cam: prefs.cam || (PHONE ? 'alta' : 'media'), aid: prefs.aid != null ? !!prefs.aid : PHONE };
 
   var app = {
     game: null, mode: 'ai', level: 'medio', human: 0, autoFlip: true, orient: 0,
@@ -630,6 +631,8 @@
     ['gMusic', 'mMusic'].forEach(function (i) { $(i).classList.toggle('off', !mOn); });
     XSound.setSfx(sOn); XSound.setMusic(mOn);
   }
+  var CAM_NAME = { alta: 'Alta', media: 'Média', baixa: 'Baixa' };
+  function camUI() { $('camBtnL').textContent = 'Vista: ' + CAM_NAME[prefs.cam]; }
   function toggleSound() { prefs.sound = !prefs.sound; savePrefs(); soundUI(); sfx('click'); }
   var ICON_VIBE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="3" width="8" height="18" rx="2"/>';
   function vibeUI() {
@@ -679,6 +682,12 @@
       if (app.view3d) app.view3d.setTheme(v);
     });
     segInit('segStyle', prefs.style, function (v) { prefs.style = v; savePrefs(); app.pieceStyle = v; if (app.view3d) app.view3d.setStyle(v); });
+    segInit('segAid', prefs.aid ? '1' : '0', function (v) { prefs.aid = v === '1'; savePrefs(); if (app.view3d) app.view3d.setAid(prefs.aid); });
+    $('camBtn').onclick = function () {
+      var order = ['alta', 'media', 'baixa'];
+      prefs.cam = order[(order.indexOf(prefs.cam) + 1) % 3]; savePrefs(); camUI(); sfx('click');
+      if (app.view3d) { app.view3d.setCamView(prefs.cam); layoutGame(); }
+    };
     segInit('segEnv', prefs.env, function (v) { prefs.env = v; savePrefs(); app.env = v; if (app.view3d) app.view3d.setEnv(v); });
     var markView = segInit('segView', prefs.view, function (v) {
       prefs.view = v; savePrefs();
@@ -724,7 +733,7 @@
 
   function boot() {
     app.has3d = webglOK();
-    app.theme = prefs.theme; document.body.dataset.theme = prefs.theme; app.pieceStyle = prefs.style; app.env = prefs.env;
+    app.theme = prefs.theme; document.body.dataset.theme = prefs.theme; app.pieceStyle = prefs.style; app.env = prefs.env; app.camView = prefs.cam; app.visionAid = prefs.aid; camUI();
     app.view2d = new View2D($('board2d'), app);
     app.v = app.view2d;
     bind(); soundUI(); vibeUI();

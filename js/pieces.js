@@ -15,5 +15,10 @@
     return '<svg viewBox="0 0 100 100" class="pcs ' + cls + '" aria-hidden="true"><g>' + shapes[t] + base + '</g></svg>';
   }
   var NAMES = { 1: 'Peão', 2: 'Cavalo', 3: 'Bispo', 4: 'Torre', 5: 'Dama', 6: 'Rei' };
-  window.XPieces = { svg: svg, names: NAMES };
+  // SVG solto (cores embutidas), para virar textura no 3D
+  function image(piece, fill, stroke, line, sw) {
+    var t = piece & 7;
+    return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="-6 -6 112 112" width="256" height="256"><style>g{fill:' + fill + ';stroke:' + stroke + ';stroke-width:' + (sw || 4) + ';stroke-linejoin:round}.ln{stroke:' + line + ';fill:none;stroke-width:3}.eye{fill:' + stroke + ';stroke:none}</style><g>' + shapes[t] + base + '</g></svg>';
+  }
+  window.XPieces = { svg: svg, names: NAMES, image: image };
 })();

@@ -12,6 +12,8 @@ function sqPos(sq) { return new THREE.Vector3((sq & 7) - 3.5, 0, 3.5 - (sq >> 4)
 
 // ---------- Texturas procedurais ----------
 function rnd(a, b) { return a + Math.random() * (b - a); }
+// vistas da camera (elevacao em radianos)
+const VIEWS = { alta: 1.2, media: 0.95, baixa: 0.72 };
 // temas do tabuleiro (o primeiro e o de maior contraste com as pecas)
 export const THEMES = {
   classico: { l: ['#d3a86c', '#bf9156'], d: ['#3f7b63', '#316650'], vl: [110, 80, 50], vd: [200, 230, 215], frame: '#6a4225' },
@@ -213,12 +215,12 @@ function buildGeometries(seg) {
   ]);
   // Torre: corpo, ameias arredondadas e aneis
   {
-    const prof = [...BASE, ...smooth([[0.25, 0.2], [0.215, 0.27], [0.2, 0.4], [0.198, 0.52], [0.21, 0.6]]), [0.25, 0.625], [0.275, 0.645], [0.285, 0.67], [0.285, 0.74], [0.205, 0.74], [0.195, 0.7], [0, 0.7]];
+    const prof = [...BASE, ...smooth([[0.25, 0.2], [0.215, 0.27], [0.2, 0.4], [0.198, 0.52], [0.21, 0.6]]), [0.27, 0.625], [0.305, 0.645], [0.32, 0.67], [0.32, 0.74], [0.225, 0.74], [0.215, 0.7], [0, 0.7]];
     const parts = [tint(lathe(prof, seg), 1)];
     const n = 6;
     for (let i = 0; i < n; i++) {
-      const a = (i + 0.5) / n * Math.PI * 2, b = rbox(0.13, 0.12, 0.085, 0.018);
-      b.rotateY(-a + Math.PI / 2); b.translate(Math.cos(a) * 0.243, 0.795, Math.sin(a) * 0.243);
+      const a = (i + 0.5) / n * Math.PI * 2, b = rbox(0.15, 0.14, 0.095, 0.02);
+      b.rotateY(-a + Math.PI / 2); b.translate(Math.cos(a) * 0.27, 0.805, Math.sin(a) * 0.27);
       parts.push(tint(b, 1));
     }
     parts.push(tint(collar(0.615, 0.212, 0.016, seg), 0.86), tint(collar(0.255, 0.232, 0.014, seg), 0.86));
@@ -236,7 +238,7 @@ function buildGeometries(seg) {
       if (t < 0.55) { const k = t / 0.55; rn = 0.2 - 0.075 * k + 0.02 * Math.sin(k * Math.PI); rz = 0.165 - 0.065 * k; }
       else { const k = (t - 0.55) / 0.45; rn = 0.145 - 0.06 * k; rz = 0.1 - 0.02 * k + 0.012 * Math.sin(k * Math.PI); }
       if (t > 0.9) { const c = Math.sqrt(Math.max(0, 1 - Math.pow((t - 0.9) / 0.1, 2))); rn *= 0.25 + 0.75 * c; rz *= 0.25 + 0.75 * c; }
-      return [rn, rz];
+      return [rn * 1.2, rz * 1.15];
     }, 48, 28);
     // crina com mechas
     const m = new THREE.Shape();
@@ -252,7 +254,7 @@ function buildGeometries(seg) {
     mane.translate(0, 0, -0.025);
     const ears = [];
     for (const z of [-0.055, 0.055]) {
-      const e = new THREE.ConeGeometry(0.038, 0.14, 12); e.rotateZ(-0.35); e.rotateX(z > 0 ? 0.18 : -0.18); e.translate(0.05, 0.97, z); ears.push(tint(e, 1));
+      const e = new THREE.ConeGeometry(0.048, 0.18, 12); e.rotateZ(-0.35); e.rotateX(z > 0 ? 0.18 : -0.18); e.translate(0.05, 0.97, z); ears.push(tint(e, 1));
     }
     const eyes = [], nost = [];
     for (const z of [-1, 1]) {
@@ -270,21 +272,22 @@ function buildGeometries(seg) {
   {
     const body = lathe([...BASE, ...smooth([[0.215, 0.21], [0.16, 0.3], [0.125, 0.42], [0.11, 0.53]]), [0.175, 0.545], [0.19, 0.57], [0.175, 0.595], [0.105, 0.61],
       ...smooth([[0.11, 0.625], [0.15, 0.68], [0.178, 0.76], [0.17, 0.84], [0.135, 0.91], [0.08, 0.965], [0.035, 0.995]]), ...arc(1.04, 0.045, -55, 90, 8)], seg);
-    const slit = rbox(0.045, 0.026, 0.24, 0.008, 1); slit.rotateX(0.8); slit.translate(0.155, 0.8, 0);
-    const g = mergeGeometries([tint(body, 1), tint(slit, 0.08), tint(collar(0.545, 0.17, 0.012, seg), 0.86)]);
+    const slit = rbox(0.075, 0.04, 0.3, 0.01, 1); slit.rotateX(0.8); slit.translate(0.15, 0.8, 0);
+    const slit2 = slit.clone(); slit2.rotateY(Math.PI);
+    const g = mergeGeometries([tint(body, 1), tint(slit, 0.0), tint(slit2, 0.0), tint(collar(0.545, 0.17, 0.012, seg), 0.86)]);
     g.rotateY(Math.PI / 2);
     G[E.B] = g;
   }
   // Dama: coroa com pontas e perolas
   {
     const body = lathe([...BASE, ...smooth([[0.225, 0.22], [0.165, 0.34], [0.13, 0.5], [0.118, 0.66], [0.12, 0.74]]), [0.195, 0.755], [0.21, 0.78], [0.195, 0.805], [0.125, 0.82],
-      ...smooth([[0.135, 0.85], [0.16, 0.93], [0.2, 1.01], [0.215, 1.045]]), [0.19, 1.05], [0.12, 1.04], [0.075, 1.07], [0.05, 1.1], ...arc(1.15, 0.055, -60, 90, 10)], seg);
+      ...smooth([[0.135, 0.85], [0.16, 0.93], [0.2, 1.01], [0.215, 1.045]]), [0.19, 1.05], [0.12, 1.04], [0.075, 1.07], [0.05, 1.1], ...arc(1.17, 0.075, -60, 90, 10)], seg);
     const parts = [tint(body, 1)];
     const n = 9;
     for (let i = 0; i < n; i++) {
       const a = i / n * Math.PI * 2, x = Math.cos(a), z = Math.sin(a);
-      const c = new THREE.ConeGeometry(0.03, 0.09, 10); c.translate(0, 0.045, 0); c.rotateZ(0); c.translate(x * 0.205, 1.035, z * 0.205);
-      const b = new THREE.SphereGeometry(0.03, 12, 8); b.translate(x * 0.207, 1.135, z * 0.207);
+      const c = new THREE.ConeGeometry(0.042, 0.13, 10); c.translate(0, 0.065, 0); c.translate(x * 0.215, 1.035, z * 0.215);
+      const b = new THREE.SphereGeometry(0.046, 12, 8); b.translate(x * 0.22, 1.18, z * 0.22);
       parts.push(tint(c, 1), tint(b, 1));
     }
     parts.push(tint(collar(1.04, 0.2, 0.018, seg), 0.88), tint(collar(0.77, 0.205, 0.014, seg), 0.86));
@@ -294,18 +297,18 @@ function buildGeometries(seg) {
   {
     const body = lathe([...BASE, ...smooth([[0.235, 0.22], [0.17, 0.35], [0.14, 0.52], [0.128, 0.7], [0.13, 0.79]]), [0.205, 0.805], [0.222, 0.83], [0.205, 0.855], [0.135, 0.87],
       ...smooth([[0.145, 0.9], [0.17, 0.98], [0.21, 1.06], [0.22, 1.1]]), [0.2, 1.115], [0.13, 1.12], [0.09, 1.15], [0.055, 1.19], [0, 1.2]], seg);
-    const s = new THREE.Shape(), a = 0.032, L = 0.11, f = 0.012;
+    const s = new THREE.Shape(), a = 0.046, L = 0.16, f = 0.016;
     s.moveTo(-a, -L); s.lineTo(a, -L); s.lineTo(a - f, -a); s.lineTo(L - 0.02, -a + f); s.lineTo(L, -a - 0.005); s.lineTo(L, a + 0.005); s.lineTo(L - 0.02, a - f);
     s.lineTo(a - f, a); s.lineTo(a + 0.005, L); s.lineTo(-a - 0.005, L); s.lineTo(-a + f, a); s.lineTo(-L + 0.02, a - f); s.lineTo(-L, a + 0.005); s.lineTo(-L, -a - 0.005);
     s.lineTo(-L + 0.02, -a + f); s.lineTo(-a + f, -a); s.lineTo(-a, -L);
-    const cross = new THREE.ExtrudeGeometry(s, { depth: 0.04, bevelEnabled: true, bevelThickness: 0.015, bevelSize: 0.012, bevelSegments: 3 });
-    cross.translate(0, 0, -0.02); cross.translate(0, 1.33, 0);
+    const cross = new THREE.ExtrudeGeometry(s, { depth: 0.06, bevelEnabled: true, bevelThickness: 0.018, bevelSize: 0.014, bevelSegments: 3 });
+    cross.translate(0, 0, -0.03); cross.translate(0, 1.37, 0);
     const parts = [tint(body, 1), tint(cross, 1), tint(collar(1.105, 0.205, 0.016, seg), 0.88), tint(collar(0.83, 0.212, 0.014, seg), 0.86)];
     const nub = new THREE.SphereGeometry(0.045, 14, 10); nub.translate(0, 1.21, 0); parts.push(tint(nub, 1));
     for (let i = 0; i < 8; i++) { const an = i / 8 * Math.PI * 2, b = new THREE.SphereGeometry(0.022, 10, 6); b.translate(Math.cos(an) * 0.2, 1.065, Math.sin(an) * 0.2); parts.push(tint(b, 0.8)); }
     G[E.K] = mergeGeometries(parts);
   }
-  for (const k in G) G[k].computeBoundingSphere();
+  for (const k in G) { G[k].scale(1.13, 1.03, 1.13); G[k].computeBoundingSphere(); }
   return G;
 }
 
@@ -352,7 +355,7 @@ function buildModernGeometries(seg) {
     const h = new THREE.BoxGeometry(0.19, 0.065, 0.065); h.translate(0, 1.27, 0);
     G[E.K] = mergeGeometries([tint(body, 1), tint(collar(0.86, 0.207, 0.01, seg), 0.5), tint(v, 1), tint(h, 1)]);
   }
-  for (const k in G) G[k].computeBoundingSphere();
+  for (const k in G) { G[k].scale(1.1, 1.02, 1.1); G[k].computeBoundingSphere(); }
   return G;
 }
 
@@ -451,9 +454,9 @@ export class View3D {
       { pr: Math.min(dpr, 2), shadow: 2048, shadows: true },
       { pr: Math.min(dpr, 1.5), shadow: 1024, shadows: true },
       { pr: Math.min(dpr, 1.25), shadow: 1024, shadows: true },
-      { pr: 1, shadow: 512, shadows: true },
-      { pr: 1, shadow: 512, shadows: false },
-      { pr: 0.75, shadow: 512, shadows: false },
+      { pr: Math.min(dpr, 1.5), shadow: 512, shadows: true },
+      { pr: Math.min(dpr, 1.5), shadow: 512, shadows: false },
+      { pr: Math.min(dpr, mobile ? 1.5 : 1), shadow: 512, shadows: false },
     ];
     this.level = mobile ? 1 : 0;
     const qp = new URLSearchParams(location.search).get('q');
@@ -462,7 +465,8 @@ export class View3D {
     this.scene.fog = new THREE.Fog(0x0b0e18, 16, 34);
     const pmrem = new THREE.PMREMGenerator(renderer);
     this.scene.environment = pmrem.fromScene(new RoomEnvironment(renderer), 0.04).texture;
-    this.camera = new THREE.PerspectiveCamera(36, 1, 0.1, 100);
+    this.camera = new THREE.PerspectiveCamera(26, 1, 0.1, 200);
+    this.FOV = 26; this.camView = app.camView || (mobile ? 'alta' : 'media'); this.aid = !!app.visionAid;
 
     this.buildLights(); this.buildBoard(mobile);
     this.seg = mobile ? 28 : 40;
@@ -482,13 +486,26 @@ export class View3D {
       m.onBeforeCompile = (sh) => { sh.vertexShader = sh.vertexShader.replace('#include <begin_vertex>', 'vec3 transformed = position + normal * ' + w.toFixed(4) + ';'); };
       return m;
     };
-    this.outlineMats = { 0: hull(0x2a180a, 0.013), 8: hull(0x5e4a3a, 0.007) };
+    this.outlineMats = { 0: hull(0x1a0e05, 0.02), 8: hull(0xb89a74, 0.013) };
     this.mats[0].userData = { cc: 0.6, sh: 0.3 }; this.mats[8].userData = { cc: 0.95, sh: 0 };
     this.styles = { classico: { geos: this.geos, mats: this.mats } };
     this.style = 'classico';
     const aoC = glowCanvas('rgba(0,0,0,0.78)', 'rgba(0,0,0,0)');
     this.aoMat = new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(aoC), transparent: true, depthWrite: false, toneMapped: false });
     this.aoGeo = new THREE.PlaneGeometry(0.98, 0.98); this.aoGeo.rotateX(-Math.PI / 2);
+    // anel de base: claro com borda escura (brancas), escuro com borda clara (pretas)
+    const ringTex = (fill, edge) => {
+      const c = document.createElement('canvas'); c.width = c.height = 128; const g = c.getContext('2d');
+      g.lineWidth = 10; g.strokeStyle = edge; g.beginPath(); g.arc(64, 64, 57, 0, Math.PI * 2); g.stroke();
+      g.lineWidth = 7; g.strokeStyle = fill; g.beginPath(); g.arc(64, 64, 50, 0, Math.PI * 2); g.stroke();
+      const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
+    };
+    this.ringMats = {
+      0: new THREE.MeshBasicMaterial({ map: ringTex('rgba(255,236,190,0.95)', 'rgba(40,24,10,0.85)'), transparent: true, depthWrite: false, toneMapped: false }),
+      8: new THREE.MeshBasicMaterial({ map: ringTex('rgba(28,22,20,0.95)', 'rgba(255,226,170,0.9)'), transparent: true, depthWrite: false, toneMapped: false }),
+    };
+    this.ringGeo = new THREE.PlaneGeometry(0.98, 0.98); this.ringGeo.rotateX(-Math.PI / 2);
+    this.badgeMats = {};
     this.pieceGroup = new THREE.Group(); this.scene.add(this.pieceGroup);
     this.meshes = {};
     this.particles = new Particles(this.scene, new THREE.CanvasTexture(glowCanvas('rgba(255,255,255,1)', 'rgba(255,255,255,0)')));
@@ -682,9 +699,44 @@ export class View3D {
     if ((piece & 7) === E.N) m.rotation.y = (piece & 8) ? Math.PI : 0;
     const ol = new THREE.Mesh(this.geos[piece & 7], this.outlineMats[piece & 8]); ol.renderOrder = -1; m.add(ol);
     const ao = new THREE.Mesh(this.aoGeo, this.aoMat); ao.renderOrder = 1; ao.position.y = 0.007; m.add(ao);
-    m.userData = { piece, sq, ol, ao };
+    const ring = new THREE.Mesh(this.ringGeo, this.ringMats[piece & 8]); ring.renderOrder = 2; ring.position.y = 0.011; m.add(ring);
+    m.userData = { piece, sq, ol, ao, ring };
+    if (this.aid) this.addBadge(m);
     this.pieceGroup.add(m);
     return m;
+  }
+
+  // Ajuda de visao: simbolo 2D pequeno sobre cada peca
+  badgeMat(piece) {
+    const key = piece & 15;
+    if (this.badgeMats[key]) return this.badgeMats[key];
+    const c = document.createElement('canvas'); c.width = c.height = 128; const g = c.getContext('2d');
+    const white = !(piece & 8);
+    const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
+    const mat = new THREE.SpriteMaterial({ map: t, depthTest: false, depthWrite: false, transparent: true, toneMapped: false, fog: false });
+    if (window.XPieces && XPieces.image) {
+      // primeiro um halo grosso de cor oposta, depois o simbolo: le bem em casa clara ou escura
+      const halo = new Image(), img = new Image();
+      const draw = () => { if (!halo.complete || !img.complete) return; g.clearRect(0, 0, 128, 128); g.drawImage(halo, 0, 0, 128, 128); g.drawImage(img, 0, 0, 128, 128); t.needsUpdate = true; this.dirty = true; };
+      halo.onload = draw; img.onload = draw;
+      const enc = (x) => 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(x);
+      halo.src = enc(white ? XPieces.image(piece, '#1a120b', '#1a120b', '#1a120b', 15) : XPieces.image(piece, '#fff3d6', '#fff3d6', '#fff3d6', 15));
+      img.src = enc(white ? XPieces.image(piece, '#fffaf0', '#1a120b', '#8d7a62', 4) : XPieces.image(piece, '#231b17', '#0b0806', '#b79a7c', 4));
+    }
+    this.badgeMats[key] = mat;
+    return mat;
+  }
+  addBadge(m) {
+    if (m.userData.badge) { m.userData.badge.visible = true; return; }
+    const p = m.userData.piece, sp = new THREE.Sprite(this.badgeMat(p));
+    const h = { 1: 0.62, 2: 0.8, 3: 0.85, 4: 0.78, 5: 0.92, 6: 1.0 }[p & 7];
+    sp.position.y = h; sp.scale.set(0.58, 0.58, 1); sp.renderOrder = 20; sp.raycast = () => {};
+    m.add(sp); m.userData.badge = sp;
+  }
+  setAid(on) {
+    this.aid = !!on;
+    for (const k in this.meshes) { const m = this.meshes[k]; if (on) this.addBadge(m); else if (m.userData.badge) m.userData.badge.visible = false; }
+    this.dirty = true;
   }
 
   sync(board) {
@@ -693,7 +745,7 @@ export class View3D {
     for (let sq = 0; sq < 120; sq++) {
       if (sq & 0x88) { sq += 7; continue; }
       const p = board[sq], m = this.meshes[sq];
-      if (p && m && m.userData.piece === p) { keep[sq] = m; if (m.userData.ao) m.userData.ao.visible = true; m.position.copy(sqPos(sq)); m.scale.set(1, 1, 1); m.rotation.x = 0; m.rotation.z = 0; continue; }
+      if (p && m && m.userData.piece === p) { keep[sq] = m; if (m.userData.ao) m.userData.ao.visible = true; if (m.userData.ring) m.userData.ring.visible = true; m.position.copy(sqPos(sq)); m.scale.set(1, 1, 1); m.rotation.x = 0; m.rotation.z = 0; continue; }
       if (m) this.pieceGroup.remove(m);
       if (p) keep[sq] = this.newMesh(sq, p);
     }
@@ -780,7 +832,7 @@ export class View3D {
     this.dust(p, 1.6);
     this.flash(p, 0xffb060, 3);
     const mat = mesh.material.clone(); mat.transparent = true; mesh.material = mat;
-    if (mesh.userData.ol) mesh.userData.ol.visible = false; if (mesh.userData.ao) mesh.userData.ao.visible = false;
+    for (const k of ['ol', 'ao', 'ring', 'badge']) if (mesh.userData[k]) mesh.userData[k].visible = false;
     const axis = new THREE.Vector3(dir.z, 0, -dir.x);
     const q0 = mesh.quaternion.clone(), q = new THREE.Quaternion();
     const spin = rnd(1.2, 2.2) * Math.PI;
@@ -811,7 +863,7 @@ export class View3D {
     // result: {reason, winner, kingSq}
     if (result.reason === 'mate') {
       const king = this.meshes[result.kingSq];
-      if (king && king.userData.ao) king.userData.ao.visible = false;
+      if (king) for (const k of ['ao', 'ring']) if (king.userData[k]) king.userData[k].visible = false;
       if (king) {
         const dir = Math.random() < 0.5 ? 1 : -1;
         this.tween(1.1, (k) => {
@@ -877,7 +929,15 @@ export class View3D {
     const phi0 = this.cam.phi, goal = this.defaultPhi();
     this.tween(1.1, (k) => { const e = ease(k); this.cam.theta = from + diff * e; this.cam.phi = phi0 + (goal - phi0) * e; });
   }
-  defaultPhi() { if (this._phiFit && !this.menu) return this._phiFit; const a = this.stageAspect || 0.6; return a < 0.8 ? 0.92 : 0.85; }
+  defaultPhi() { if (this.menu) return 0.55; return VIEWS[this.camView] || VIEWS.media; }
+  setCamView(name) {
+    this.camView = VIEWS[name] ? name : 'alta'; this._fitKey = null;
+    if (this.menu || this.cam.target) return;
+    const p0 = this.cam.phi, goal = this.defaultPhi(), t0 = this.cam.theta, gT = this.thetaFor(this.orient);
+    const d = ((gT - t0) % (Math.PI * 2) + Math.PI * 3) % (Math.PI * 2) - Math.PI;
+    this.cancelCam();
+    this.tween(0.6, (k) => { const e = ease(k); this.cam.phi = p0 + (goal - p0) * e; this.cam.theta = t0 + d * e; }, 0, 'cam');
+  }
 
   intro(short) {
     this.cancelCam(); this.cam.target = null; this._fitKey = null;
@@ -919,8 +979,8 @@ export class View3D {
 
   // acha a distancia em que o tabuleiro cabe na area st (largura e altura), e o centro dele em NDC
   fitBoard(st, phi, theta, look) {
-    const c = this._fitCam || (this._fitCam = new THREE.PerspectiveCamera(36, 1, 0.1, 400));
-    c.fov = 36; c.aspect = st.width / st.height; c.updateProjectionMatrix();
+    const c = this._fitCam || (this._fitCam = new THREE.PerspectiveCamera(26, 1, 0.1, 400));
+    c.fov = this.FOV; c.aspect = st.width / st.height; c.updateProjectionMatrix();
     const pts = this._fitPts || (this._fitPts = (() => {
       const a = [];
       for (const x of [-4.2, 4.2]) for (const z of [-4.2, 4.2]) { a.push(new THREE.Vector3(x, 0, z)); a.push(new THREE.Vector3(x, 1.1, z)); }
@@ -936,7 +996,7 @@ export class View3D {
     };
     // margem: 3% dos lados, 4% em cima e embaixo
     const fits = (b) => b && b.x1 - b.x0 <= 1.94 && b.y1 - b.y0 <= 1.92;
-    let lo = 3, hi = 80;
+    let lo = 3, hi = 120;
     for (let i = 0; i < 24; i++) { const mid = (lo + hi) / 2; if (fits(box(mid))) hi = mid; else lo = mid; }
     const b = box(hi);
     return { r: hi, xc: (b.x0 + b.x1) / 2, yc: (b.y0 + b.y1) / 2, w: b.x1 - b.x0, h: b.y1 - b.y0, dirv };
@@ -944,18 +1004,10 @@ export class View3D {
 
   // camera de retrato: escolhe o angulo (mais de cima quando a tela e alta) e diz a altura que o tabuleiro precisa
   fitLayout(W, H) {
-    const base = W / Math.max(1, H) < 0.8 ? 0.92 : 0.85, maxPhi = 1.22, look = new THREE.Vector3(0, 0.15, 0);
-    const big = { width: W, height: W * 4 };
-    const need = (phi) => { let n = 0; for (const th of [0, Math.PI]) { const f = this.fitBoard(big, phi, th, look); n = Math.max(n, f.h / 1.92 * big.height); } return n; };
-    let phi = base;
-    if (need(base) < H) {
-      if (need(maxPhi) <= H) phi = maxPhi;
-      else { let lo = base, hi = maxPhi; for (let i = 0; i < 12; i++) { const m = (lo + hi) / 2; if (need(m) <= H) lo = m; else hi = m; } phi = lo; }
-    }
-    const old = this._phiFit;
-    this._phiFit = phi;
-    if (old != null && Math.abs(old - phi) > 0.001 && !this.menu && !this.cam.target && !this.tweens.some((t) => t.tag === 'cam')) this.cam.phi = phi;
-    return Math.ceil(need(phi));
+    const look = new THREE.Vector3(0, 0.15, 0), big = { width: W, height: W * 4 }, phi = VIEWS[this.camView] || VIEWS.media;
+    let n = 0;
+    for (const th of [0, Math.PI]) { const f = this.fitBoard(big, phi, th, look); n = Math.max(n, f.h / 1.92 * big.height); }
+    return Math.ceil(n);
   }
 
   placeCamera() {
@@ -983,7 +1035,7 @@ export class View3D {
     const offY = h / 2 - (st.top + st.height / 2) - fc.y * k * st.height / 2, offX = w / 2 - (st.left + st.width / 2) + fc.x * k * st.width / 2;
     // escala o campo de visao para que a area livre tenha o tamanho calculado
     const scale = h / st.height;
-    c.fov = 2 * Math.atan(Math.tan(36 * Math.PI / 360) * scale) * 180 / Math.PI;
+    c.fov = 2 * Math.atan(Math.tan(this.FOV * Math.PI / 360) * scale) * 180 / Math.PI;
     c.setViewOffset(w, h, offX, offY, w, h);
     c.updateProjectionMatrix();
   }
@@ -1064,7 +1116,7 @@ export class View3D {
     if (this.checkMesh.visible) { const s = 0.85 + Math.sin(t * 5) * 0.15; this.checkMesh.scale.set(s, 1, s); this.checkMesh.material.opacity = 0.65 + Math.sin(t * 5) * 0.3; busy = true;
       if (this.checkKing) this.checkKing.material.emissiveIntensity = 0.12 + (Math.sin(t * 5) * 0.5 + 0.5) * 0.35; }
     if (this.selSq >= 0) { const s = 1 + Math.sin(t * 6) * 0.08; this.dotMat.opacity = 0.7 + Math.sin(t * 6) * 0.15; for (const k in this.marks) this.marks[k].dot.scale.set(s, 1, s); busy = true; }
-    for (const k in this.meshes) { const m = this.meshes[k], ao = m.userData.ao; if (ao) { ao.position.y = 0.007 - m.position.y; const sc = 1 + m.position.y * 0.8; ao.scale.set(sc, 1, sc); } }
+    for (const k in this.meshes) { const m = this.meshes[k], ao = m.userData.ao; if (ao) { ao.position.y = 0.007 - m.position.y; const sc = 1 + m.position.y * 0.8; ao.scale.set(sc, 1, sc); } const rg = m.userData.ring; if (rg) rg.position.y = 0.011 - m.position.y; }
     if (!busy && !this.dirty) { this.fps.frames = 0; this.fps.time = 0; return; }
     // no menu basta 30 quadros por segundo (economiza bateria)
     if (this.menu && !this.dirty && (this._skip = !this._skip)) return;
