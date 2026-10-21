@@ -82,6 +82,7 @@ body:not(.three) #game { background: radial-gradient(120% 80% at 50% 0%, var(--b
 .player .caps { display: flex; flex: 1; min-width: 0; overflow: hidden; }
 .player .caps .pcs { width: 20px; height: 20px; margin-right: -6px; flex: none; }
 .player .adv { color: var(--mute); font-weight: 700; font-size: 14px; }
+#gSpace { flex: 0 1 0; min-height: 0; }
 #stage { flex: 1; position: relative; display: flex; align-items: center; justify-content: center; min-height: 0; }
 body.three #stage { pointer-events: none; }
 body.three #board2d { display: none; }
@@ -290,3 +291,13 @@ body[data-theme="azul"] { --sqL1: #c3cdd5; --sqL2: #adb9c4; --sqD1: #5a7590; --s
 
 #set3d { display: flex; flex-direction: column; gap: 10px; }
 #pSettings { max-height: 62vh; overflow-y: auto; touch-action: pan-y; }
+
+/* ===== Telas altas em retrato: HUD e botoes maiores, tudo colado no tabuleiro ===== */
+@media (max-width: 699px) and (min-height: 860px) {
+  .player { height: 46px; font-size: 16px; }
+  .player .caps .pcs { width: 23px; height: 23px; }
+  .controls { gap: 8px; padding: 8px 10px 14px; }
+  .controls button { min-height: 68px; font-size: 14px; border-radius: 16px; }
+  .controls svg { width: 25px; height: 25px; }
+  #status { font-size: 20px; min-height: 38px; }
+}

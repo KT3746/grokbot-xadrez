@@ -877,7 +877,7 @@ export class View3D {
     const phi0 = this.cam.phi, goal = this.defaultPhi();
     this.tween(1.1, (k) => { const e = ease(k); this.cam.theta = from + diff * e; this.cam.phi = phi0 + (goal - phi0) * e; });
   }
-  defaultPhi() { const a = this.stageAspect || 0.6; return a < 0.8 ? 0.92 : 0.85; }
+  defaultPhi() { if (this._phiFit && !this.menu) return this._phiFit; const a = this.stageAspect || 0.6; return a < 0.8 ? 0.92 : 0.85; }
 
   intro(short) {
     this.cancelCam(); this.cam.target = null; this._fitKey = null;
@@ -917,28 +917,60 @@ export class View3D {
     this.dirty = true;
   }
 
+  // acha a distancia em que o tabuleiro cabe na area st (largura e altura), e o centro dele em NDC
+  fitBoard(st, phi, theta, look) {
+    const c = this._fitCam || (this._fitCam = new THREE.PerspectiveCamera(36, 1, 0.1, 400));
+    c.fov = 36; c.aspect = st.width / st.height; c.updateProjectionMatrix();
+    const pts = this._fitPts || (this._fitPts = (() => {
+      const a = [];
+      for (const x of [-4.2, 4.2]) for (const z of [-4.2, 4.2]) { a.push(new THREE.Vector3(x, 0, z)); a.push(new THREE.Vector3(x, 1.1, z)); }
+      return a;
+    })());
+    const dirv = new THREE.Vector3(Math.cos(phi) * Math.sin(theta), Math.sin(phi), Math.cos(phi) * Math.cos(theta));
+    const v = new THREE.Vector3();
+    const box = (r) => {
+      c.position.copy(look).addScaledVector(dirv, r); c.lookAt(look); c.updateMatrixWorld();
+      let x0 = 9, x1 = -9, y0 = 9, y1 = -9;
+      for (const p of pts) { v.copy(p).project(c); if (v.z > 1) return null; x0 = Math.min(x0, v.x); x1 = Math.max(x1, v.x); y0 = Math.min(y0, v.y); y1 = Math.max(y1, v.y); }
+      return { x0, x1, y0, y1 };
+    };
+    // margem: 3% dos lados, 4% em cima e embaixo
+    const fits = (b) => b && b.x1 - b.x0 <= 1.94 && b.y1 - b.y0 <= 1.92;
+    let lo = 3, hi = 80;
+    for (let i = 0; i < 24; i++) { const mid = (lo + hi) / 2; if (fits(box(mid))) hi = mid; else lo = mid; }
+    const b = box(hi);
+    return { r: hi, xc: (b.x0 + b.x1) / 2, yc: (b.y0 + b.y1) / 2, w: b.x1 - b.x0, h: b.y1 - b.y0, dirv };
+  }
+
+  // camera de retrato: escolhe o angulo (mais de cima quando a tela e alta) e diz a altura que o tabuleiro precisa
+  fitLayout(W, H) {
+    const base = W / Math.max(1, H) < 0.8 ? 0.92 : 0.85, maxPhi = 1.22, look = new THREE.Vector3(0, 0.15, 0);
+    const big = { width: W, height: W * 4 };
+    const need = (phi) => { let n = 0; for (const th of [0, Math.PI]) { const f = this.fitBoard(big, phi, th, look); n = Math.max(n, f.h / 1.92 * big.height); } return n; };
+    let phi = base;
+    if (need(base) < H) {
+      if (need(maxPhi) <= H) phi = maxPhi;
+      else { let lo = base, hi = maxPhi; for (let i = 0; i < 12; i++) { const m = (lo + hi) / 2; if (need(m) <= H) lo = m; else hi = m; } phi = lo; }
+    }
+    const old = this._phiFit;
+    this._phiFit = phi;
+    if (old != null && Math.abs(old - phi) > 0.001 && !this.menu && !this.cam.target && !this.tweens.some((t) => t.tag === 'cam')) this.cam.phi = phi;
+    return Math.ceil(need(phi));
+  }
+
   placeCamera() {
     const c = this.camera, st = this.stage, w = this.W, h = this.H;
-    // encaixa o tabuleiro dentro da area livre da tela
-    c.fov = 36; c.aspect = st.width / st.height; c.clearViewOffset(); c.updateProjectionMatrix();
-    const corners = [];
-    for (const x of [-4.2, 4.2]) for (const z of [-4.2, 4.2]) { corners.push(new THREE.Vector3(x, 0, z)); corners.push(new THREE.Vector3(x, x * z > 0 ? 0.9 : 1.3, z)); }
-    const dirv = new THREE.Vector3(Math.cos(this.cam.phi) * Math.sin(this.cam.theta), Math.sin(this.cam.phi), Math.cos(this.cam.phi) * Math.cos(this.cam.theta));
     const look = this.cam.target || new THREE.Vector3(0, 0.15, 0);
-    const fits = (r) => {
-      c.position.copy(look).addScaledVector(dirv, r); c.lookAt(look); c.updateMatrixWorld();
-      for (const p of corners) { const v = p.clone().project(c); if (Math.abs(v.x) > 0.97 || Math.abs(v.y) > 0.95 || v.z > 1) return false; }
-      return true;
-    };
     const key = [this.cam.theta.toFixed(3), this.cam.phi.toFixed(3), st.width, st.height].join();
     let r;
     if (this.cam.target) { this._fitKey = null; r = this.cam.dist || 3; }
     else if (this._fitKey === key) r = this._fitR;
     else {
-      let lo = 4, hi = 60;
-      for (let i = 0; i < 22; i++) { const mid = (lo + hi) / 2; if (fits(mid)) hi = mid; else lo = mid; }
-      r = hi; this._fitKey = key; this._fitR = r;
+      const f = this.fitBoard(st, this.cam.phi, this.cam.theta, look);
+      r = f.r; this._fitKey = key; this._fitR = r; this._fitC = { x: f.xc, y: f.yc };
     }
+    const fc = this._fitC || { x: 0, y: 0 };
+    const dirv = new THREE.Vector3(Math.cos(this.cam.phi) * Math.sin(this.cam.theta), Math.sin(this.cam.phi), Math.cos(this.cam.phi) * Math.cos(this.cam.theta));
     if (!this.cam.target) r *= this.cam.rFactor;
     c.position.copy(look).addScaledVector(dirv, r); c.lookAt(look);
     // luz de contorno sempre atras das pecas, vista da camera
@@ -946,12 +978,26 @@ export class View3D {
     this.rim2.position.set(-dirv.x * 9 - dirv.z * 4, 6, -dirv.z * 9 + dirv.x * 4);
     if (this.shakeAmt > 0.001) { c.position.x += rnd(-1, 1) * this.shakeAmt * r * 0.05; c.position.y += rnd(-1, 1) * this.shakeAmt * r * 0.05; }
     c.aspect = w / h;
-    const offY = h / 2 - (st.top + st.height / 2), offX = w / 2 - (st.left + st.width / 2);
+    // centraliza o tabuleiro (nao o ponto de mira) dentro da area livre
+    const k = 1 / Math.max(1, this.cam.rFactor);
+    const offY = h / 2 - (st.top + st.height / 2) - fc.y * k * st.height / 2, offX = w / 2 - (st.left + st.width / 2) + fc.x * k * st.width / 2;
     // escala o campo de visao para que a area livre tenha o tamanho calculado
     const scale = h / st.height;
     c.fov = 2 * Math.atan(Math.tan(36 * Math.PI / 360) * scale) * 180 / Math.PI;
     c.setViewOffset(w, h, offX, offY, w, h);
     c.updateProjectionMatrix();
+  }
+
+  // retangulo do tabuleiro na tela (px), para medir o layout
+  boardRect() {
+    const c = this.camera; c.updateMatrixWorld();
+    let x0 = 1e9, x1 = -1e9, y0 = 1e9, y1 = -1e9;
+    for (const x of [-4.2, 4.2]) for (const z of [-4.2, 4.2]) for (const y of [0, 1.1]) {
+      const p = new THREE.Vector3(x, y, z).project(c);
+      const sx = (p.x + 1) / 2 * this.W, sy = (1 - p.y) / 2 * this.H;
+      x0 = Math.min(x0, sx); x1 = Math.max(x1, sx); y0 = Math.min(y0, sy); y1 = Math.max(y1, sy);
+    }
+    return { left: x0, right: x1, top: y0, bottom: y1, width: x1 - x0, height: y1 - y0 };
   }
 
   bindInput() {

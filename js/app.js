@@ -38,11 +38,25 @@
     var r = $('stage').getBoundingClientRect();
     return { left: r.left, top: r.top, width: r.width, height: r.height };
   };
-  function fit2d() {
-    var r = $('stage').getBoundingClientRect();
-    var s = Math.floor(Math.min(r.width - 14, r.height - 14));
+  // Retrato: o palco fica so do tamanho que o tabuleiro precisa e a sobra vai para cima,
+  // assim jogadores, status e botoes ficam colados no tabuleiro.
+  function layoutGame() {
+    var g = $('game'), st = $('stage'), sp = $('gSpace');
+    if (!g.classList.contains('show')) return;
+    st.style.flex = ''; st.style.height = ''; sp.style.flexGrow = '0';
+    var r = st.getBoundingClientRect();
+    if (r.width < 10 || r.height < 10) return;
+    var need = (app.v && app.v === app.view3d) ? app.view3d.fitLayout(r.width, r.height) + 6 : Math.min(r.width, r.height);
+    if (need < r.height - 4) { st.style.flex = '0 0 auto'; st.style.height = need + 'px'; sp.style.flexGrow = '1'; }
+    var r2 = st.getBoundingClientRect();
+    var s = Math.floor(Math.min(r2.width - 14, r2.height - 14));
     $('board2d').style.width = s + 'px'; $('board2d').style.height = s + 'px';
+    if (app.view3d) app.view3d.resize();
   }
+  var layoutQ = 0;
+  function fit2d() { layoutGame(); }
+  function queueLayout() { if (layoutQ) return; layoutQ = requestAnimationFrame(function () { layoutQ = 0; layoutGame(); }); }
+  app.layout = layoutGame;
   function useView(kind, first) {
     if (kind === '3d' && !app.view3d) kind = '2d';
     app.v = kind === '3d' ? app.view3d : app.view2d;
@@ -63,7 +77,7 @@
     return import('./view3d.js?v=' + V).then(function (mod) {
       try {
         app.view3d = new mod.View3D($('c3d'), app);
-        window.addEventListener('resize', function () { app.view3d.resize(); });
+        window.addEventListener('resize', function () { app.view3d.resize(); queueLayout(); });
       } catch (e) { console.warn(e); app.has3d = false; toast('Seu aparelho não conseguiu abrir o 3D. Usando o visual 2D.'); }
       $('loading').hidden = true;
       return app.view3d;
@@ -700,7 +714,12 @@
       if (next === '3d') init3d().then(function (v) { if (!v) return; prefs.view = '3d'; savePrefs(); markView('3d'); useView('3d'); });
       else { prefs.view = '2d'; savePrefs(); markView('2d'); useView('2d'); }
     };
-    window.addEventListener('resize', function () { fit2d(); });
+    window.addEventListener('resize', function () { queueLayout(); });
+    if (window.ResizeObserver) {
+      var ro = new ResizeObserver(queueLayout);
+      ['game', 'plTop', 'hist', 'plBot', 'status', 'coach'].forEach(function (id) { ro.observe($(id)); });
+      ro.observe(document.querySelector('#game .controls')); ro.observe(document.querySelector('#game .top'));
+    }
   }
 
   function boot() {
