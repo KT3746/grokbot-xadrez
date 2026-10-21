@@ -758,6 +758,13 @@ export class View3D {
     return new Promise((res) => { this.tweens.push({ t0: now() + delay, dur, fn, res, tag }); this.dirty = true; });
   }
   // cancela animacoes de camera em andamento (ex.: cinema do xeque-mate) antes de uma nova
+  // pula a animacao de camera (intro ou cinema) no primeiro toque
+  skipCam() {
+    let any = false;
+    this.tweens = this.tweens.filter((tw) => { if (tw.tag === 'cam') { try { tw.fn(1); } catch (e) { } tw.res(); any = true; return false; } return true; });
+    if (any) this.dirty = true;
+    return any;
+  }
   cancelCam() {
     this.tweens = this.tweens.filter((tw) => { if (tw.tag === 'cam') { tw.res(); return false; } return true; });
   }
@@ -1054,7 +1061,7 @@ export class View3D {
 
   bindInput() {
     const cv = this.canvas; let st = null;
-    cv.addEventListener('pointerdown', (e) => { if (this.menu) return; st = { x: e.clientX, y: e.clientY, id: e.pointerId, moved: false, th: this.cam.theta, ph: this.cam.phi }; try { cv.setPointerCapture(e.pointerId); } catch (er) { } });
+    cv.addEventListener('pointerdown', (e) => { if (this.menu) return; this.skipCam(); st = { x: e.clientX, y: e.clientY, id: e.pointerId, moved: false, th: this.cam.theta, ph: this.cam.phi }; try { cv.setPointerCapture(e.pointerId); } catch (er) { } });
     cv.addEventListener('pointermove', (e) => {
       if (!st || e.pointerId !== st.id) return;
       const dx = e.clientX - st.x, dy = e.clientY - st.y;

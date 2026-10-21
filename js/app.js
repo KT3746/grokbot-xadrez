@@ -26,7 +26,7 @@
     store(SAVE, { learn: app.learn, mode: app.mode, level: app.level, human: app.human, autoFlip: app.autoFlip, orient: app.orient, moves: app.game.moves.map(E.uci), t: Date.now(), clock: app.clock ? { limit: app.clock.limit, left: app.clock.left } : null });
   }
   function sfx(n) { XSound.play(n); }
-  var VIBE = { move: 12, capture: [22, 30, 14], check: [25, 60, 25], mate: [40, 70, 40, 70, 160], illegal: 8, select: 6, draw: [30, 80, 30] };
+  var VIBE = { move: 12, capture: [22, 30, 14], check: [25, 60, 25], mate: [40, 70, 40, 70, 160], illegal: 8, select: 6, tap: 7, draw: [30, 80, 30] };
   function buzz(n) { if (!prefs.vibe || !navigator.vibrate) return; try { navigator.vibrate(VIBE[n] || 10); } catch (e) { } }
   function banner(title, sub) {
     var b = $('banner'); b.querySelector('b').textContent = title; b.querySelector('span').textContent = sub || '';
@@ -91,7 +91,7 @@
   // ===== Partida =====
   function isHumanTurn() { return app.mode === '2p' || (app.game.pos.turn === app.human && !(app.mode === 'puzzle' && app.pz && app.pz.lock)); }
   function startGame(opts) {
-    app.recorded = false;
+    app.recorded = false; app.t0 = Date.now();
     app.learn = !!opts.learn && opts.mode === 'ai'; app.gameId = (app.gameId || 0) + 1; app.coach = { before: null, lastAI: null };
     app.mode = opts.mode; app.level = opts.level || 'medio'; app.human = opts.human || 0; app.autoFlip = !!opts.autoFlip;
     app.game = new E.Game(opts.fen);
@@ -377,8 +377,30 @@
       var title = st.reason === 'mate' ? 'Xeque-mate!' : st.reason === 'time' ? 'Tempo esgotado!' : 'Empate!';
       var text = statusText(st).replace('Xeque-mate! ', '').replace('Tempo esgotado! ', '');
       if (st.reason === 'mate' || (st.reason === 'time' && app.mode !== 'ai')) text = app.mode === 'ai' ? (st.winner === app.human ? 'Parabéns, você venceu o computador!' : 'O computador venceu desta vez. Tente de novo!') : text + '!';
-      modal(title, text, [{ t: 'Ver tabuleiro' }, { t: 'Novo jogo', pri: true, fn: function () { newSame(); } }]);
+      modal(title, text, [{ t: 'Ver tabuleiro' }, { t: app.mode === 'ai' ? 'Jogar de novo' : 'Novo jogo', pri: true, fn: function () { newSame(); } }], resultExtra(st));
     }, st.reason === 'mate' ? 3300 : 2000);
+  }
+
+  // Tela de resultado: emblema, numeros da partida e placar no nivel
+  var ICONS = {
+    win: '<svg viewBox="0 0 64 64"><path d="M18 8h28v14a14 14 0 0 1-28 0z"/><path d="M18 12H9v4a10 10 0 0 0 10 10M46 12h9v4a10 10 0 0 1-10 10"/><path d="M32 36v10M22 56h20M25 56l2-10h10l2 10"/></svg>',
+    loss: '<svg viewBox="0 0 64 64"><path d="M24 54h16M27 54l1-8h8l1 8"/><path d="M22 46h20l-3-9H25z"/><path d="M26 37c-4-4-5-9-4-14 2-6 6-9 10-9s8 3 10 9c1 5 0 10-4 14"/><path d="M32 4v8M28 8h8"/><path d="M14 44l36-24" stroke-dasharray="3 4"/></svg>',
+    draw: '<svg viewBox="0 0 64 64"><path d="M8 30l10-10 10 6 8-6 8 6 12-6"/><path d="M14 26l12 14c2 2 5 2 7 0l3-3M28 26l12 12c2 2 5 2 6 0 2-2 1-4 0-5"/><path d="M8 30l6 6M56 26l-6 12"/></svg>'
+  };
+  function fmtTime(ms) { var s = Math.max(0, Math.round(ms / 1000)), m = Math.floor(s / 60); s %= 60; return m + ':' + (s < 10 ? '0' : '') + s; }
+  function resultExtra(st) {
+    var g = app.game, kind = st.winner === -1 ? 'draw' : (app.mode === 'ai' ? (st.winner === app.human ? 'win' : 'loss') : 'win');
+    var caps = { 0: 0, 8: 0 }; g.moves.forEach(function (m) { if (m.cap) caps[m.piece & 8]++; });
+    var me = app.mode === 'ai' ? app.human : 0, other = me ^ 8;
+    var cells = [['Lances', Math.ceil(g.moves.length / 2)], [app.mode === 'ai' ? 'Você capturou' : 'Brancas capturaram', caps[me]],
+      [app.mode === 'ai' ? 'Computador capturou' : 'Pretas capturaram', caps[other]], ['Tempo', fmtTime(Date.now() - (app.t0 || Date.now()))]];
+    var html = '<div class="rgrid">' + cells.map(function (c) { return '<div><b>' + c[1] + '</b><span>' + c[0] + '</span></div>'; }).join('') + '</div>';
+    if (app.mode === 'ai' && window.XStats) {
+      var S = XStats.data(), L = S.levels[app.level] || { w: 0, l: 0, d: 0 };
+      html += '<div class="rrec"><span>Seu placar no ' + LEVEL_NAME[app.level] + '</span><b class="w">' + L.w + ' V</b><b class="d">' + L.d + ' E</b><b class="l">' + L.l + ' D</b></div>';
+      if (S.streak >= 2) html += '<div class="rstreak">' + S.streak + ' vitórias seguidas!</div>';
+    }
+    return { kind: kind, icon: ICONS[kind], html: html };
   }
 
   // ===== Computador =====
@@ -559,8 +581,12 @@
   }
 
   // ===== Janelas =====
-  function modal(title, text, btns) {
+  function modal(title, text, btns, extra) {
     $('mTitle').textContent = title; $('mText').textContent = text;
+    var card = $('modal').querySelector('.card');
+    card.className = 'card' + (extra && extra.kind ? ' res ' + extra.kind : '');
+    $('mIcon').hidden = !(extra && extra.icon); $('mIcon').innerHTML = extra && extra.icon || '';
+    $('mExtra').hidden = !(extra && extra.html); $('mExtra').innerHTML = extra && extra.html || '';
     var row = $('mBtns'); row.innerHTML = '';
     btns.forEach(function (b) {
       var e = document.createElement('button'); e.textContent = b.t; if (b.pri) e.className = 'pri';
@@ -603,7 +629,16 @@
       requestAnimationFrame(function () { fit2d(); if (app.view3d) app.view3d.resize(); });
     }
   }
-  function showPanel(id) { ['pMain', 'pAI', 'pTwo', 'pSettings'].forEach(function (p) { $(p).hidden = p !== id; }); }
+  function showPanel(id) { ['pMain', 'pAI', 'pTwo', 'pSettings'].forEach(function (p) { var e = $(p); e.hidden = p !== id; if (p === id) { e.classList.remove('enter'); void e.offsetWidth; e.classList.add('enter'); } }); }
+  // botoes com resposta: onda no toque e vibracao curta
+  document.addEventListener('pointerdown', function (e) {
+    var b = e.target.closest && e.target.closest('.controls button, .tile, .card .row button, .seg button, .tog, .big, .camBtn, .pzgrid button, #coachWhy');
+    if (!b || b.disabled) return;
+    var r = b.getBoundingClientRect(), d = Math.max(r.width, r.height) * 2.2, s = document.createElement('span');
+    s.className = 'rip'; s.style.width = s.style.height = d + 'px'; s.style.left = (e.clientX - r.left - d / 2) + 'px'; s.style.top = (e.clientY - r.top - d / 2) + 'px';
+    b.classList.add('riph'); b.appendChild(s); setTimeout(function () { s.remove(); }, 600);
+    if (b.closest('.controls')) buzz('tap');
+  }, { passive: true });
   function updateContinue() {
     var s = load(SAVE), b = $('bContinue');
     if (s && s.moves && s.moves.length) {
