@@ -9,7 +9,7 @@
 
   var PHONE = Math.min(screen.width, screen.height) < 700;
   var prefs = load(PREFS) || {};
-  prefs = { style: prefs.style || 'classico', env: prefs.env || 'sala', theme: prefs.theme || 'classico', clock: prefs.clock || '0', view: prefs.view || '3d', sound: prefs.sound !== false, music: prefs.music !== false, vibe: prefs.vibe !== false, learn: !!prefs.learn, level: prefs.level || 'medio', color: prefs.color || 'w', flip: prefs.flip !== false, cam: prefs.cam || (PHONE ? 'alta' : 'media'), aid: prefs.aid != null ? !!prefs.aid : PHONE };
+  prefs = { style: prefs.style || 'classico', env: prefs.env || 'sala', theme: prefs.theme || 'classico', clock: prefs.clock || '0', view: prefs.view || '3d', sound: prefs.sound !== false, music: prefs.music !== false, vibe: prefs.vibe !== false, learn: !!prefs.learn, level: prefs.level || 'medio', color: prefs.color || 'w', flip: prefs.flip !== false, cam: prefs.cam || (PHONE ? 'alta' : 'media'), aid: prefs.aid != null ? !!prefs.aid : PHONE, camFx: prefs.camFx !== false };
 
   var app = {
     game: null, mode: 'ai', level: 'medio', human: 0, autoFlip: true, orient: 0,
@@ -717,6 +717,7 @@
       if (app.view3d) app.view3d.setTheme(v);
     });
     segInit('segStyle', prefs.style, function (v) { prefs.style = v; savePrefs(); app.pieceStyle = v; if (app.view3d) app.view3d.setStyle(v); });
+    segInit('segCamFx', prefs.camFx ? '1' : '0', function (v) { prefs.camFx = v === '1'; savePrefs(); app.camFx = prefs.camFx; if (app.view3d) app.view3d.camFx = prefs.camFx; });
     segInit('segAid', prefs.aid ? '1' : '0', function (v) { prefs.aid = v === '1'; savePrefs(); if (app.view3d) app.view3d.setAid(prefs.aid); });
     $('camBtn').onclick = function () {
       var order = ['alta', 'media', 'baixa'];
@@ -768,7 +769,7 @@
 
   function boot() {
     app.has3d = webglOK();
-    app.theme = prefs.theme; document.body.dataset.theme = prefs.theme; app.pieceStyle = prefs.style; app.env = prefs.env; app.camView = prefs.cam; app.visionAid = prefs.aid; camUI();
+    app.theme = prefs.theme; document.body.dataset.theme = prefs.theme; app.pieceStyle = prefs.style; app.env = prefs.env; app.camView = prefs.cam; app.visionAid = prefs.aid; app.camFx = prefs.camFx; camUI();
     app.view2d = new View2D($('board2d'), app);
     app.v = app.view2d;
     bind(); soundUI(); vibeUI();

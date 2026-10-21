@@ -466,7 +466,7 @@ export class View3D {
     const pmrem = new THREE.PMREMGenerator(renderer);
     this.scene.environment = pmrem.fromScene(new RoomEnvironment(renderer), 0.04).texture;
     this.camera = new THREE.PerspectiveCamera(26, 1, 0.1, 200);
-    this.FOV = 26; this.camView = app.camView || (mobile ? 'alta' : 'media'); this.aid = !!app.visionAid;
+    this.FOV = 26; this.camFx = app.camFx !== false; this.camView = app.camView || (mobile ? 'alta' : 'media'); this.aid = !!app.visionAid;
 
     this.buildLights(); this.buildBoard(mobile);
     this.seg = mobile ? 28 : 40;
@@ -767,6 +767,8 @@ export class View3D {
   }
   cancelCam() {
     this.tweens = this.tweens.filter((tw) => { if (tw.tag === 'cam') { tw.res(); return false; } return true; });
+    if (this.cam.lookOff) this.cam.lookOff.set(0, 0, 0);
+    if (!this.menu) this.cam.rFactor = 1;
   }
 
   animate(m, board, opts) {
@@ -833,11 +835,30 @@ export class View3D {
     this.tween(0.6, (k) => { this.glowLight.intensity = Math.sin(Math.PI * k) * power; });
   }
 
+  // anel de luz que se espalha pelo tabuleiro
+  shockwave(p, color) {
+    if (!this.swGeo) { this.swGeo = new THREE.RingGeometry(0.42, 0.5, 48); this.swGeo.rotateX(-Math.PI / 2); }
+    const m = new THREE.Mesh(this.swGeo, new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.9, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false }));
+    m.position.set(p.x, 0.02, p.z); m.renderOrder = 5; this.scene.add(m);
+    this.tween(0.6, (k) => { const e = easeOut(k), s = 0.6 + e * 2.6; m.scale.set(s, 1, s); m.material.opacity = 0.9 * (1 - k); }).then(() => { this.scene.remove(m); m.material.dispose(); });
+  }
+  // aproxima a camera rapidinho da captura e volta (um toque pula)
+  punch(p) {
+    const off = this.cam.lookOff || (this.cam.lookOff = new THREE.Vector3());
+    const goal = new THREE.Vector3(p.x * 0.45, 0, p.z * 0.45);
+    this.tween(0.95, (k) => {
+      const a = k < 0.35 ? easeOut(k / 0.35) : 1 - ease((k - 0.35) / 0.65);
+      off.copy(goal).multiplyScalar(a); this.cam.rFactor = 1 - 0.2 * a;
+      if (k >= 1) { off.set(0, 0, 0); this.cam.rFactor = 1; }
+    }, 0.05, 'cam');
+  }
   captureFx(mesh, dir) {
     const p = mesh.position.clone(), dark = mesh.userData.piece & 8;
     this.particles.burst(p.clone().setY(0.45), { colors: dark ? ['#ff9d4a', '#ffd27a', '#ffefc0'] : ['#fff1c8', '#ffd27a', '#ffffff'], count: 55, up: 3, speed: 2.4, life: 0.9 });
     this.dust(p, 1.6);
     this.flash(p, 0xffb060, 3);
+    this.shockwave(p, dark ? 0xffa040 : 0xfff0c0);
+    if (this.camFx && !this.menu && !this.cam.target && !this.tweens.some((t) => t.tag === 'cam')) this.punch(p);
     const mat = mesh.material.clone(); mat.transparent = true; mesh.material = mat;
     for (const k of ['ol', 'ao', 'ring', 'badge']) if (mesh.userData[k]) mesh.userData[k].visible = false;
     const axis = new THREE.Vector3(dir.z, 0, -dir.x);
@@ -1031,14 +1052,15 @@ export class View3D {
     const fc = this._fitC || { x: 0, y: 0 };
     const dirv = new THREE.Vector3(Math.cos(this.cam.phi) * Math.sin(this.cam.theta), Math.sin(this.cam.phi), Math.cos(this.cam.phi) * Math.cos(this.cam.theta));
     if (!this.cam.target) r *= this.cam.rFactor;
-    c.position.copy(look).addScaledVector(dirv, r); c.lookAt(look);
+    if (!this.cam.target && this.cam.lookOff && this.cam.lookOff.lengthSq() > 1e-6) { const lk = look.clone().add(this.cam.lookOff); c.position.copy(lk).addScaledVector(dirv, r); c.lookAt(lk); }
+    else { c.position.copy(look).addScaledVector(dirv, r); c.lookAt(look); }
     // luz de contorno sempre atras das pecas, vista da camera
     this.rim.position.set(-dirv.x * 9 + dirv.z * 3, 4.5, -dirv.z * 9 - dirv.x * 3);
     this.rim2.position.set(-dirv.x * 9 - dirv.z * 4, 6, -dirv.z * 9 + dirv.x * 4);
     if (this.shakeAmt > 0.001) { c.position.x += rnd(-1, 1) * this.shakeAmt * r * 0.05; c.position.y += rnd(-1, 1) * this.shakeAmt * r * 0.05; }
     c.aspect = w / h;
     // centraliza o tabuleiro (nao o ponto de mira) dentro da area livre
-    const k = 1 / Math.max(1, this.cam.rFactor);
+    const k = 1 / this.cam.rFactor;
     const offY = h / 2 - (st.top + st.height / 2) - fc.y * k * st.height / 2, offX = w / 2 - (st.left + st.width / 2) + fc.x * k * st.width / 2;
     // escala o campo de visao para que a area livre tenha o tamanho calculado
     const scale = h / st.height;
@@ -1102,13 +1124,16 @@ export class View3D {
     let busy = false;
     if (this.tweens.length) {
       busy = true;
-      this.tweens = this.tweens.filter((tw) => {
+      // tweens criados durante outro tween (ex.: captura) entram na lista nova e nao se perdem
+      const list = this.tweens; this.tweens = [];
+      const kept = list.filter((tw) => {
         if (t < tw.t0) return true;
         const k = Math.min(1, (t - tw.t0) / tw.dur);
         tw.fn(k);
         if (k >= 1) { tw.res(); return false; }
         return true;
       });
+      this.tweens = kept.concat(this.tweens);
     }
     if (this.particles.update(dt)) busy = true;
     if (this.shakeAmt > 0.001) { this.shakeAmt *= Math.pow(0.0005, dt); busy = true; } else this.shakeAmt = 0;

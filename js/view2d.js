@@ -54,12 +54,14 @@
     if (capEl) {
       capEl.style.setProperty('--t', capEl.style.transform); capEl.classList.add('b2-gone'); this.pcLayer.appendChild(capEl);
       setTimeout(function () { if (capEl.parentNode) capEl.parentNode.removeChild(capEl); }, 420);
+      setTimeout(function () { self.burst(capSq, ['#ff9a1f', '#ffc63a', '#ff5a2a', '#fff0b0'], 16, 1.15); }, 200);
     }
     moves.forEach(function (mv) {
       var e = self.pieces[mv[1]]; if (!e) return;
       e.style.transition = 'none'; e.style.transform = self.tf(mv[0]); e.style.zIndex = 5;
       void e.offsetWidth;
       e.style.transition = ''; e.style.transform = self.tf(mv[1]);
+      e.classList.remove('hop'); void e.offsetWidth; e.classList.add('hop');
       setTimeout(function () { e.style.zIndex = ''; e.classList.add('land'); }, 230);
     });
     return new Promise(function (res) { setTimeout(res, 240); });
@@ -118,6 +120,26 @@
     this.el.addEventListener('pointerup', end);
     this.el.addEventListener('pointercancel', function (e) { if (drag) { drag.el.classList.remove('dragging'); drag.el.style.transform = self.tf(drag.sq); drag = null; } });
   };
-  View2D.prototype.celebrate = function () { };
+  // faiscas em CSS sobre uma casa
+  View2D.prototype.burst = function (sq, colors, n, power) {
+    var p = this.cell(sq), b = document.createElement('div');
+    b.className = 'b2-burst'; b.style.left = (p.c * 12.5 + 6.25) + '%'; b.style.top = (p.r * 12.5 + 6.25) + '%';
+    for (var i = 0; i < n; i++) {
+      var s = document.createElement('i'), a = Math.random() * Math.PI * 2, d = (30 + Math.random() * 45) * power;
+      s.style.setProperty('--x', Math.cos(a) * d + 'px'); s.style.setProperty('--y', Math.sin(a) * d + 'px');
+      s.style.background = colors[i % colors.length]; s.style.animationDelay = (Math.random() * 0.06) + 's';
+      var z = 4 + Math.random() * 5; s.style.width = s.style.height = z + 'px';
+      b.appendChild(s);
+    }
+    this.el.appendChild(b);
+    setTimeout(function () { b.remove(); }, 1100);
+  };
+  View2D.prototype.celebrate = function (r) {
+    var self = this;
+    if (r && r.reason === 'mate' && r.kingSq >= 0) {
+      var k = this.pieces[r.kingSq]; if (k) k.classList.add('b2-fall');
+      for (var i = 0; i < 4; i++) setTimeout(function () { self.burst(16 * Math.floor(Math.random() * 8) + Math.floor(Math.random() * 8), ['#ffe08a', '#ffffff', '#7fe3ff', '#ff9de0', '#ffd24a'], 18, 1.6); }, 300 + i * 260);
+    } else if (r) this.burst(0x34, ['#9fd8ff', '#ffffff', '#c8b8ff'], 22, 1.8);
+  };
   window.View2D = View2D;
 })();

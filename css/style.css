@@ -344,3 +344,12 @@ body.three .camBtn { display: flex; }
 .rrec b { padding: 2px 8px; border-radius: 8px; font-size: 13px; } .rrec .w { background: #1f5a36; color: #a8f0bf; } .rrec .d { background: #2c3a55; color: #bcd0f2; } .rrec .l { background: #5a2626; color: #ffb4ab; }
 .rstreak { margin: -4px 0 12px; color: var(--gold); font-weight: 800; font-size: 15px; }
 @keyframes medal { from { transform: scale(.2) rotate(-25deg); opacity: 0; } }
+
+/* ===== 2D: pulo do lance, faiscas, rei caindo ===== */
+.b2-pc.hop:not(.land) .pcs { animation: hop .24s ease-out; }
+@keyframes hop { 0% { transform: none; } 50% { transform: translateY(-10%) scale(1.14); filter: drop-shadow(0 12px 7px rgba(0, 0, 0, .4)); } 100% { transform: none; } }
+.b2-burst { position: absolute; width: 0; height: 0; z-index: 30; pointer-events: none; }
+.b2-burst i { position: absolute; left: 0; top: 0; border-radius: 50%; box-shadow: 0 0 6px currentColor; animation: spark .75s cubic-bezier(.15, .7, .3, 1) both; }
+@keyframes spark { 0% { transform: translate(-50%, -50%) scale(1.3); opacity: 1; } 100% { transform: translate(calc(-50% + var(--x)), calc(-50% + var(--y) + 18px)) scale(.2); opacity: 0; } }
+.b2-pc.b2-fall .pcs { animation: kfall .9s cubic-bezier(.5, 0, .7, 1.4) .25s forwards; transform-origin: 50% 85%; }
+@keyframes kfall { to { transform: rotate(84deg) translateY(4%); filter: grayscale(.4) brightness(.8); } }
