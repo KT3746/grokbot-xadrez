@@ -13,7 +13,9 @@
     var master = ctx.createGain(); master.gain.value = 0.9;
     comp.connect(master); master.connect(ctx.destination);
     sfx = ctx.createGain(); sfx.gain.value = sfxOn ? 1 : 0; sfx.connect(comp);
-    mus = ctx.createGain(); mus.gain.value = 0; mus.connect(comp);
+    duckG = ctx.createGain(); duckG.gain.value = 1; duckG.connect(comp);
+    mus = ctx.createGain(); mus.gain.value = 0; mus.connect(duckG);
+    tensG = ctx.createGain(); tensG.gain.value = 1; tensG.connect(mus);
     verb = ctx.createConvolver(); verb.buffer = impulse(3.6);
     verbIn = ctx.createGain(); verbIn.gain.value = 1;
     var verbOut = ctx.createGain(); verbOut.gain.value = 0.45;
@@ -22,6 +24,7 @@
     var d = noiseBuf.getChannelData(0);
     for (var i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
     if (musOn) startMusic();
+    startBeat();
     document.addEventListener('visibilitychange', function () {
       if (!ctx) return;
       if (document.hidden) ctx.suspend(); else ctx.resume();
@@ -115,10 +118,52 @@
     }
   };
 
+  // a musica abaixa um pouco quando um som importante toca (mixagem)
+  var DUCK = { capture: 0.5, check: 0.4, mate: 0.15, lose: 0.2, draw: 0.35, promote: 0.4, castle: 0.7, start: 0.6 };
+  var duckG = null;
+  function duck(amt, hold) {
+    if (!duckG || !musOn) return;
+    var t = ctx.currentTime, g = duckG.gain;
+    g.cancelScheduledValues(t); g.setValueAtTime(g.value, t);
+    g.linearRampToValueAtTime(amt, t + 0.04); g.setValueAtTime(amt, t + hold); g.linearRampToValueAtTime(1, t + hold + 0.9);
+  }
   function play(name) {
     if (!ctx || !sfxOn || !FX[name]) return;
     if (ctx.state === 'suspended') ctx.resume();
+    if (DUCK[name] != null) duck(DUCK[name], name === 'mate' || name === 'lose' ? 2.6 : 0.25);
     try { FX[name](ctx.currentTime + 0.01); } catch (e) { }
+  }
+
+  // ===== Camada de tensao: batida de coracao grave que cresce com o perigo =====
+  var tension = 0, tTarget = 0, beatT = 0, beatTimer = null, tensG = null;
+  function heart(t, vol) {
+    [[0, 62, 1], [0.2, 54, 0.6]].forEach(function (b) {
+      var o = ctx.createOscillator(); o.type = 'sine';
+      o.frequency.setValueAtTime(b[1] * 1.6, t + b[0]); o.frequency.exponentialRampToValueAtTime(b[1], t + b[0] + 0.12);
+      var g = ctx.createGain(); env(g, t + b[0], vol * b[2], 0.006, 0.28);
+      o.connect(g); g.connect(tensG); o.start(t + b[0]); o.stop(t + b[0] + 0.4);
+    });
+  }
+  function shimmer(t, vol) {
+    var src = ctx.createBufferSource(); src.buffer = noiseBuf;
+    var hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 7000;
+    var g = ctx.createGain(); env(g, t, vol, 0.002, 0.05);
+    src.connect(hp); hp.connect(g); g.connect(tensG); src.start(t, Math.random() * 0.5, 0.08);
+  }
+  function startBeat() {
+    if (beatTimer || !ctx) return;
+    beatT = ctx.currentTime + 0.1;
+    beatTimer = setInterval(function () {
+      if (!ctx || ctx.state !== 'running') return;
+      tension += (tTarget - tension) * 0.25;
+      if (!musOn || tension < 0.05) { beatT = Math.max(beatT, ctx.currentTime + 0.1); return; }
+      var gap = 1.05 - tension * 0.35;
+      while (beatT < ctx.currentTime + 0.5) {
+        heart(beatT, 0.07 + tension * 0.11);
+        if (tension > 0.6) { shimmer(beatT + gap / 2, 0.012 * tension); }
+        beatT += gap;
+      }
+    }, 200);
   }
 
   // ===== Musica ambiente generativa (calma, piano eletrico e camas suaves) =====
@@ -127,7 +172,7 @@
   var BAR = 8;
   function mtof(n) { return 440 * Math.pow(2, (n - 69) / 12); }
   function pad(t, notes, len) {
-    var lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 650; lp.Q.value = 0.4;
+    var lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 650 + tension * 900; lp.Q.value = 0.4 + tension * 2;
     var lfo = ctx.createOscillator(); lfo.frequency.value = 0.07; var lg = ctx.createGain(); lg.gain.value = 260;
     lfo.connect(lg); lg.connect(lp.frequency); lfo.start(t); lfo.stop(t + len + 3.2);
     var g = ctx.createGain();
@@ -192,6 +237,8 @@
     init: init, play: play,
     setSfx: function (on) { sfxOn = on; if (sfx) sfx.gain.value = on ? 1 : 0; },
     setMusic: function (on) { musOn = on; if (on) startMusic(); else stopMusic(); },
+    // 0 = calmo, 1 = perigo maximo (xeque, relogio no fim)
+    setTension: function (x) { tTarget = Math.max(0, Math.min(1, x || 0)); },
     get sfxOn() { return sfxOn; }, get musicOn() { return musOn; }
   };
 })();

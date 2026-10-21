@@ -353,3 +353,11 @@ body.three .camBtn { display: flex; }
 @keyframes spark { 0% { transform: translate(-50%, -50%) scale(1.3); opacity: 1; } 100% { transform: translate(calc(-50% + var(--x)), calc(-50% + var(--y) + 18px)) scale(.2); opacity: 0; } }
 .b2-pc.b2-fall .pcs { animation: kfall .9s cubic-bezier(.5, 0, .7, 1.4) .25s forwards; transform-origin: 50% 85%; }
 @keyframes kfall { to { transform: rotate(84deg) translateY(4%); filter: grayscale(.4) brightness(.8); } }
+
+/* ===== Logo: brilho que passa e coroa flutuando ===== */
+#menu h1 { background: linear-gradient(100deg, transparent 0 40%, rgba(255, 255, 255, .85) 48%, transparent 56% 100%) no-repeat, linear-gradient(180deg, #fff6d6 0%, #f5c84c 45%, #c97a1c 100%);
+  background-size: 250% 100%, 100% 100%; background-position: 160% 0, 0 0; -webkit-background-clip: text; background-clip: text; animation: shine 5s ease-in-out 1.2s infinite; }
+@keyframes shine { 0%, 55% { background-position: 160% 0, 0 0; } 85%, 100% { background-position: -60% 0, 0 0; } }
+.crown { animation: floaty 4s ease-in-out infinite; }
+@keyframes floaty { 50% { transform: translateY(-5px); filter: drop-shadow(0 12px 22px rgba(245, 200, 76, .6)); } }
+@media (prefers-reduced-motion: reduce) { #menu h1, .crown { animation: none; } }

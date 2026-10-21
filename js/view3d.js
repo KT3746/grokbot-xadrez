@@ -745,7 +745,7 @@ export class View3D {
     for (let sq = 0; sq < 120; sq++) {
       if (sq & 0x88) { sq += 7; continue; }
       const p = board[sq], m = this.meshes[sq];
-      if (p && m && m.userData.piece === p) { keep[sq] = m; if (m.userData.ao) m.userData.ao.visible = true; if (m.userData.ring) m.userData.ring.visible = true; m.position.copy(sqPos(sq)); m.scale.set(1, 1, 1); m.rotation.x = 0; m.rotation.z = 0; continue; }
+      if (p && m && m.userData.piece === p) { keep[sq] = m; if (m.userData.ao) m.userData.ao.visible = true; if (m.userData.ring) m.userData.ring.visible = true; if (m.userData.badge) m.userData.badge.visible = this.aid; m.position.copy(sqPos(sq)); m.scale.set(1, 1, 1); m.rotation.x = 0; m.rotation.z = 0; continue; }
       if (m) this.pieceGroup.remove(m);
       if (p) keep[sq] = this.newMesh(sq, p);
     }
@@ -892,6 +892,7 @@ export class View3D {
     if (result.reason === 'mate') {
       const king = this.meshes[result.kingSq];
       if (king) for (const k of ['ao', 'ring']) if (king.userData[k]) king.userData[k].visible = false;
+      for (const k in this.meshes) { const b = this.meshes[k].userData.badge; if (b) b.visible = false; }
       if (king) {
         const dir = Math.random() < 0.5 ? 1 : -1;
         this.tween(1.1, (k) => {

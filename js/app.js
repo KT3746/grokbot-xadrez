@@ -195,7 +195,20 @@
     var st = getStatus(), el = $('status');
     if (app.hintText && !st.over) { el.textContent = app.hintText; el.className = 'hint'; return; }
     el.textContent = statusText(st);
-    el.className = st.over ? 'over' : (st.check ? 'check' : '');
+    el.className = st.over ? 'over' : (st.check ? 'check' : '');    musicMood(st);
+  }
+  // musica adaptativa: mais tensa em xeque, com o relogio no fim ou no final da partida
+  function musicMood(st) {
+    if (!window.XSound || !XSound.setTension) return;
+    var t = 0;
+    if (app.screen === 'game' && app.game && !st.over) {
+      var b = app.game.pos.board, n = 0;
+      for (var sq = 0; sq < 120; sq++) { if (sq & 0x88) { sq += 7; continue; } if (b[sq]) n++; }
+      if (st.check) t = 1;
+      else if (app.clock && app.clock.left[app.game.pos.turn] < 30000) t = 0.8;
+      else if (n <= 10) t = 0.35;
+    }
+    XSound.setTension(t);
   }
   function refreshPlayers() {
     var g = app.game, bottomColor = app.orient, topColor = bottomColor ^ 8;
@@ -612,6 +625,7 @@
   // ===== Telas =====
   function showScreen(s) {
     app.screen = s;
+    if (s !== 'game' && window.XSound && XSound.setTension) XSound.setTension(0);
     [].forEach.call(document.querySelectorAll('.screen'), function (el) { el.classList.toggle('show', el.id === s); });
     if (s === 'puzzles') buildPuzzleList();
     if (s === 'achv') XStats.render($('achList'), pzProg, (window.XPuzzles || []).length);
