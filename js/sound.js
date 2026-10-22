@@ -134,6 +134,32 @@
     impale: function (t) { FX.whoosh(t); knock(t + 0.06, 3800, 0.4, 0.05); FX.crunch(t + 0.07); },
     windup: function (t) { var src = ctx.createBufferSource(); src.buffer = noiseBuf; var bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.Q.value = 0.9; bp.frequency.setValueAtTime(160, t); bp.frequency.exponentialRampToValueAtTime(700, t + 0.45); var g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.22, t + 0.35); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.55); src.connect(bp); bp.connect(g); g.connect(sfx); src.start(t, 0, 0.6); thump(t, 50, 70, 0.25, 0.5); },
     blast: function (t) { var src = ctx.createBufferSource(); src.buffer = noiseBuf; var bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.Q.value = 1.4; bp.frequency.setValueAtTime(300, t); bp.frequency.exponentialRampToValueAtTime(3800, t + 0.3); var g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.3, t + 0.25); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.4); src.connect(bp); bp.connect(g); g.connect(sfx); src.start(t, 0, 0.45); [392, 587.33, 783.99].forEach(function (f, i) { bell(t + 0.28 + i * 0.01, f, 0.08, 1.6, 0.9); }); FX.smash(t + 0.3); },
+    // ===== Exercitos e explosivos =====
+    // grito "fogo no buraco!" feito de vogais sintetizadas (voz de soldado, nada gravado)
+    fith: function (t) {
+      var sy = [[0.0, 0.2, [[760, 1150], [320, 2250]], 170, 'f'], [0.21, 0.13, [[520, 1350], [480, 1350]], 182, ''], [0.37, 0.12, [[420, 1950], [420, 1950]], 188, ''], [0.5, 0.1, [[560, 1250], [560, 1250]], 176, 'd'], [0.62, 0.32, [[560, 950], [380, 760]], 158, 'h']];
+      sy.forEach(function (q) { voice(t + q[0], q[1], q[2], q[3], 0.2, q[4]); });
+    },
+    // grito de guerra de varios soldados
+    warcry: function (t) { for (var i = 0; i < 4; i++) voice(t + Math.random() * 0.06, 0.62 + Math.random() * 0.1, [[680, 1100], [740, 1180]], 130 + i * 24 + Math.random() * 10, 0.09, i ? '' : 'h', 1.25); FX.stompH(t); },
+    // tambor de guerra
+    drum: function (t) { [[0, 1], [0.17, 0.6], [0.34, 1.1]].forEach(function (h) { thump(t + h[0], 120, 46, 0.75 * h[1], 0.38); knock(t + h[0], 160, 0.3 * h[1], 0.12); knock(t + h[0], 1100, 0.05 * h[1], 0.03); }); },
+    fuse: function (t) {
+      var src = ctx.createBufferSource(); src.buffer = noiseBuf; src.loop = true;
+      var hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 3200;
+      var g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.09, t + 0.05); g.gain.setValueAtTime(0.09, t + 0.5); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.75);
+      src.connect(hp); hp.connect(g); g.connect(sfx); src.start(t); src.stop(t + 0.8);
+      for (var i = 0; i < 10; i++) knock(t + Math.random() * 0.7, 2500 + Math.random() * 3000, 0.05 + Math.random() * 0.06, 0.012);
+    },
+    boom: function (t) {
+      thump(t, 90, 22, 1.3, 1.1); thump(t + 0.01, 48, 18, 1.1, 1.6); boom(t, 1.4, 2.4); knock(t, 2400, 0.6, 0.06); knock(t + 0.01, 700, 0.6, 0.12);
+      for (var i = 0; i < 26; i++) { var d = 0.2 + Math.pow(Math.random(), 1.4) * 1.5; knock(t + d, 300 + Math.random() * 2600, (0.08 + Math.random() * 0.16) * (1.8 - d) / 1.8, 0.04 + Math.random() * 0.07); }
+      rumble(t, 3, 0.7);
+    },
+    cannon: function (t) { thump(t, 140, 30, 1.1, 0.6); boom(t, 1.0, 1.4); knock(t, 3400, 0.5, 0.04); knock(t + 0.005, 900, 0.5, 0.1); rumble(t, 1.6, 0.4); },
+    potbreak: function (t) { for (var i = 0; i < 10; i++) knock(t + Math.random() * 0.08, 1800 + Math.random() * 3600, 0.15 + Math.random() * 0.15, 0.03 + Math.random() * 0.04); FX.whoosh(t + 0.02); },
+    bow: function (t) { var o = ctx.createOscillator(); o.type = 'triangle'; o.frequency.setValueAtTime(240, t); o.frequency.exponentialRampToValueAtTime(150, t + 0.25); var g = ctx.createGain(); env(g, t, 0.22, 0.002, 0.25); o.connect(g); g.connect(sfx); o.start(t); o.stop(t + 0.3); knock(t, 1800, 0.18, 0.03); FX.whoosh(t + 0.02); },
+    thunk: function (t) { knock(t, 600, 0.45, 0.06); thump(t, 160, 70, 0.4, 0.12); knock(t + 0.01, 3000, 0.2, 0.03); },
     charge: function (t) { for (var i = 0; i < 6; i++) { thump(t + i * 0.09, 80, 34, 0.45, 0.14); knock(t + i * 0.09, 220, 0.14, 0.06); } },
     whoosh: function (t) {
       var src = ctx.createBufferSource(); src.buffer = noiseBuf;
@@ -144,6 +170,22 @@
     }
   };
 
+  // voz sintetizada: pulso de serra (cordas vocais) passando por filtros de formantes que andam de uma vogal para outra
+  function voice(t, dur, F, f0, vol, cons, rough) {
+    if (cons) { var ns = ctx.createBufferSource(); ns.buffer = noiseBuf; var nf = ctx.createBiquadFilter(); nf.type = cons === 'f' ? 'highpass' : 'bandpass'; nf.frequency.value = cons === 'f' ? 2600 : cons === 'd' ? 1800 : 1200; var ng = ctx.createGain(); var cd = cons === 'd' ? 0.025 : 0.07; ng.gain.setValueAtTime(0.0001, t - cd); ng.gain.exponentialRampToValueAtTime(cons === 'd' ? 0.2 : 0.12, t - cd + 0.01); ng.gain.exponentialRampToValueAtTime(0.0001, t + 0.01); ns.connect(nf); nf.connect(ng); ng.connect(sfx); ns.start(Math.max(ctx.currentTime, t - cd), Math.random(), cd + 0.05); }
+    var o = ctx.createOscillator(); o.type = 'sawtooth';
+    o.frequency.setValueAtTime(f0 * 0.92, t); o.frequency.linearRampToValueAtTime(f0 * 1.08, t + dur * 0.35); o.frequency.linearRampToValueAtTime(f0 * 0.9, t + dur);
+    var vib = ctx.createOscillator(); vib.frequency.value = 6 + Math.random() * 2; var vg = ctx.createGain(); vg.gain.value = f0 * 0.025 * (rough || 1); vib.connect(vg); vg.connect(o.frequency);
+    var out = ctx.createGain(); out.gain.setValueAtTime(0.0001, t); out.gain.exponentialRampToValueAtTime(vol, t + 0.025); out.gain.setValueAtTime(vol, t + dur * 0.7); out.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    [[0, 1, 9], [1, 0.55, 12]].forEach(function (fm) {
+      var bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.Q.value = fm[2];
+      bp.frequency.setValueAtTime(F[0][fm[0]], t); bp.frequency.linearRampToValueAtTime(F[1][fm[0]], t + dur * 0.8);
+      var g = ctx.createGain(); g.gain.value = fm[1] * 3.2; o.connect(bp); bp.connect(g); g.connect(out);
+    });
+    var lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 3200; var lg = ctx.createGain(); lg.gain.value = 0.18; o.connect(lp); lp.connect(lg); lg.connect(out);
+    out.connect(sfx); var s2 = ctx.createGain(); s2.gain.value = 0.25; out.connect(s2); s2.connect(verbIn);
+    o.start(t); vib.start(t); o.stop(t + dur + 0.05); vib.stop(t + dur + 0.05);
+  }
   // ronco grave de pedra arrastando
   function boom(t, vol, dur) {
     var src = ctx.createBufferSource(); src.buffer = noiseBuf;
@@ -160,7 +202,7 @@
     src.start(t); src.stop(t + dur + 0.1);
   }
   // a musica abaixa um pouco quando um som importante toca (mixagem)
-  var DUCK = { smash: 0.3, crash: 0.15, blast: 0.3, shatter: 0.5, crumble: 0.25, awaken: 0.5, capture: 0.5, check: 0.4, mate: 0.15, lose: 0.2, draw: 0.35, promote: 0.4, castle: 0.7, start: 0.6 };
+  var DUCK = { boom: 0.1, cannon: 0.3, fith: 0.5, warcry: 0.6, smash: 0.3, crash: 0.15, blast: 0.3, shatter: 0.5, crumble: 0.25, awaken: 0.5, capture: 0.5, check: 0.4, mate: 0.15, lose: 0.2, draw: 0.35, promote: 0.4, castle: 0.7, start: 0.6 };
   var duckG = null;
   function duck(amt, hold) {
     if (!duckG || !musOn) return;
@@ -171,7 +213,7 @@
   function play(name) {
     if (!ctx || !(sfxOn || force) || !FX[name]) return;
     if (ctx.state === 'suspended') ctx.resume();
-    if (DUCK[name] != null) duck(DUCK[name], name === 'mate' || name === 'lose' ? 2.6 : name === 'crash' ? 1.2 : 0.25);
+    if (DUCK[name] != null) duck(DUCK[name], name === 'mate' || name === 'lose' ? 2.6 : name === 'crash' || name === 'boom' ? 1.4 : 0.25);
     try { FX[name](ctx.currentTime + 0.01); } catch (e) { }
   }
 

@@ -10,7 +10,7 @@
   var PHONE = Math.min(screen.width, screen.height) < 700;
   var prefs = load(PREFS) || {};
   prefs = { style: prefs.style || 'classico', env: prefs.env || 'sala', theme: prefs.theme || 'classico', clock: prefs.clock || '0', view: prefs.view || '3d', sound: prefs.sound !== false, music: prefs.music !== false, vibe: prefs.vibe !== false, learn: !!prefs.learn, level: prefs.level || 'medio', color: prefs.color || 'w', flip: prefs.flip !== false, cam: prefs.cam2 || 'auto', aid: !!prefs.aid2, camFx: prefs.camFx !== false, p2: prefs.p2 || 'premium', evalbar: prefs.evalbar || 'learn',
-    palette: prefs.palette || 'classico', psize: prefs.psize || 'n', outline: prefs.outline !== false, speed: prefs.speed || 'normal', capFx: prefs.capFx === 'normal' ? 'normal' : 'brutal', fight: prefs.fight !== false, fight3: !!prefs.fight3, last3: prefs.last3 || (prefs.view === 'vivo' ? 'vivo' : '3d') };
+    palette: prefs.palette || 'classico', psize: prefs.psize || 'n', outline: prefs.outline !== false, speed: prefs.speed || 'normal', capFx: prefs.capFx === 'normal' ? 'normal' : 'brutal', fight: prefs.fight !== false, fight3: !!prefs.fight3, army: prefs.army === 'cem' || prefs.army === 'esparta' ? prefs.army : 'estatuas', last3: prefs.last3 || (prefs.view === 'vivo' ? 'vivo' : '3d') };
   var PSIZE = { p: 0.9, n: 1, g: 1.12 };
 
   var app = {
@@ -490,7 +490,7 @@
     FT.load = Promise.all([import('./view3d.js?v=' + V), import('./vivo3d.js?v=' + V), import('./fight3d.js?v=' + V)]).then(function (a) {
       var C = a[2].makeFight(a[0], a[1]);
       var wasHidden = el.hidden; el.hidden = false; el.style.visibility = 'hidden';
-      FT.inst = new C($('fightCv'), { capFx: prefs.capFx, camFx: prefs.camFx, palette: prefs.palette, outlines: prefs.outline, pScale: 1, animSpeed: prefs.speed, camView: 'auto', visionAid: false,
+      FT.inst = new C($('fightCv'), { army: prefs.army, capFx: prefs.capFx, camFx: prefs.camFx, palette: prefs.palette, outlines: prefs.outline, pScale: 1, animSpeed: prefs.speed, camView: 'auto', visionAid: false,
         sel: -1, dests: {}, onSquare: function () { }, tryMove: function () { return false; }, clearSel: function () { }, hoverKind: function () { return ''; }, stageRect: function () { return { left: 0, top: 0, width: 10, height: 10 }; } });
       el.style.visibility = ''; el.hidden = wasHidden;
       return FT.inst;
@@ -533,7 +533,7 @@
         if (v.palette !== prefs.palette) v.setPalette(prefs.palette);
         v.resize();
         maxT = setTimeout(finish, 9000);
-        v.fight(m, E).then(finish);
+        (v.setArmy ? v.setArmy(prefs.army).catch(function (e) { console.warn(e); }) : Promise.resolve()).then(function () { if (!ended) v.fight(m, E).then(finish); });
       });
     });
   }
@@ -1071,6 +1071,7 @@
     cam: { t: 'Vista da câmera', o: [['auto', 'Normal'], ['alta', 'Alta'], ['media', 'Média'], ['baixa', 'Baixa']], when: function (g) { return is3k(g('view')); } },
     speed: { t: 'Velocidade das animações', o: [['normal', 'Normal'], ['rapido', 'Rápido']] },
     capFx: { t: 'Intensidade das capturas', o: [['brutal', 'Brutal'], ['normal', 'Normal']], when: function (g) { return g('view') === 'vivo' || (g('view') === '2d' && g('fight') === '1') || (g('view') === '3d' && g('fight3') === '1'); } },
+    army: { t: 'Exército', o: [['estatuas', 'Estátuas'], ['cem', 'Guerra dos Cem Anos'], ['esparta', 'Espartanos x Persas']], need3: true, when: function (g) { return g('view') === 'vivo' || (g('view') === '2d' && g('fight') === '1') || (g('view') === '3d' && g('fight3') === '1'); } },
     fight: { t: 'Lutas 3D nas capturas', o: [['1', 'Ligado'], ['0', 'Desligado']], when: function (g) { return g('view') === '2d'; }, need3: true },
     fight3: { t: 'Lutas 3D nas capturas', o: [['1', 'Ligado'], ['0', 'Desligado']], when: function (g) { return g('view') === '3d'; } },
     camFx: { t: 'Câmera aproxima nas capturas', o: [['1', 'Ligado'], ['0', 'Desligado']], when: function (g) { return is3k(g('view')); } },
@@ -1079,7 +1080,7 @@
     music: { t: 'Música', o: [['1', 'Ligada'], ['0', 'Desligada']] },
     vibe: { t: 'Vibração', o: [['1', 'Ligada'], ['0', 'Desligada']], when: function () { return !!navigator.vibrate; } }
   };
-  var SGROUPS = [['Visual', ['view', 'style', 'palette', 'psize', 'outline', 'aid']], ['Tabuleiro e cenário', ['theme', 'p2', 'env']], ['Câmera e animação', ['cam', 'speed', 'fight', 'fight3', 'capFx', 'camFx', 'evalbar']], ['Som', ['sound', 'music', 'vibe']]];
+  var SGROUPS = [['Visual', ['view', 'style', 'army', 'palette', 'psize', 'outline', 'aid']], ['Tabuleiro e cenário', ['theme', 'p2', 'env']], ['Câmera e animação', ['cam', 'speed', 'fight', 'fight3', 'capFx', 'camFx', 'evalbar']], ['Som', ['sound', 'music', 'vibe']]];
   function setVal(k) {
     var v = prefs[k];
     if (k === 'style' && prefs.view === 'vivo') return 'vivo';
@@ -1127,6 +1128,7 @@
       case 'cam': prefs.cam = v; prefs.cam2 = v; app.camView = v; savePrefs(); camUI(); each3(function (x) { x.setCamView(v); }); layoutGame(); break;
       case 'speed': prefs.speed = v; app.animSpeed = v; savePrefs(); each3(function (x) { x.speed = v; }); look2d(); break;
       case 'capFx': prefs.capFx = v; app.capFx = v; savePrefs(); each3(function (x) { x.capFx = v; }); break;
+      case 'army': prefs.army = v; app.army = v; savePrefs(); each3(function (x) { if (x.setArmy) x.setArmy(v); }); if (FT.inst) FT.inst.setArmy(v); break;
       case 'fight': prefs.fight = on; savePrefs(); if (on) fightPreload(); break;
       case 'fight3': prefs.fight3 = on; savePrefs(); if (on) fightPreload(); break;
       case 'camFx': prefs.camFx = on; app.camFx = on; savePrefs(); each3(function (x) { x.camFx = on; }); break;
@@ -1164,7 +1166,7 @@
   }
   // ===== Ajustes com prévia ao vivo =====
   // Nada muda no jogo até tocar em Aplicar. A prévia desenha um tabuleiro de exemplo com o visual escolhido.
-  var DEF = { view: '3d', style: 'classico', palette: 'classico', psize: 'n', outline: '1', aid: '0', theme: 'classico', p2: 'premium', env: 'sala', cam: 'auto', speed: 'normal', capFx: 'brutal', fight: '1', fight3: '0', camFx: '1', evalbar: 'learn', sound: '1', music: '1', vibe: '1' };
+  var DEF = { view: '3d', style: 'classico', palette: 'classico', psize: 'n', outline: '1', aid: '0', theme: 'classico', p2: 'premium', env: 'sala', cam: 'auto', speed: 'normal', capFx: 'brutal', army: 'estatuas', fight: '1', fight3: '0', camFx: '1', evalbar: 'learn', sound: '1', music: '1', vibe: '1' };
   var PV = { open: false, mode: 'game', base: null, d: null, hov: null, inst: {}, cls: {}, kind: null, v2: null, keep: false };
   var PVSAMPLE = (function () {
     var fen = 'r1bq1rk1/ppp2ppp/2np1n2/2b1p3/2B1P3/2NP1N2/PPP2PPP/R1BQ1RK1 w - - 0 7';
@@ -1232,12 +1234,13 @@
   }
   function pvLabel(s) {
     var k = pvKind(s), a;
-    if (k === 'vivo') a = ['Xadrez Vivo', optName('palette', s.palette), optName('cam', s.cam) === 'Normal' ? '' : 'Vista ' + optName('cam', s.cam).toLowerCase()];
+    if (k === 'vivo' && s.army && s.army !== 'estatuas') a = [s.view === 'vivo' ? 'Xadrez Vivo' : 'Lutas 3D', optName('army', s.army)];
+    else if (k === 'vivo') a = ['Xadrez Vivo', optName('palette', s.palette), optName('cam', s.cam) === 'Normal' ? '' : 'Vista ' + optName('cam', s.cam).toLowerCase()];
     else if (k === '3d') a = ['3D', optName('style', s.st3), optName('theme', s.theme), optName('env', s.env)];
     else a = ['2D ' + optName('p2', s.p2), optName('theme', s.theme), optName('palette', s.palette)];
     return a.filter(Boolean).join(' · ');
   }
-  function pvKind(s) { return app.has3d && is3k(s.view) ? s.view : '2d'; }
+  function pvKind(s) { if (app.has3d && PV.armyLook && s.view !== 'vivo') return 'vivo'; return app.has3d && is3k(s.view) ? s.view : '2d'; }
   function pvClass(kind) {
     if (PV.cls[kind]) return Promise.resolve(PV.cls[kind]);
     return import('./view3d.js?v=' + V).then(function (M) {
@@ -1246,7 +1249,7 @@
     });
   }
   function pvFake(s) {
-    return { theme: s.theme, env: s.env, pieceStyle: s.st3, palette: s.palette, outlines: s.outline === '1', pScale: PSIZE[s.psize] || 1, animSpeed: s.speed, capFx: s.capFx, camView: s.cam, visionAid: s.aid === '1', camFx: s.camFx === '1',
+    return { army: s.army, theme: s.theme, env: s.env, pieceStyle: s.st3, palette: s.palette, outlines: s.outline === '1', pScale: PSIZE[s.psize] || 1, animSpeed: s.speed, capFx: s.capFx, camView: s.cam, visionAid: s.aid === '1', camFx: s.camFx === '1',
       sel: -1, dests: {}, onSquare: function () { }, tryMove: function () { return false; }, clearSel: function () { }, hoverKind: function () { return ''; }, stageRect: function () { return { left: 0, top: 0, width: 10, height: 10 }; } };
   }
   function pvLoading(on, txt) { var l = $('pvLoad'); l.hidden = !on; if (txt) l.textContent = txt; }
@@ -1288,6 +1291,7 @@
     ch('psize', s.psize, function (v) { inst.setPieceScale(PSIZE[v] || 1); });
     ch('aid', s.aid, function (v) { inst.setAid(v === '1'); });
     ch('cam', s.cam, function (v) { inst.setCamView(v); });
+    if (inst.setArmy) ch('army', s.army, function (v) { inst.setArmy(v).then(function () { inst.dirty = true; }); });
     inst.speed = s.speed; inst.camFx = s.camFx === '1'; inst.capFx = s.capFx;
   }
   // 2D: um documento a parte (iframe), com as classes do visual so dele, sem mexer no jogo
@@ -1339,7 +1343,7 @@
     var want = k == null || PV.d[k] === v ? null : { k: k, v: v };
     if (JSON.stringify(want) === JSON.stringify(PV.hov)) return;
     var slow = want && (k === 'view' || (k === 'style' && (v === 'vivo' || PV.d.view === 'vivo')));
-    pvHovT = setTimeout(function () { PV.hov = want; pvUpdate(); }, !want ? 160 : slow ? 340 : 70);
+    pvHovT = setTimeout(function () { PV.hov = want; PV.armyLook = want ? want.k === 'army' : !!PV.armyClick; pvUpdate(); }, !want ? 160 : slow ? 340 : 70);
   }
   function pvTest() {
     var kind = PV.kind, v = kind === '2d' ? PV.v2 : PV.inst[kind];
@@ -1367,7 +1371,7 @@
   function openGameSettings(mode) {
     if (PV.open) return;
     mode = typeof mode === 'string' ? mode : (app.screen === 'game' ? 'game' : 'menu');
-    PV.open = true; PV.mode = mode; PV.hov = null;
+    PV.open = true; PV.mode = mode; PV.hov = null; PV.armyClick = PV.armyLook = false;
     PV.keep = matchMedia('(hover: hover) and (pointer: fine)').matches && !PHONE;
     if (mode === 'game') app.paused = true;
     // o jogo para de desenhar enquanto o painel esta aberto (so a previa usa a placa de video)
@@ -1408,6 +1412,7 @@
     body.addEventListener('click', function (e) {
       var b = e.target.closest('button[data-v]'), sg = b && b.closest('.seg[data-k]'); if (!sg) return;
       sfx('click'); clearTimeout(pvHovT); PV.hov = null;
+      PV.armyClick = PV.armyLook = sg.dataset.k === 'army';
       pvSet(PV.d, sg.dataset.k, b.dataset.v);
       pvRender(); pvUpdate();
     });
@@ -1579,7 +1584,7 @@
   function boot() {
     app.has3d = webglOK();
     app.theme = prefs.theme; document.body.dataset.theme = prefs.theme; document.body.classList.toggle('p2-prem', prefs.p2 === 'premium'); app.pieceStyle = prefs.style; app.env = prefs.env; app.camView = prefs.cam; app.visionAid = prefs.aid; app.camFx = prefs.camFx; camUI();
-    app.palette = prefs.palette; app.pScale = PSIZE[prefs.psize] || 1; app.outlines = prefs.outline; app.animSpeed = prefs.speed; app.capFx = prefs.capFx; look2d();
+    app.palette = prefs.palette; app.pScale = PSIZE[prefs.psize] || 1; app.outlines = prefs.outline; app.animSpeed = prefs.speed; app.capFx = prefs.capFx; app.army = prefs.army; look2d();
     app.view2d = new View2D($('board2d'), app);
     app.v = app.view2d;
     bind(); soundUI(); vibeUI();

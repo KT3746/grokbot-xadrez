@@ -401,17 +401,49 @@ export function makeVivo(M) {
       this.motes.userData.ph = ph; grp.add(this.motes);
       if (this.palette && this.palette !== 'classico') this.setPalette(this.palette);
       this.dirty = true; this.shadowDirty = true;
+      if (this.app && this.app.army && this.app.army !== 'estatuas') this.setArmy(this.app.army).catch((e) => console.warn(e));
     }
     applyQuality() { super.applyQuality(); this.alwaysAmb = this.level < 5; if (this.fogL) this.fogL[1].visible = this.level < 3; if (this.shafts) for (const m of this.shafts) m.visible = this.level < 4; }
 
+    partOf(piece) { return this.army ? this.army.parts[piece & 8][piece & 7] : this.parts[piece & 7]; }
+    // exercito: estatuas (padrao) ou um tema de guerra (carregado so quando escolhido)
+    setArmy(name) {
+      name = name === 'cem' || name === 'esparta' ? name : 'estatuas';
+      this.armyWant = name;
+      if (name === (this.army ? this.army.name : 'estatuas')) return Promise.resolve();
+      const apply = (A) => {
+        if (this.armyWant !== name || !this.hall) return;
+        if (!this._stone) this._stone = { mats: this.mats, ol: this.outlineMats };
+        if (A) {
+          if (!A.ol) { const hull = (color, w) => { const m = new THREE.MeshBasicMaterial({ color, side: THREE.BackSide }); m.onBeforeCompile = (sh) => { sh.vertexShader = sh.vertexShader.replace('#include <begin_vertex>', 'vec3 transformed = position + normal * ' + w.toFixed(4) + ';'); }; return m; }; A.ol = { 0: hull(A.outline[0], 0.011), 8: hull(A.outline[8], 0.008) }; }
+          this.mats = { 0: A.cloth, 8: A.cloth }; this.outlineMats = A.ol;
+        } else { this.mats = this._stone.mats; this.outlineMats = this._stone.ol; }
+        this.army = A; this.checkMats = null; this.checkKing = null;
+        // refaz as pecas que estao no tabuleiro
+        const keep = {}; for (const k in this.meshes) keep[k] = this.meshes[k].userData.piece;
+        for (const c of [...this.pieceGroup.children]) this.pieceGroup.remove(c);
+        this.meshes = {}; for (const k in keep) this.meshes[k] = this.newMesh(+k, keep[k]);
+        if (this.hl) this.highlight(this.hl);
+        this.dirty = true; this.shadowDirty = true;
+      };
+      if (name === 'estatuas') { apply(null); return Promise.resolve(); }
+      this._armies = this._armies || {};
+      if (this._armies[name]) { apply(this._armies[name]); return Promise.resolve(); }
+      return import('./army3d.js' + new URL(import.meta.url).search).then((mod) => {
+        const A = this._armies[name] || (this._armies[name] = mod.buildArmy(THREE, mergeGeometries, name, E));
+        apply(A);
+      });
+    }
     newMesh(sq, piece) {
-      const t = piece & 7, side = piece & 8, Pt = this.parts[t];
+      const t = piece & 7, side = piece & 8, Pt = this.partOf(piece);
       const m = new THREE.Mesh(Pt.body, this.mats[side]); m.castShadow = true; m.receiveShadow = true;
       m.rotation.order = 'YXZ'; m.position.copy(sqPos(sq)); m.rotation.y = side ? Math.PI : 0;
       const ol = new THREE.Mesh(Pt.body, this.outlineMats[side]); ol.renderOrder = -1; ol.visible = this.outlines !== false; m.add(ol);
       const ao = new THREE.Mesh(this.aoGeo, this.aoMat); ao.renderOrder = 1; ao.position.y = 0.007; ao.scale.set(1.1, 1, 1.1); m.add(ao);
       m.userData = { piece, sq, ol, ao, ph: Math.random() * 6.28, h: Pt.h };
-      if (Pt.weapon) { const w = new THREE.Mesh(Pt.weapon.geo, this.mats[side]); w.position.copy(Pt.weapon.pivot); w.rotation.x = Pt.weapon.rest; w.castShadow = true; m.add(w); m.userData.weapon = w; m.userData.rest = Pt.weapon.rest; }
+      if (Pt.trim) { const tm = new THREE.Mesh(Pt.trim, this.army.metal); tm.castShadow = true; tm.receiveShadow = true; m.add(tm); }
+      if (Pt.archer) m.userData.archer = Pt.archer;
+      if (Pt.weapon) { const w = new THREE.Mesh(Pt.weapon.geo, this.army ? this.army.metal : this.mats[side]); w.position.copy(Pt.weapon.pivot); w.rotation.x = Pt.weapon.rest; w.castShadow = true; m.add(w); m.userData.weapon = w; m.userData.rest = Pt.weapon.rest; }
       if (Pt.crown) { const c = new THREE.Mesh(Pt.crown, this.goldMat); c.position.y = Pt.crownY; c.castShadow = true; m.add(c); m.userData.crown = c; }
       if (this.aid) this.addBadge(m);
       this.pieceGroup.add(m);
@@ -496,7 +528,7 @@ export function makeVivo(M) {
       for (const k in this.meshes) if (this.meshes[k] === v) delete this.meshes[k];
       const n = big ? (this.level >= 3 ? 16 : 26) : (this.level >= 3 ? 10 : 18), chunks = [], ps = this.pScale || 1;
       for (let i = 0; i < n; i++) {
-        const c = new THREE.Mesh(this.chunkGeos[i % 4], this.mats[side]); c.castShadow = this.level < 2;
+        const c = new THREE.Mesh(this.chunkGeos[i % 4], this.army ? this.army.chunk[side] : this.mats[side]); c.castShadow = this.level < 2;
         c.position.set(p.x + rnd(-0.2, 0.2) * ps, rnd(0.1, h) * ps, p.z + rnd(-0.2, 0.2) * ps);
         const s = rnd(0.65, 1.35) * (big ? 1.25 : 1) * ps; c.scale.set(s, s * rnd(0.6, 1), s); c.rotation.set(rnd(0, 6), rnd(0, 6), rnd(0, 6));
         const vel = new THREE.Vector3((c.position.x - p.x) * 7 + dir.x * rnd(0.8, 2.6) * power, rnd(2, 4.2) * power, (c.position.z - p.z) * 7 + dir.z * rnd(0.8, 2.6) * power);
@@ -617,7 +649,11 @@ export function makeVivo(M) {
       const walkDur = (d) => Math.min(1.35, 0.3 + d * 0.17);
       let p = this.turn(mesh, head, 0.16);
       const brutal = this.brutal && capMesh;
-      if (t === E.N) p = p.then(() => brutal ? this.knightBrutal(mesh, a, b, capMesh, dir) : this.leap(mesh, a, b, capMesh, dir));
+      if (brutal && this.wantBomb()) {
+        // "fogo no buraco!": bomba, tiro de canhao ou pote de fogo, de onde esta
+        p = p.then(() => this.bombKill(mesh, capMesh, dir, t))
+          .then(() => t === E.N ? this.leap(mesh, a, b, null, dir) : this.walk(mesh, a, b, walkDur(dist), heavy));
+      } else if (t === E.N) p = p.then(() => brutal ? this.knightBrutal(mesh, a, b, capMesh, dir) : this.leap(mesh, a, b, capMesh, dir));
       else if (brutal) {
         const stop = b.clone().addScaledVector(dir, -0.66), d1 = a.distanceTo(stop);
         p = p.then(() => d1 > 0.05 ? this.walk(mesh, a, stop, walkDur(d1), heavy) : null)
@@ -668,7 +704,7 @@ export function makeVivo(M) {
     }
     // cria pedregulhos com fisica; fn(i, pos, vel, grande) define onde nascem e para onde voam
     spawn(side, n, fn, o = {}) {
-      const ps = this.pScale || 1, chunks = [], mat = o.mat || this.mats[side], G = this.chunkGeos;
+      const ps = this.pScale || 1, chunks = [], mat = o.mat || (this.army ? this.army.chunk[side] : this.mats[side]), G = this.chunkGeos;
       for (let i = 0; i < n; i++) {
         const big = i < Math.max(2, Math.round(n * 0.12)), c = new THREE.Mesh(G[i % G.length], mat);
         c.castShadow = this.level < 2 && i < 10;
@@ -806,12 +842,13 @@ export function makeVivo(M) {
       const V = (n) => this.pickVar(t, n);
       let plan;
       if (t === E.P) plan = ['diag', 'decap', 'impale'][V(3)];
-      else if (t === E.B) plan = ['diag', 'decap', 'impale', 'old0'][V(4)];
+      else if (t === E.B) plan = mesh.userData.archer ? ['diag', 'arrow', 'impale', 'arrow'][V(4)] : ['diag', 'decap', 'impale', 'old0'][V(4)];
       else if (t === E.Q) plan = ['diag', 'decap', 'spin', 'old0'][V(4)];
       else if (t === E.K) plan = ['diag', 'decap', 'spin'][V(3)];
       else if (t === E.R) plan = ['smash', 'sweep', 'old1'][V(3)];
       if (!plan || !mesh.userData.weapon) return this.brutalOld(mesh, victim, dir, t, b, head);
       if (plan.startsWith('old')) { const fv = this.forceVar; this.forceVar = +plan[3]; const r = this.brutalOld(mesh, victim, dir, t, b, head); this.forceVar = fv; return r; }
+      if (plan === 'arrow') return this.arrowKill(mesh, victim, dir);
       return this.duel(mesh, victim, dir, t, plan === 'impale' ? 1 : 0).then(() => this.finish(mesh, victim, dir, t, plan));
     }
     // camera de luta: chega perto do duelo, segura ate o golpe fatal e volta (um toque pula)
@@ -832,6 +869,7 @@ export function makeVivo(M) {
       const vy0 = victim.rotation.y, face = Math.atan2(dir.x, dir.z), dy = ((face - vy0) % (Math.PI * 2) + Math.PI * 3) % (Math.PI * 2) - Math.PI;
       const hammer = t === E.R, up = hammer ? 1.7 : 1.5;
       snd('windup'); this.tremble(victim, 0.25, 0.008);
+      if (this.army) { snd(Math.random() < 0.5 ? 'warcry' : 'drum'); this.dust(mesh.position, 1.2); }
       return this.tween(0.26, (k) => {
         const e = ease(k);
         victim.rotation.y = vy0 + dy * e; victim.rotation.x = -0.1 * e;
@@ -929,6 +967,142 @@ export function makeVivo(M) {
           return this.tween(0.16, (k) => { mesh.rotation.y = h0 + sg * (-0.7 + 0.7 * ease(k)); }).then(() => recover(0.3));
         });
     }
+    // ---------- fogo no buraco: explosivos ----------
+    wantBomb() {
+      if (this.forceBomb != null) return !!this.forceBomb;
+      if (this.forceVar != null) return false;
+      const r = Math.random() < (this._bombLast ? 0.18 : 0.34); this._bombLast = r; return r;
+    }
+    // objetos feitos uma vez: bomba com pavio, bala de canhao, canhao, pote de fogo, flecha
+    projMeshes() {
+      if (this._proj) return this._proj;
+      const iron = new THREE.MeshStandardMaterial({ color: 0x1c1b1e, roughness: 0.42, metalness: 0.75 });
+      const clay = new THREE.MeshStandardMaterial({ color: 0xa8582e, roughness: 0.85 });
+      const wood = new THREE.MeshStandardMaterial({ color: 0x5a3b22, roughness: 0.8 });
+      const rope = new THREE.MeshStandardMaterial({ color: 0xc9b48a, roughness: 1 });
+      const bronze = new THREE.MeshStandardMaterial({ color: 0xb08038, roughness: 0.35, metalness: 0.85 });
+      const glowT = new THREE.CanvasTexture(glowCanvas('rgba(255,255,255,1)', 'rgba(255,255,255,0)'));
+      const spark = () => { const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowT, color: 0xffc860, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false })); sp.scale.set(0.22, 0.22, 1); return sp; };
+      const bomb = () => { const g = new THREE.Group(); const b = new THREE.Mesh(new THREE.SphereGeometry(0.13, 16, 12), iron); b.castShadow = true; g.add(b); const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.04, 0.05, 10), iron); cap.position.y = 0.13; g.add(cap); const f = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 0.09, 5), rope); f.position.set(0.02, 0.18, 0); f.rotation.z = -0.4; g.add(f); const sp = spark(); sp.position.set(0.04, 0.23, 0); g.add(sp); g.userData.spark = sp; return g; };
+      const pot = () => { const g = new THREE.Group(); const b = new THREE.Mesh(new THREE.SphereGeometry(0.11, 14, 10), clay); b.scale.set(1, 1.15, 1); g.add(b); const n = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.06, 0.07, 10), clay); n.position.y = 0.13; g.add(n); const r = new THREE.Mesh(new THREE.TorusGeometry(0.05, 0.012, 6, 12), rope); r.rotation.x = Math.PI / 2; r.position.y = 0.16; g.add(r); const sp = spark(); sp.material.color.set(0xff7a2a); sp.scale.set(0.42, 0.55, 1); sp.position.y = 0.24; g.add(sp); g.userData.spark = sp; return g; };
+      const cannon = () => { const g = new THREE.Group(); const br = new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.1, 0.62, 14), bronze); br.rotation.x = Math.PI / 2 - 0.12; br.position.set(0, 0.3, -0.08); br.castShadow = true; g.add(br);
+        const mz = new THREE.Mesh(new THREE.TorusGeometry(0.08, 0.02, 6, 14), bronze); mz.position.set(0, 0.34, -0.39); g.add(mz);
+        const cr = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.1, 0.5), wood); cr.position.set(0, 0.18, 0.02); cr.castShadow = true; g.add(cr);
+        for (const x of [-0.14, 0.14]) for (const z of [-0.12, 0.16]) { const w = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 0.04, 12), wood); w.rotation.z = Math.PI / 2; w.position.set(x, 0.1, z); g.add(w); }
+        g.userData.muzzle = new THREE.Vector3(0, 0.34, -0.42); return g; };
+      const ball = () => { const b = new THREE.Mesh(new THREE.SphereGeometry(0.07, 12, 10), iron); b.castShadow = true; return b; };
+      const arrow = () => { const g = new THREE.Group(); const sh = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 0.62, 5), wood); sh.rotation.x = Math.PI / 2; g.add(sh); const tip = new THREE.Mesh(new THREE.ConeGeometry(0.022, 0.07, 4), iron); tip.rotation.x = -Math.PI / 2; tip.position.z = -0.34; g.add(tip); for (const a of [0, 2.1, 4.2]) { const f = new THREE.Mesh(new THREE.BoxGeometry(0.003, 0.05, 0.1), rope); f.position.set(Math.sin(a) * 0.016, Math.cos(a) * 0.016, 0.27); f.rotation.z = -a; g.add(f); } return g; };
+      this._proj = { bomb, pot, cannon, ball, arrow, glowT };
+      return this._proj;
+    }
+    // a explosao grande: bola de fogo, fumaca, onda de choque, entulho, tremor e mancha queimada
+    blastFx(p, power = 1) {
+      const P = this.projMeshes(), k = this.qL() >= 3 ? 0.6 : 1, c = p.clone().setY(0.35);
+      const balls = [];
+      for (const [col, s, d, op] of [[0xfff4d0, 1.5, 0.35, 1], [0xffa040, 2.6, 0.6, 0.95], [0xff4a12, 3.4, 0.85, 0.75]]) {
+        const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: P.glowT, color: col, transparent: true, opacity: op, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false }));
+        sp.position.copy(c); sp.scale.setScalar(0.1); sp.renderOrder = 6; this.scene.add(sp); balls.push(sp);
+        this.tween(d, (q) => { const e = easeOut(Math.min(1, q * 2.4)), sz = s * power * (0.25 + 0.75 * e); sp.scale.set(sz, sz * 1.05, 1); sp.position.y = 0.35 + q * 0.7; sp.material.opacity = op * (q < 0.4 ? 1 : 1 - (q - 0.4) / 0.6); })
+          .then(() => { this.scene.remove(sp); sp.material.dispose(); });
+      }
+      this.particles.burst(c, { colors: ['#fff2b0', '#ffb040', '#ff6a1a', '#ff3a10'], count: Math.round(140 * k), up: 4.2, speed: 8.5, life: 0.75, grav: 3, size: 0.13 });
+      this.particles.burst(c.clone().setY(0.5), { colors: ['#2a2622', '#3d3732', '#57504a', '#1a1816'], count: Math.round(46 * k), up: 1.4, speed: 3.2, life: 2.3, grav: -0.7, size: 0.6, normal: true, opacity: 0.72 });
+      this.particles.burst(p.clone().setY(0.05), { colors: ['#b8ae9f', '#8f877c', '#d8cfbf'], count: Math.round(60 * k), up: 0.6, speed: 6.5, life: 2.2, grav: 0.2, size: 0.45, normal: true, opacity: 0.45 });
+      this.flash(p, 0xff8a30, 34 * power); this.flashExp(2.2);
+      this.shockwave(p, 0xfff0c0); this.tween(0.07, () => { }).then(() => this.shockwave(p, 0xff8a30)); this.tween(0.16, () => { }).then(() => this.shockwave(p, 0xff5a1a));
+      this.shake(0.75 * power); this.addScorch(p, 1.5 * power);
+    }
+    addScorch(p, size) {
+      if (!this.scorchTex) {
+        const S = 256, cv = document.createElement('canvas'); cv.width = cv.height = S; const g = cv.getContext('2d');
+        for (let i = 0; i < 26; i++) { const a = Math.random() * 6.28, r = rnd(0, 0.25) * S, x = S / 2 + Math.cos(a) * r, y = S / 2 + Math.sin(a) * r, rr = rnd(0.12, 0.3) * S, gr = g.createRadialGradient(x, y, 0, x, y, rr); gr.addColorStop(0, `rgba(255,255,255,${rnd(0.25, 0.5)})`); gr.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = gr; g.fillRect(0, 0, S, S); }
+        g.strokeStyle = 'rgba(255,255,255,0.6)'; g.lineCap = 'round';
+        for (let i = 0; i < 14; i++) { const a = i / 14 * 6.28 + rnd(-0.2, 0.2); g.lineWidth = rnd(2, 6); g.beginPath(); g.moveTo(S / 2 + Math.cos(a) * S * 0.18, S / 2 + Math.sin(a) * S * 0.18); g.lineTo(S / 2 + Math.cos(a) * S * rnd(0.36, 0.48), S / 2 + Math.sin(a) * S * rnd(0.36, 0.48)); g.stroke(); }
+        this.scorchTex = new THREE.CanvasTexture(cv);
+        if (!this.crackGeo) { this.crackGeo = new THREE.PlaneGeometry(1, 1); this.crackGeo.rotateX(-Math.PI / 2); }
+      }
+      this.cracks = this.cracks || [];
+      const m = new THREE.Mesh(this.crackGeo, new THREE.MeshBasicMaterial({ map: this.scorchTex, color: 0x050302, transparent: true, depthWrite: false, opacity: 0, polygonOffset: true, polygonOffsetFactor: -2 }));
+      m.position.set(p.x, 0.0058, p.z); m.rotation.y = rnd(0, 6.28); m.scale.setScalar(size * (this.pScale || 1)); this.scene.add(m); this.cracks.push(m);
+      const gl = new THREE.Mesh(this.crackGeo, new THREE.MeshBasicMaterial({ map: this.scorchTex, color: 0xff5a12, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false, polygonOffset: true, polygonOffsetFactor: -3 }));
+      gl.position.set(p.x, 0.0066, p.z); gl.rotation.y = m.rotation.y; gl.scale.copy(m.scale).multiplyScalar(0.8); this.scene.add(gl);
+      this.tween(0.12, (k) => { m.material.opacity = 0.9 * k; });
+      this.tween(2.2, (k) => { gl.material.opacity = Math.pow(1 - k, 1.4); }).then(() => { this.scene.remove(gl); gl.material.dispose(); });
+      while (this.cracks.length > 14) { const o = this.cracks.shift(); this.scene.remove(o); o.material.dispose(); }
+    }
+    // atacante grita, joga (ou dispara) e a vitima vai pelos ares
+    bombKill(mesh, victim, dir, t) {
+      const P = this.projMeshes(), kind = this.army ? this.army.proj : 'bomba', ps = this.pScale || 1;
+      const w = mesh.userData.weapon, rest = mesh.userData.rest || 0, p0 = mesh.position.clone().setY(0), vp = victim.position.clone().setY(0);
+      const anim = this._animMeshes; anim.add(victim);
+      const side = new THREE.Vector3(-dir.z, 0, dir.x), mh = (mesh.userData.h || 1) * ps, vh = (victim.userData.h || 0.9) * ps;
+      const vy0 = victim.rotation.y, face = Math.atan2(dir.x, dir.z), dy = ((face - vy0) % (Math.PI * 2) + Math.PI * 3) % (Math.PI * 2) - Math.PI;
+      this.duelCam(p0.clone().lerp(vp, 0.55), 2.2);
+      snd('fith');
+      const raise = this.tween(0.42, (k) => { const e = ease(k); if (w) w.rotation.x = rest + 1.9 * e; mesh.rotation.x = 0.12 * e; mesh.rotation.z = -0.12 * e; victim.rotation.y = vy0 + dy * e; });
+      const fly = (obj, from, to, dur, arc, spin) => this.tween(dur, (k) => { obj.position.lerpVectors(from, to, k); obj.position.y += Math.sin(Math.PI * k) * arc; if (spin) { obj.rotation.x += 0.25; obj.rotation.z += 0.12; } if (obj.userData.spark) { const s = 0.18 + Math.random() * 0.12; obj.userData.spark.scale.set(s, s, 1); } });
+      const boom = (at) => {
+        snd('boom'); this.slowMo(1.0, 0.18);
+        this.blastFx(at, 1);
+        this.explode(victim, 'blast', dir, 2.8, { big: true, noSlow: true, noFx: true });
+        // atacante leva o tranco para tras
+        const m0 = mesh.position.clone();
+        return this.tween(0.32, (k) => { const b = Math.sin(Math.PI * k); mesh.position.set(m0.x - dir.x * 0.12 * b, 0, m0.z - dir.z * 0.12 * b); mesh.rotation.x = 0.12 - 0.3 * b; });
+      };
+      const recover = () => { const rx = mesh.rotation.x, rz = mesh.rotation.z, wx = w ? w.rotation.x : 0; return this.tween(0.3, (k) => { const e = ease(k); mesh.rotation.x = rx * (1 - e); mesh.rotation.z = rz * (1 - e); if (w) w.rotation.x = wx + (rest - wx) * e; mesh.position.setY(0); }); };
+      const dist = p0.distanceTo(vp), at = vp.clone().addScaledVector(dir, -0.12 * ps);
+      if (kind === 'canhao') {
+        // o canhao surge ao lado, mira e dispara
+        const cn = P.cannon(), cp = p0.clone().addScaledVector(side, 0.48 * ps).addScaledVector(dir, 0.05);
+        cn.position.copy(cp); cn.rotation.y = Math.atan2(-dir.x, -dir.z); cn.scale.setScalar(0.01); this.scene.add(cn);
+        return raise.then(() => this.tween(0.22, (k) => { const s = easeOut(k) * ps; cn.scale.setScalar(Math.max(0.01, s)); cn.position.y = (1 - k) * -0.1; }))
+          .then(() => { snd('fuse'); return this.tween(0.22, (k) => { cn.rotation.x = 0.04 * Math.sin(k * 40); }); })
+          .then(() => {
+            snd('cannon');
+            cn.updateMatrixWorld(true); const mz = P.cannon && cn.localToWorld(cn.userData.muzzle.clone().multiplyScalar(1));
+            this.particles.burst(mz, { colors: ['#fff2b0', '#ffb040', '#ff6a1a'], count: 50, up: 0.8, speed: 4, life: 0.35, grav: 1, size: 0.12 });
+            this.particles.burst(mz, { colors: ['#6a645e', '#8a847c', '#4a4540'], count: 24, up: 0.8, speed: 1.6, life: 1.6, grav: -0.4, size: 0.5, normal: true, opacity: 0.6 });
+            this.flash(mz, 0xffa040, 10); this.shake(0.25);
+            const bl = P.ball(); bl.scale.setScalar(ps); this.scene.add(bl);
+            const r0 = cn.position.clone(); this.tween(0.25, (k) => { cn.position.copy(r0).addScaledVector(dir, -0.18 * Math.sin(Math.PI * k)); });
+            return fly(bl, mz, at.clone().setY(vh * 0.45), Math.min(0.28, 0.1 + dist * 0.05), 0.04).then(() => { this.scene.remove(bl); return boom(at); });
+          })
+          .then(() => this.tween(0.25, (k) => { cn.scale.setScalar(Math.max(0.01, (1 - k) * ps)); }).then(() => this.scene.remove(cn)))
+          .then(recover);
+      }
+      // bomba ou pote de fogo: joga por cima
+      const pr = kind === 'pote' ? P.pot() : P.bomb(); pr.scale.setScalar(ps);
+      const hand = p0.clone().addScaledVector(side, 0.22 * ps).setY(mh * 0.95);
+      pr.position.copy(hand); this.scene.add(pr);
+      if (kind !== 'pote') snd('fuse');
+      return raise.then(() => { snd('swing'); return this.tween(0.12, (k) => { const e = easeIn(k); if (w) w.rotation.x = rest + 1.9 - 2.4 * e; mesh.rotation.x = 0.12 - 0.3 * e; }); })
+        .then(() => fly(pr, hand.clone(), at.clone().setY(kind === 'pote' ? vh * 0.4 : 0.13 * ps), Math.min(0.7, 0.42 + dist * 0.06), 0.55 + dist * 0.1, true))
+        .then(() => {
+          if (kind === 'pote') { snd('potbreak'); this.scene.remove(pr); return boom(at); }
+          // a bomba quica, o pavio queima, a vitima treme
+          const b0 = pr.position.clone(); snd('clink'); this.tremble(victim, 0.42, 0.02);
+          return this.tween(0.42, (k) => { pr.position.set(b0.x + dir.x * 0.1 * k, 0.13 * ps + Math.abs(Math.sin(k * 7)) * 0.07 * (1 - k), b0.z + dir.z * 0.1 * k); pr.rotation.z = -k * 2; const s = 0.18 + Math.random() * 0.16; pr.userData.spark.scale.set(s, s, 1); })
+            .then(() => { this.scene.remove(pr); return boom(at); });
+        })
+        .then(recover);
+    }
+    // arqueiros: flecha (ou virote) no peito, a vitima explode
+    arrowKill(mesh, victim, dir) {
+      const P = this.projMeshes(), ps = this.pScale || 1, w = mesh.userData.weapon, rest = mesh.userData.rest || 0;
+      const p0 = mesh.position.clone().setY(0), vp = victim.position.clone().setY(0), vh = (victim.userData.h || 0.9) * ps, mh = (mesh.userData.h || 1) * ps;
+      this._animMeshes.add(victim); this.duelCam(p0.clone().lerp(vp, 0.55), 1.9);
+      const shot = (n) => {
+        const ar = P.arrow(); ar.scale.setScalar(ps); const from = p0.clone().addScaledVector(dir, 0.2).setY(mh * 0.6), to = vp.clone().addScaledVector(dir, -0.16 * ps).setY(vh * (0.5 + n * 0.12));
+        ar.position.copy(from); ar.lookAt(to); ar.rotateY(Math.PI); this.scene.add(ar); snd('bow');
+        return this.tween(0.13, (k) => { ar.position.lerpVectors(from, to, k); }).then(() => { snd('thunk'); this.particles.burst(to, { colors: ['#ffffff', '#ffe6a8', '#ffb050'], count: 26, up: 0.8, speed: 4, life: 0.3, grav: 6, size: 0.05 }); this.shake(0.1); this.scene.remove(ar); victim.rotation.x = -0.12 * (n + 1); });
+      };
+      snd('windup'); if (w) this.tween(0.2, (k) => { w.rotation.x = rest - 0.6 * ease(k); });
+      return this.tween(0.32, (k) => { mesh.rotation.x = -0.08 * ease(k); })
+        .then(() => shot(0)).then(() => this.tween(0.16, () => { })).then(() => shot(1))
+        .then(() => { this.heat(victim, 0xff5a1a, 0.25, 1.5); return this.tremble(victim, 0.26, 0.03); })
+        .then(() => { snd('crack'); snd('smash'); this.slowMo(0.6, 0.14); this.flashExp(1.2); this.explode(victim, 'fling', dir, 2.2, { noSlow: true, sparks: ['#ffffff', '#ffe6a8', '#ffb050'] }); })
+        .then(() => this.tween(0.3, (k) => { const e = ease(k); mesh.rotation.x = -0.08 * (1 - e); if (w) w.rotation.x = rest - 0.6 * (1 - e); }));
+    }
     // gira um pedaco cortado em torno do proprio centro (c0) e o leva ate c
     spinAt(hf, c0, c, q) { hf.m.quaternion.copy(hf.q0).premultiply(q); hf.m.position.copy(hf.p).sub(c0).applyQuaternion(q).add(c); }
     // corte na diagonal: a metade de cima escorrega pela linha do corte e cai
@@ -1011,7 +1185,7 @@ export function makeVivo(M) {
       // bispo e dama: magia (raio, levitar e explodir, ou golpe no chao)
       if (t === E.B || t === E.Q) {
         const qn = t === E.Q, col = qn ? 0xffc65a : 0x7fb8ff, cols = qn ? ['#ffe08a', '#fff4d0', '#ffb84a'] : ['#9fd8ff', '#ffffff', '#6fb0ff'], pw = qn ? 1.25 : 1;
-        const v = this.pickVar(t, 3), tipY = (this.parts[t].weapon.tip || 0.4);
+        const v = this.pickVar(t, 3), tipY = (this.partOf(mesh.userData.piece).weapon.tip || 0.4);
         if (v === 0) {
           const orb = this.orb(col, 0.05); orb.position.set(0, tipY, 0); w.add(orb);
           snd('windup'); this.tremble(victim, 0.6, 0.012);
