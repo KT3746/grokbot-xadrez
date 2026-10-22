@@ -108,7 +108,29 @@
       cl.toggle('dot', d === 1); cl.toggle('ring', d === 2);
     }
   };
-  View2D.prototype.setOrient = function (o) { this.orient = o; this.place(); };
+  View2D.prototype.setOrient = function (o) { this.orient = o; this.place(); if (this._arrow) this.arrow(this._arrow[0], this._arrow[1]); if (this._mark) this.mark(this._mark[0], this._mark[1]); };
+  // seta do melhor lance (Rever partida)
+  View2D.prototype.arrow = function (from, to) {
+    if (this.arrowEl) { this.arrowEl.remove(); this.arrowEl = null; }
+    this._arrow = from >= 0 ? [from, to] : null;
+    if (from < 0) return;
+    var a = this.cell(from), b = this.cell(to), x1 = a.c + 0.5, y1 = a.r + 0.5, x2 = b.c + 0.5, y2 = b.r + 0.5;
+    var L = Math.hypot(x2 - x1, y2 - y1), ux = (x2 - x1) / L, uy = (y2 - y1) / L, px = -uy, py = ux;
+    var hx = x2 - ux * 0.42, hy = y2 - uy * 0.42, sx = x1 + ux * 0.2, sy = y1 + uy * 0.2, w = 0.11, hw = 0.3;
+    var pts = [[sx + px * w, sy + py * w], [hx + px * w, hy + py * w], [hx + px * hw, hy + py * hw], [x2 - ux * 0.08, y2 - uy * 0.08], [hx - px * hw, hy - py * hw], [hx - px * w, hy - py * w], [sx - px * w, sy - py * w]];
+    var e = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); e.setAttribute('viewBox', '0 0 8 8'); e.setAttribute('class', 'b2-arrow');
+    e.innerHTML = '<polygon points="' + pts.map(function (p) { return p[0].toFixed(3) + ',' + p[1].toFixed(3); }).join(' ') + '"/>';
+    this.el.appendChild(e); this.arrowEl = e;
+  };
+  // selo do lance (!!, ?, ??) no canto da casa
+  View2D.prototype.mark = function (sq, mk) {
+    if (this.markEl) { this.markEl.remove(); this.markEl = null; }
+    this._mark = sq >= 0 ? [sq, mk] : null;
+    if (sq < 0 || !mk) return;
+    var p = this.cell(sq), e = document.createElement('div'); e.className = 'b2-mark k-' + mk.c; e.textContent = mk.s;
+    e.style.left = ((p.c + 1) * 12.5) + '%'; e.style.top = (p.r * 12.5) + '%';
+    this.el.appendChild(e); this.markEl = e;
+  };
   View2D.prototype.sqAt = function (x, y) {
     var r = this.el.getBoundingClientRect();
     var c = Math.floor((x - r.left) / r.width * 8), rr = Math.floor((y - r.top) / r.height * 8);

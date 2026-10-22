@@ -92,6 +92,7 @@
   // ===== Partida =====
   function isHumanTurn() { return app.mode === '2p' || (app.game.pos.turn === app.human && !(app.mode === 'puzzle' && app.pz && app.pz.lock)); }
   function startGame(opts) {
+    endReview();
     app.recorded = false; app.t0 = Date.now();
     app.jornada = opts.jornada != null ? opts.jornada : null; app.sayT = 0;
     if (app.jornada != null) { var JS = XJourney.STAGES[app.jornada]; opts.mode = 'ai'; opts.level = JS.level; opts.human = JS.human; opts.learn = false; }
@@ -440,15 +441,173 @@
       if (app.jornada != null) {
         var ji = app.jornada, won = st.winner === app.human, last = ji >= XJourney.STAGES.length - 1;
         var jt = won ? (last ? 'Você completou a Jornada! É o novo campeão.' : 'Rival vencido! O próximo rival foi liberado.') : (st.winner === -1 ? 'Empate. Para avançar, é preciso vencer.' : 'Não foi dessa vez. Tente de novo!');
-        var jb = [{ t: 'Mapa', fn: function () { showScreen('jornada'); } }];
+        var jb = [{ t: 'Mapa', fn: function () { showScreen('jornada'); } }, { t: 'Rever', fn: startReview }];
         if (won && !last) jb.push({ t: 'Próximo rival', pri: true, fn: function () { startGame({ jornada: ji + 1 }); } });
         else jb.push({ t: won ? 'Jogar de novo' : 'Tentar de novo', pri: true, fn: function () { startGame({ jornada: ji }); } });
         modal(title, jt, jb, resultExtra(st));
         return;
       }
-      modal(title, text, [{ t: 'Ver tabuleiro' }, { t: app.mode === 'ai' ? 'Jogar de novo' : 'Novo jogo', pri: true, fn: function () { newSame(); } }], resultExtra(st));
+      modal(title, text, [{ t: 'Rever partida', fn: startReview }, { t: app.mode === 'ai' ? 'Jogar de novo' : 'Novo jogo', pri: true, fn: function () { newSame(); } }], resultExtra(st));
     }, st.reason === 'mate' ? 3300 : 2000);
   }
+
+  // ===== Rever partida: lance a lance, com notas do motor =====
+  var MARK = {
+    bril: { s: '!!', t: 'Brilhante!', c: 'br' }, otimo: { s: '!', t: 'Ótimo lance', c: 'ot' }, bom: { s: '', t: 'Bom lance', c: 'bo' },
+    abert: { s: '', t: 'Lance de abertura', c: 'ab' }, impr: { s: '?!', t: 'Impreciso', c: 'im' }, erro: { s: '?', t: 'Erro', c: 'er' },
+    grave: { s: '??', t: 'Erro grave', c: 'gr' }, mate: { s: '#', t: 'Xeque-mate!', c: 'br' }
+  };
+  var PVAL = [0, 1, 3, 3, 5, 9, 0];
+  function startReview() {
+    var g = app.game; if (!g || !g.moves.length) return;
+    clearTimeout(app.overT); $('modal').hidden = true; $('banner').hidden = true; $('bubble').hidden = true;
+    var rg = new E.Game(g.startFen), ucis = g.moves.map(E.uci);
+    var R = { ucis: ucis, n: ucis.length, boards: [rg.pos.board.slice()], check: [-1], mv: [], sans: [], s: [], best: [], marks: [], i: ucis.length, t0: rg.pos.turn };
+    for (var k = 0; k < ucis.length; k++) {
+      var pos = rg.pos, ms = pos.legal(), m = null;
+      for (var j = 0; j < ms.length; j++) if (E.uci(ms[j]) === ucis[k]) m = ms[j];
+      if (!m) break;
+      var before = pos.board.slice();
+      rg.playUci(ucis[k]);
+      R.mv.push({ from: m.from, to: m.to, piece: m.piece, cap: m.cap, promo: m.promo, flags: m.flags, before: before });
+      R.sans.push(rg.sans[rg.sans.length - 1]);
+      R.boards.push(rg.pos.board.slice());
+      R.check.push(rg.pos.inCheck() ? rg.pos.kings[rg.pos.turn >> 3] : -1);
+      // lance que se entrega: peca grande parada numa casa atacada, levando menos do que vale
+      var mover = m.piece & 8, val = PVAL[m.promo ? m.promo & 7 : m.piece & 7], got = m.cap ? PVAL[m.cap & 7] : 0;
+      R.mv[k].sac = (m.piece & 7) !== E.P && (m.piece & 7) !== E.K && val - got >= 2 && rg.pos.attacked(m.to, mover ^ 8);
+      R.mv[k].mate = !rg.pos.legal().length && rg.pos.inCheck();
+      R.mv[k].endPos = !rg.pos.legal().length;
+    }
+    R.n = R.mv.length; R.i = R.n;
+    app.review = R; app.sel = -1; app.dests = {}; clearHint();
+    if (app.v.cancelCam) app.v.cancelCam(); if (app.v.resetView) app.v.resetView();
+    document.body.classList.add('reviewing');
+    $('revBar').hidden = false; $('revCard').hidden = false;
+    queueLayout(); reviewShow(R.n, false);
+    reviewAnalyse(R, 0);
+    sfx('whoosh');
+  }
+  function reviewAnalyse(R, k) {
+    if (app.review !== R) return;
+    if (k > R.n) { reviewGrade(R); reviewHist(); reviewCard(); return; }
+    var next = function () { reviewProgress(R, k); setTimeout(function () { reviewAnalyse(R, k + 1); }, 0); };
+    if (k > 0 && R.mv[k - 1].endPos) { R.s[k] = R.mv[k - 1].mate ? -3000 : 0; R.best[k] = null; next(); return; }
+    analyseAsync(app.game.startFen, R.ucis.slice(0, k), R.n > 70 ? 110 : 160, function (r) {
+      if (app.review !== R) return;
+      var sc = r.score == null ? 0 : r.score;
+      R.s[k] = Math.max(-3000, Math.min(3000, sc)); R.best[k] = r.move;
+      next();
+    });
+  }
+  function reviewProgress(R, k) {
+    var done = Math.min(R.n + 1, k + 1);
+    if (done <= R.n) { $('revCard').querySelector('.rp').style.width = (done / (R.n + 1) * 100).toFixed(0) + '%'; $('revCard').classList.add('busy'); }
+    if (R.s[R.i] != null && R.s[R.i - 1] != null) reviewCard();
+  }
+  function reviewGrade(R) {
+    var cap = function (x) { return Math.max(-1500, Math.min(1500, x)); };
+    R.count = { 0: { grave: 0, erro: 0, bril: 0, otimo: 0 }, 8: { grave: 0, erro: 0, bril: 0, otimo: 0 } };
+    for (var j = 0; j < R.n; j++) {
+      var m = R.mv[j], before = cap(R.s[j]), after = -cap(R.s[j + 1]), loss = before - after, isBest = R.ucis[j] === R.best[j];
+      var mk;
+      if (m.mate) mk = 'mate';
+      else if (loss >= 280 && before > -700 && after < 600) mk = 'grave';
+      else if (loss >= 130 && before > -900) mk = 'erro';
+      else if (loss >= 60) mk = 'impr';
+      else if (isBest && m.sac && after > -60) mk = 'bril';
+      else if (isBest && j > 0 && (R.marks[j - 1] === 'grave' || R.marks[j - 1] === 'erro')) mk = 'otimo';
+      else if (j < 8 && loss < 40) mk = 'abert';
+      else mk = 'bom';
+      R.marks[j] = mk; R.loss = R.loss || []; R.loss[j] = loss;
+      if (R.count[m.piece & 8][mk] != null) R.count[m.piece & 8][mk]++;
+    }
+    R.graded = true; $('revCard').classList.remove('busy');
+  }
+  function reviewShow(k, anim) {
+    var R = app.review; if (!R) return;
+    k = Math.max(0, Math.min(R.n, k));
+    var prev = R.i; R.i = k;
+    if (anim && k === prev + 1 && app.v.animate) { app.v.sync(R.boards[k - 1]); app.v.animate(R.mv[k - 1], R.boards[k]); var cm = R.mv[k - 1]; sfx(R.check[k] >= 0 ? 'check' : cm.cap ? 'capture' : 'move'); }
+    else { app.v.sync(R.boards[k]); if (anim) sfx('move'); }
+    reviewHL(); reviewHist(); reviewCard();
+    if (anim && R.graded && k) { var q = R.marks[k - 1]; if (q === 'bril' || q === 'otimo') setTimeout(function () { sfx('promote'); }, 260); else if (q === 'grave') setTimeout(function () { sfx('illegal'); }, 260); }
+  }
+  function reviewHL() {
+    var R = app.review, k = R.i, m = k ? R.mv[k - 1] : null, mk = k && R.graded ? R.marks[k - 1] : null;
+    var showBest = mk === 'grave' || mk === 'erro' || mk === 'impr', bu = showBest ? R.best[k - 1] : null, bf = null;
+    if (bu) bf = { from: (+bu[1] - 1) * 16 + bu.charCodeAt(0) - 97, to: (+bu[3] - 1) * 16 + bu.charCodeAt(2) - 97 };
+    app.v.highlight({ sel: -1, dests: {}, last: m ? { from: m.from, to: m.to } : null, check: R.check[k], hint: bf });
+    if (app.v.arrow) app.v.arrow(bf ? bf.from : -1, bf ? bf.to : -1);
+    if (app.v.mark) app.v.mark(m && mk && MARK[mk].s ? m.to : -1, mk ? MARK[mk] : null);
+  }
+  function reviewHist() {
+    var R = app.review; if (!R) return;
+    var h = $('hist'), out = '';
+    for (var i = 0; i < R.n; i++) {
+      if (i % 2 === 0) out += '<span class="n">' + (i / 2 + 1) + '.</span>';
+      var mk = R.graded ? MARK[R.marks[i]] : null;
+      out += '<span class="mv rv ' + (mk ? 'k-' + mk.c : '') + (i === R.i - 1 ? ' cur' : '') + '" data-k="' + (i + 1) + '">' + R.sans[i] + (mk && mk.s && mk.s !== '#' ? '<sup>' + mk.s + '</sup>' : '') + '</span>';
+    }
+    h.innerHTML = out;
+    var cur = h.querySelector('.cur');
+    if (cur) h.scrollLeft = cur.offsetLeft - h.clientWidth / 2 + cur.offsetWidth / 2; else h.scrollLeft = 0;
+  }
+  function whoName(c) { return app.mode === 'ai' ? (c === app.human ? 'Você' : (app.jornada != null ? XAvatars.name(XJourney.STAGES[app.jornada].av || app.level) : 'Computador')) : (c === 0 ? 'Brancas' : 'Pretas'); }
+  function reviewCard() {
+    var R = app.review; if (!R) return;
+    var c = $('revCard'), k = R.i, head, body;
+    if (k === 0) {
+      head = '<b class="rk">Rever partida</b>';
+      if (R.graded) {
+        body = [0, 8].map(function (col) { var q = R.count[col]; return '<span class="sum"><em>' + whoName(col) + '</em> ' + (q.bril ? '<i class="k-br">' + q.bril + ' !!</i>' : '') + (q.otimo ? '<i class="k-ot">' + q.otimo + ' !</i>' : '') + '<i class="k-er">' + q.erro + ' ?</i><i class="k-gr">' + q.grave + ' ??</i></span>'; }).join('');
+        body += '<span class="tip">Toque em Avançar ou em Destaque para ver os lances chave.</span>';
+      } else body = '<span class="tip">O motor está analisando cada lance...</span>';
+    } else {
+      var m = R.mv[k - 1], num = Math.floor((k - 1) / 2) + 1 + ((k - 1) % 2 ? '... ' : '. ');
+      head = '<b class="rk">' + num + R.sans[k - 1] + '</b>';
+      if (R.graded) {
+        var mk = MARK[R.marks[k - 1]], txt = mk.t;
+        head += '<b class="tag k-' + mk.c + '">' + (mk.s && mk.s !== '#' ? mk.s + ' ' : '') + mk.t + '</b>';
+        var bu = R.best[k - 1], why = '';
+        if ((R.marks[k - 1] === 'grave' || R.marks[k - 1] === 'erro' || R.marks[k - 1] === 'impr') && bu) {
+          why = 'Melhor era ' + uciSan(k - 1, bu) + ' (seta azul).';
+          if (R.marks[k - 1] === 'grave') why = (R.s[k] >= 2500 ? 'Esse lance deixa um mate no caminho. ' : 'Perde material importante. ') + why;
+        } else if (R.marks[k - 1] === 'bril') why = 'Entregou uma peça e era o melhor lance. Lindo!';
+        else if (R.marks[k - 1] === 'otimo') why = 'Puniu o erro do rival na hora.';
+        else if (R.marks[k - 1] === 'mate') why = 'Fim de jogo.';
+        body = '<span class="by">' + whoName(m.piece & 8) + '</span>' + (why ? ' <span class="why">' + why + '</span>' : '');
+        body += evalLine(R, k);
+      } else body = '<span class="by">' + whoName(m.piece & 8) + '</span> <span class="tip">Analisando...</span>';
+      void txt;
+    }
+    c.querySelector('.rh').innerHTML = head; c.querySelector('.rb').innerHTML = body;
+    $('rvPrev').disabled = k === 0; $('rvStart').disabled = k === 0; $('rvNext').disabled = k === R.n;
+  }
+  function evalLine(R, k) {
+    var s = R.s[k]; if (s == null) return '';
+    var w = ((k % 2 === 0) ? R.t0 : R.t0 ^ 8) === 0 ? s : -s;
+    var txt = Math.abs(w) >= 2500 ? (w > 0 ? 'Brancas' : 'Pretas') + ' têm mate' : Math.abs(w) < 25 ? 'Igual' : (w > 0 ? 'Brancas +' : 'Pretas +') + (Math.abs(w) / 100).toFixed(1);
+    return '<span class="ev">' + txt + '</span>';
+  }
+  function uciSan(j, u) {
+    try { var g = new E.Game(app.game.startFen); for (var i = 0; i < j; i++) g.playUci(app.review.ucis[i]); g.playUci(u); return g.sans[g.sans.length - 1]; } catch (e) { return u; }
+  }
+  function reviewStep(d) { var R = app.review; if (!R) return; var k = R.i + d; if (k < 0 || k > R.n) return; reviewShow(k, d === 1); buzz('tap'); }
+  function reviewKey() {
+    var R = app.review; if (!R || !R.graded) return;
+    for (var j = R.i; j < R.n; j++) if (/grave|erro|bril|otimo|mate/.test(R.marks[j])) { reviewShow(j + 1, j === R.i); return; }
+    reviewShow(0, false); toast('Sem mais lances chave. Voltando ao início.');
+  }
+  function endReview() {
+    var R = app.review; if (!R) return;
+    app.review = null; document.body.classList.remove('reviewing');
+    $('revBar').hidden = true; $('revCard').hidden = true;
+    if (app.v.arrow) app.v.arrow(-1, -1); if (app.v.mark) app.v.mark(-1);
+    if (app.game) { app.v.sync(app.game.pos.board); refreshAll(); }
+    queueLayout();
+  }
+  app.startReview = startReview; app.reviewShow = reviewShow;
 
   // balao de fala do rival (Jornada)
   function say(text, prob, force) {
@@ -829,7 +988,7 @@
     $('mSound').onclick = toggleSound; $('gSound').onclick = toggleSound;
     $('mMusic').onclick = toggleMusic; $('gMusic').onclick = toggleMusic;
     $('mVibe').onclick = toggleVibe; $('gVibe').onclick = toggleVibe;
-    $('gMenu').onclick = function () { sfx('click'); saveGame(); app.aiReq++; app.thinking = false; app.pendingAI = null; clearTimeout(app.overT); $('modal').hidden = true; showScreen(app.mode === 'puzzle' ? 'puzzles' : 'menu'); };
+    $('gMenu').onclick = function () { sfx('click'); endReview(); saveGame(); app.aiReq++; app.thinking = false; app.pendingAI = null; clearTimeout(app.overT); $('modal').hidden = true; showScreen(app.mode === 'puzzle' ? 'puzzles' : 'menu'); };
     $('tPuzzles').onclick = function () { sfx('click'); showScreen('puzzles'); };
     $('tAchv').onclick = function () { sfx('click'); showScreen('achv'); };
     XStats.onUnlock = function () { setTimeout(function () { sfx('promote'); buzz('capture'); }, 250); };
@@ -840,6 +999,12 @@
       else newSame();
     };
     $('cUndo').onclick = undo;
+    $('rvExit').onclick = function () { sfx('click'); endReview(); };
+    $('rvStart').onclick = function () { reviewShow(0, false); };
+    $('rvPrev').onclick = function () { reviewStep(-1); };
+    $('rvNext').onclick = function () { reviewStep(1); };
+    $('rvKey').onclick = function () { reviewKey(); buzz('tap'); };
+    $('hist').addEventListener('click', function (e) { var t = e.target.closest('.rv'); if (t && app.review) reviewShow(+t.getAttribute('data-k'), false); });
     $('cFlip').onclick = flip;
     $('cView').onclick = function () {
       sfx('click');
@@ -851,7 +1016,7 @@
     if (window.ResizeObserver) {
       var ro = new ResizeObserver(queueLayout);
       ['game', 'plTop', 'hist', 'plBot', 'status', 'coach'].forEach(function (id) { ro.observe($(id)); });
-      ro.observe(document.querySelector('#game .controls')); ro.observe(document.querySelector('#game .top'));
+      ro.observe($('mainBar')); ro.observe($('revBar')); ro.observe($('revCard')); ro.observe(document.querySelector('#game .top'));
     }
   }
 
@@ -863,8 +1028,13 @@
     bind(); soundUI(); vibeUI();
     if (!navigator.vibrate) { $('mVibe').hidden = true; $('gVibe').hidden = true; }
     showScreen('menu');
-    if (prefs.view === '3d' && app.has3d) init3d().then(function () { showScreen('menu'); });
-    else if (!app.has3d) prefs.view = '2d';
+    var t0 = Date.now(), splashOff = function () {
+      var sp = $('splash'); if (!sp || sp.dataset.off) return; sp.dataset.off = 1;
+      setTimeout(function () { sp.classList.add('out'); setTimeout(function () { sp.remove(); }, 600); }, Math.max(0, 450 - (Date.now() - t0)));
+    };
+    setTimeout(splashOff, 6000);
+    if (prefs.view === '3d' && app.has3d) init3d().then(function () { showScreen('menu'); splashOff(); });
+    else { if (!app.has3d) prefs.view = '2d'; splashOff(); }
     // hooks para testes automatizados
     app._start = startGame;
   }

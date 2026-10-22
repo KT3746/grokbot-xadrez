@@ -648,6 +648,15 @@ export class View3D {
       const ringG = new THREE.RingGeometry(6.5, 9, 64); const ring = new THREE.Mesh(ringG, new THREE.MeshBasicMaterial({ color: 0xc8b4ff, transparent: true, opacity: 0.28, side: THREE.DoubleSide, fog: false, depthWrite: false }));
       ring.position.copy(pl.position); ring.rotation.x = 1.25; ring.rotation.y = 0.3; grp.add(ring);
     }
+    // poeira fina flutuando na luz sobre o tabuleiro (so ambiente, nao mexe nas pecas)
+    this.motes = null;
+    if (this.envName !== 'espaco') {
+      const n = 80, dp = new Float32Array(n * 3), ph = new Float32Array(n);
+      for (let i = 0; i < n; i++) { dp[i * 3] = rnd(-5.5, 5.5); dp[i * 3 + 1] = rnd(0.3, 4.8); dp[i * 3 + 2] = rnd(-5.5, 5.5); ph[i] = Math.random() * 6.28; }
+      const dg = new THREE.BufferGeometry(); dg.setAttribute('position', new THREE.BufferAttribute(dp, 3));
+      const dust = new THREE.Points(dg, new THREE.PointsMaterial({ size: 0.075, map: bok, color: this.envName === 'jardim' ? 0xfff6c8 : 0xffe4b8, transparent: true, opacity: 0.6, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false }));
+      dust.userData.ph = ph; dust.renderOrder = 3; grp.add(dust); this.motes = dust;
+    }
     if (!quiet) { this.applyQuality(); }
     this.dirty = true; this.shadowDirty = true;
   }
@@ -934,6 +943,36 @@ export class View3D {
     this.dirty = true;
   }
 
+  // seta do melhor lance e selo do lance (Rever partida)
+  arrow(from, to) {
+    if (this.arrowMesh) { this.scene.remove(this.arrowMesh); this.arrowMesh.geometry.dispose(); this.arrowMesh = null; }
+    if (from >= 0) {
+      const a = sqPos(from), b = sqPos(to), L = a.distanceTo(b), w = 0.11, hw = 0.3, hl = 0.42;
+      const sh = new THREE.Shape();
+      sh.moveTo(0.2, -w); sh.lineTo(L - hl, -w); sh.lineTo(L - hl, -hw); sh.lineTo(L - 0.08, 0); sh.lineTo(L - hl, hw); sh.lineTo(L - hl, w); sh.lineTo(0.2, w); sh.closePath();
+      const g = new THREE.ShapeGeometry(sh); g.rotateX(-Math.PI / 2);
+      if (!this.arrowMat) this.arrowMat = new THREE.MeshBasicMaterial({ color: 0x46aaff, transparent: true, opacity: 0.8, depthWrite: false, toneMapped: false });
+      const m = new THREE.Mesh(g, this.arrowMat); m.position.set(a.x, 0.035, a.z); m.rotation.y = -Math.atan2(b.z - a.z, b.x - a.x); m.renderOrder = 2;
+      this.scene.add(m); this.arrowMesh = m;
+    }
+    this.dirty = true;
+  }
+  mark(sq, mk) {
+    if (this.markSp) { this.scene.remove(this.markSp); this.markSp.material.map.dispose(); this.markSp.material.dispose(); this.markSp = null; }
+    if (sq >= 0 && mk && mk.s) {
+      const col = { br: '#18b8a8', ot: '#2f8fe0', im: '#d9a400', er: '#e9781a', gr: '#e03a3a' }[mk.c] || '#555';
+      const c = document.createElement('canvas'); c.width = c.height = 128; const g = c.getContext('2d');
+      g.fillStyle = col; g.strokeStyle = '#fff'; g.lineWidth = 10; g.beginPath(); g.arc(64, 64, 52, 0, Math.PI * 2); g.fill(); g.stroke();
+      g.fillStyle = '#fff'; g.font = '900 ' + (mk.s.length > 1 ? 58 : 72) + 'px system-ui, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(mk.s, 64, 68);
+      const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
+      const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: t, depthTest: false, toneMapped: false }));
+      const p = sqPos(sq), mesh = this.meshes[sq], hgt = mesh ? (mesh.geometry.boundingBox || (mesh.geometry.computeBoundingBox(), mesh.geometry.boundingBox)).max.y : 0.5;
+      sp.position.set(p.x + 0.32, hgt + 0.25, p.z); sp.scale.set(0.5, 0.5, 1); sp.renderOrder = 10;
+      this.scene.add(sp); this.markSp = sp;
+    }
+    this.dirty = true;
+  }
+
   thetaFor(o) { return o === 0 ? 0 : Math.PI; }
   setOrient(o, animate) {
     this.orient = o;
@@ -1151,7 +1190,25 @@ export class View3D {
       if (this.checkKing) this.checkKing.material.emissiveIntensity = 0.12 + (Math.sin(t * 5) * 0.5 + 0.5) * 0.35; }
     if (this.selSq >= 0) { const s = 1 + Math.sin(t * 6) * 0.08; this.dotMat.opacity = 0.7 + Math.sin(t * 6) * 0.15; for (const k in this.marks) this.marks[k].dot.scale.set(s, 1, s); busy = true; }
     for (const k in this.meshes) { const m = this.meshes[k], ao = m.userData.ao; if (ao) { ao.position.y = 0.007 - m.position.y; const sc = 1 + m.position.y * 0.8; ao.scale.set(sc, 1, sc); } const rg = m.userData.ring; if (rg) rg.position.y = 0.011 - m.position.y; }
-    if (!busy && !this.dirty) { this.fps.frames = 0; this.fps.time = 0; return; }
+    const amb = !!this.motes && this.level < 3;
+    if (this.motes) {
+      this.motes.visible = amb;
+      if (amb) {
+        const a = this.motes.geometry.attributes.position, ph = this.motes.userData.ph;
+        for (let i = 0; i < ph.length; i++) {
+          let y = a.array[i * 3 + 1] + dt * (0.05 + (i % 5) * 0.012);
+          if (y > 4.8) y = 0.3;
+          a.array[i * 3 + 1] = y; a.array[i * 3] += Math.sin(t * 0.4 + ph[i]) * dt * 0.06; a.array[i * 3 + 2] += Math.cos(t * 0.33 + ph[i]) * dt * 0.05;
+        }
+        a.needsUpdate = true;
+      }
+    }
+    if (!busy && !this.dirty) {
+      this.fps.frames = 0; this.fps.time = 0;
+      // so a poeira mexendo: 30 quadros por segundo bastam e nao contam para a qualidade automatica
+      if (!amb || (this._ambSkip = !this._ambSkip)) return;
+      this.placeCamera(); this.renderer.render(this.scene, this.camera); return;
+    }
     // no menu basta 30 quadros por segundo (economiza bateria)
     if (this.menu && !this.dirty && (this._skip = !this._skip)) return;
     if (this.tweens.length || this.shadowDirty || this._liftMoving) { this.renderer.shadowMap.needsUpdate = true; this.shadowDirty = false; }

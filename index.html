@@ -9,7 +9,8 @@
 <meta name="description" content="XADREZÃO: xadrez bonito para jogar no celular, contra o computador ou com um amigo.">
 <title>XADREZÃO</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%231d2740'/%3E%3Cpath fill='%23f5c84c' d='M46.5 8h7v6h6v7h-6v7h-7v-7h-6v-7h6zM28 42c0-9 10-12 19-8l3 3 3-3c9-4 19-1 19 8 0 10-8 18-10 24H38c-2-6-10-14-10-24zM36 68h28l2 8H34zM26 80h48v10H26z'/%3E%3C/svg%3E">
-<link rel="stylesheet" href="css/style.css?v=202610212131">
+<style>#splash{position:fixed;inset:0;z-index:99;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;background:radial-gradient(ellipse at 50% 38%,#26325a 0,#0f1424 62%);color:#f5c84c;pointer-events:none;transition:opacity .55s ease,transform .55s ease;font-family:system-ui,sans-serif}#splash.out{opacity:0;transform:scale(1.06)}#splash svg{width:84px;height:84px;filter:drop-shadow(0 6px 18px rgba(245,200,76,.45));animation:spF 1.6s ease-in-out infinite}#splash b{font:900 30px/1 Georgia,serif;letter-spacing:.08em;background:linear-gradient(180deg,#ffe9a8,#e0a52a);-webkit-background-clip:text;background-clip:text;color:transparent}#splash i{display:block;width:150px;height:4px;border-radius:4px;background:rgba(255,255,255,.12);overflow:hidden}#splash i u{display:block;width:40%;height:100%;border-radius:4px;background:linear-gradient(90deg,#f5c84c,#fff1c2);animation:spL 1.1s ease-in-out infinite}#splash small{color:#9aa6c2;font-size:14px}@keyframes spF{50%{transform:translateY(-6px)}}@keyframes spL{0%{transform:translateX(-100%)}100%{transform:translateX(260%)}}</style>
+<link rel="stylesheet" href="css/style.css?v=202610212146">
 </head>
 <body>
 <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
@@ -17,6 +18,7 @@
   <linearGradient id="pgB" x1="0" y1="0" x2=".85" y2="1"><stop offset="0" stop-color="#7a6253"/><stop offset=".4" stop-color="#33281f"/><stop offset="1" stop-color="#0e0a08"/></linearGradient>
   <linearGradient id="pgGl" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".75"/><stop offset=".42" stop-color="#fff" stop-opacity=".08"/><stop offset=".5" stop-color="#fff" stop-opacity="0"/></linearGradient>
 </defs></svg>
+<div id="splash"><svg viewBox="0 0 100 100"><path fill="#f5c84c" d="M46.5 8h7v6h6v7h-6v7h-7v-7h-6v-7h6zM28 42c0-9 10-12 19-8l3 3 3-3c9-4 19-1 19 8 0 10-8 18-10 24H38c-2-6-10-14-10-24zM36 68h28l2 8H34zM26 80h48v10H26z"/></svg><b>XADREZÃO</b><i><u></u></i><small>Preparando o tabuleiro...</small></div>
 <canvas id="c3d" aria-label="Tabuleiro 3D"></canvas>
 <div id="bgfx"></div><div id="vign"></div>
 
@@ -149,7 +151,15 @@
   <div class="player" id="plBot"><span class="dot"></span><span class="av"></span><span class="nm"><span class="name"></span><small class="sub"></small></span><span class="caps"></span><span class="adv"></span><span class="clk"></span></div>
   <div id="status">Vez das brancas</div>
   <div id="coach" hidden><div class="cav"><svg viewBox="0 0 24 24"><path d="M2 8l10-5 10 5-10 5z"/><path d="M6 10.5V16c3 2.5 9 2.5 12 0v-5.5"/></svg></div><p id="coachText"></p><button id="coachWhy" hidden>Por quê?</button></div>
-  <nav class="controls">
+  <div id="revCard" hidden><div class="rh"></div><div class="rb"></div><i class="rp"></i></div>
+  <nav class="controls" id="revBar" hidden>
+    <button id="rvExit"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg><span>Sair</span></button>
+    <button id="rvStart"><svg viewBox="0 0 24 24"><path d="M6 5v14M18 6l-8 6 8 6z"/></svg><span>Início</span></button>
+    <button id="rvPrev"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg><span>Voltar</span></button>
+    <button id="rvNext" class="pri"><svg viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg><span>Avançar</span></button>
+    <button id="rvKey"><svg viewBox="0 0 24 24"><path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z"/></svg><span>Destaque</span></button>
+  </nav>
+  <nav class="controls" id="mainBar">
     <button id="cNew"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg><span>Novo</span></button>
     <button id="cUndo"><svg viewBox="0 0 24 24"><path d="M9 14L4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/></svg><span>Desfazer</span></button>
     <button id="cHint"><svg viewBox="0 0 24 24"><path d="M9 18h6M10 21h4"/><path d="M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2.1h5c0-.9.4-1.6 1-2.1A6 6 0 0 0 12 3z"/></svg><span>Dica</span></button>
@@ -179,16 +189,16 @@
 <div id="achPop" hidden><div class="ai"></div><div class="at"><em>Conquista desbloqueada!</em><b></b><small></small></div></div>
 <div id="banner" hidden><b></b><span></span></div>
 
-<script>window.XV = '202610212131';</script>
-<script src="js/engine.js?v=202610212131"></script>
-<script src="js/pieces.js?v=202610212131"></script>
-<script src="js/avatars.js?v=202610212131"></script>
-<script src="js/journey.js?v=202610212131"></script>
-<script src="js/sound.js?v=202610212131"></script>
-<script src="js/view2d.js?v=202610212131"></script>
-<script src="js/stats.js?v=202610212131"></script>
-<script src="js/puzzles.js?v=202610212131"></script>
-<script src="js/learn.js?v=202610212131"></script>
-<script src="js/app.js?v=202610212131"></script>
+<script>window.XV = '202610212146';</script>
+<script src="js/engine.js?v=202610212146"></script>
+<script src="js/pieces.js?v=202610212146"></script>
+<script src="js/avatars.js?v=202610212146"></script>
+<script src="js/journey.js?v=202610212146"></script>
+<script src="js/sound.js?v=202610212146"></script>
+<script src="js/view2d.js?v=202610212146"></script>
+<script src="js/stats.js?v=202610212146"></script>
+<script src="js/puzzles.js?v=202610212146"></script>
+<script src="js/learn.js?v=202610212146"></script>
+<script src="js/app.js?v=202610212146"></script>
 </body>
 </html>
