@@ -9,12 +9,14 @@
 
   var PHONE = Math.min(screen.width, screen.height) < 700;
   var prefs = load(PREFS) || {};
-  prefs = { style: prefs.style || 'classico', env: prefs.env || 'sala', theme: prefs.theme || 'classico', clock: prefs.clock || '0', view: prefs.view || '3d', sound: prefs.sound !== false, music: prefs.music !== false, vibe: prefs.vibe !== false, learn: !!prefs.learn, level: prefs.level || 'medio', color: prefs.color || 'w', flip: prefs.flip !== false, cam: prefs.cam2 || 'auto', aid: !!prefs.aid2, camFx: prefs.camFx !== false, p2: prefs.p2 || 'premium', evalbar: prefs.evalbar || 'learn' };
+  prefs = { style: prefs.style || 'classico', env: prefs.env || 'sala', theme: prefs.theme || 'classico', clock: prefs.clock || '0', view: prefs.view || '3d', sound: prefs.sound !== false, music: prefs.music !== false, vibe: prefs.vibe !== false, learn: !!prefs.learn, level: prefs.level || 'medio', color: prefs.color || 'w', flip: prefs.flip !== false, cam: prefs.cam2 || 'auto', aid: !!prefs.aid2, camFx: prefs.camFx !== false, p2: prefs.p2 || 'premium', evalbar: prefs.evalbar || 'learn',
+    palette: prefs.palette || 'classico', psize: prefs.psize || 'n', outline: prefs.outline !== false, speed: prefs.speed || 'normal', last3: prefs.last3 || (prefs.view === 'vivo' ? 'vivo' : '3d') };
+  var PSIZE = { p: 0.9, n: 1, g: 1.12 };
 
   var app = {
     game: null, mode: 'ai', level: 'medio', human: 0, autoFlip: true, orient: 0,
     sel: -1, dests: {}, busy: false, thinking: false, aiReq: 0, over: null,
-    view2d: null, view3d: null, v: null, has3d: true, screen: 'menu'
+    view2d: null, view3d: null, views3: {}, v: null, has3d: true, screen: 'menu'
   };
   window.XApp = app;
 
@@ -59,31 +61,52 @@
   function fit2d() { layoutGame(); }
   function queueLayout() { if (layoutQ) return; layoutQ = requestAnimationFrame(function () { layoutQ = 0; layoutGame(); }); }
   app.layout = layoutGame;
+  function is3k(k) { return k === '3d' || k === 'vivo'; }
+  function pick3(kind) {
+    app.view3d = app.views3[kind] || null;
+    for (var k in app.views3) if (k !== kind) app.views3[k].setActive(false);
+  }
   function useView(kind, first) {
-    if (kind === '3d' && !app.view3d) kind = '2d';
-    app.v = kind === '3d' ? app.view3d : app.view2d;
-    document.body.classList.toggle('three', kind === '3d');
-    if (app.view3d) app.view3d.setActive(kind === '3d');
-    $('cViewL').textContent = kind === '3d' ? 'Ver 2D' : 'Ver 3D';
+    if (is3k(kind) && !app.views3[kind]) kind = '2d';
+    var k3 = is3k(kind);
+    if (k3) pick3(kind);
+    app.v = k3 ? app.view3d : app.view2d;
+    document.body.classList.toggle('three', k3);
+    document.body.classList.toggle('vivo', kind === 'vivo');
+    for (var k in app.views3) app.views3[k].setActive(k3 && app.views3[k] === app.v);
+    if (window.XSound && XSound.setStyle) XSound.setStyle(kind === 'vivo' ? 'vivo' : 'normal');
+    $('cViewL').textContent = k3 ? 'Ver 2D' : (prefs.last3 === 'vivo' ? 'Ver Vivo' : 'Ver 3D');
     $('cView').hidden = !app.has3d;
     if (app.game) {
-      app.v.setOrient(app.orient, false);
-      app.v.sync(app.game.pos.board);
-      refreshHL();
+      if (app.review) { app.v.setOrient(app.orient, false); reviewShow(app.review.i, false); }
+      else { app.v.setOrient(app.orient, false); app.v.sync(app.game.pos.board); refreshHL(); }
     }
     fit2d();
   }
-  function init3d() {
-    if (app.view3d || !app.has3d) return Promise.resolve(app.view3d);
+  function init3d(kind) {
+    kind = kind || (prefs.view === 'vivo' ? 'vivo' : '3d');
+    if (!app.has3d) return Promise.resolve(null);
+    if (app.views3[kind]) { pick3(kind); return Promise.resolve(app.view3d); }
+    if (app.loading3 && app.loading3[kind]) return app.loading3[kind];
+    app.loading3 = app.loading3 || {};
+    $('loading').textContent = kind === 'vivo' ? 'Erguendo o salão de pedra...' : 'Carregando 3D...';
     $('loading').hidden = false;
-    return import('./view3d.js?v=' + V).then(function (mod) {
-      try {
-        app.view3d = new mod.View3D($('c3d'), app);
-        window.addEventListener('resize', function () { app.view3d.resize(); queueLayout(); });
-      } catch (e) { console.warn(e); app.has3d = false; toast('Seu aparelho não conseguiu abrir o 3D. Usando o visual 2D.'); }
-      $('loading').hidden = true;
-      return app.view3d;
-    }).catch(function (e) { console.warn(e); app.has3d = false; $('loading').hidden = true; return null; });
+    var pr = import('./view3d.js?v=' + V).then(function (mod) {
+      if (kind === 'vivo') return import('./vivo3d.js?v=' + V).then(function (mv) { var C = mv.makeVivo(mod); return new C($('c3v'), app); });
+      return new mod.View3D($('c3d'), app);
+    }).then(function (inst) {
+      app.views3[kind] = inst;
+      if (!app.resizeHooked) { app.resizeHooked = true; window.addEventListener('resize', function () { for (var k in app.views3) app.views3[k].resize(); queueLayout(); }); }
+      pick3(kind); $('loading').hidden = true; app.loading3[kind] = null;
+      return inst;
+    }).catch(function (e) {
+      console.warn(e); $('loading').hidden = true; app.loading3[kind] = null;
+      if (kind === 'vivo') toast('Seu aparelho não conseguiu abrir o Xadrez Vivo.');
+      else { app.has3d = false; toast('Seu aparelho não conseguiu abrir o 3D. Usando o visual 2D.'); }
+      return null;
+    });
+    app.loading3[kind] = pr;
+    return pr;
   }
   function webglOK() {
     try { var c = document.createElement('canvas'); return !!(window.WebGLRenderingContext && (c.getContext('webgl2') || c.getContext('webgl'))); } catch (e) { return false; }
@@ -289,7 +312,7 @@
   var lastTick = 0;
   function tick() {
     var t = Date.now(), dt = lastTick ? t - lastTick : 0; lastTick = t;
-    if (!app.clock || !app.game || app.over || app.screen !== 'game' || document.hidden || !app.game.moves.length) return;
+    if (!app.clock || !app.game || app.over || app.paused || app.screen !== 'game' || document.hidden || !app.game.moves.length) return;
     var c = app.game.pos.turn;
     app.clock.left[c] -= Math.min(dt, 1000);
     if (app.clock.left[c] <= 0) {
@@ -369,6 +392,7 @@
     return true;
   };
   function moveSound(m, st) {
+    if (app.v && app.v.ownSounds && !st.check && !m.promo && !(st.over && st.reason === 'mate')) { buzz(m.cap ? 'capture' : 'move'); return; }
     if (st.over && st.reason === 'mate') return;
     if (st.check) { sfx('check'); buzz('check'); }
     else if (m.promo) { sfx('promote'); sfx(m.cap ? 'capture' : 'move'); buzz('capture'); }
@@ -852,6 +876,7 @@
 
   // ===== Telas =====
   function showScreen(s) {
+    if (s !== 'game' && !$('gSet').hidden) closeGameSettings();
     app.screen = s;
     if (s !== 'game' && window.XSound && XSound.setTension) XSound.setTension(0);
     [].forEach.call(document.querySelectorAll('.screen'), function (el) { el.classList.toggle('show', el.id === s); });
@@ -861,14 +886,17 @@
     if (s === 'achv') XStats.render($('achList'), pzProg, (window.XPuzzles || []).length);
     if (s === 'menu') { var cn = XStats.count(); $('tAchvN').textContent = cn.got + '/' + cn.total; }
     if (s === 'guide') { if (app.stopGuide) app.stopGuide(); app.stopGuide = XLearn.buildGuide($('guideList')); }
-    if (app.view3d) app.view3d.setMenu(s === 'menu');
+    for (var kk in app.views3) app.views3[kk].setMenu(s === 'menu');
     if (s === 'menu') {
-      showPanel('pMain'); updateContinue();
-      var want3d = prefs.view === '3d' && app.view3d;
-      document.body.classList.toggle('three', !!want3d);
+      showPanel('pMain'); updateContinue(); vivoTile(); refreshSettingsUI();
+      var want3d = is3k(prefs.view) && app.views3[prefs.view];
+      if (want3d) pick3(prefs.view);
+      document.body.classList.toggle('three', !!want3d); document.body.classList.toggle('vivo', !!want3d && prefs.view === 'vivo');
+      if (window.XSound && XSound.setStyle) XSound.setStyle(want3d && prefs.view === 'vivo' ? 'vivo' : 'normal');
+      for (var k3 in app.views3) if (app.views3[k3] !== app.view3d) app.views3[k3].setActive(false);
       if (app.view3d) { app.view3d.setActive(!!want3d); if (app.game) app.view3d.sync(app.game.pos.board); else app.view3d.sync(new E.Position().board); app.view3d.highlight({}); }
     } else if (s !== 'game') {
-      if (app.view3d) app.view3d.setActive(false);
+      for (var k4 in app.views3) app.views3[k4].setActive(false);
     } else if (s === 'game') {
       requestAnimationFrame(function () { fit2d(); if (app.view3d) app.view3d.resize(); });
     }
@@ -922,6 +950,142 @@
   function toggleVibe() { prefs.vibe = !prefs.vibe; savePrefs(); vibeUI(); sfx('click'); buzz('capture'); }
   function toggleMusic() { prefs.music = !prefs.music; savePrefs(); soundUI(); }
 
+  // ===== Ajustes ao vivo (menu e durante a partida) =====
+  var menuMarks = {};
+  var SET = {
+    view: { t: 'Visual', o: [['2d', '2D'], ['3d', '3D'], ['vivo', 'Xadrez Vivo']], need3: true },
+    style: { t: 'Peças', o: [['classico', 'Clássico'], ['moderno', 'Moderno'], ['metal', 'Metal'], ['vivo', 'Xadrez Vivo']], when: function () { return is3k(prefs.view); } },
+    palette: { t: 'Cores das peças', o: [['classico', 'Marfim'], ['rubi', 'Rubi'], ['safira', 'Safira'], ['jade', 'Jade']] },
+    psize: { t: 'Tamanho das peças', o: [['p', 'Pequenas'], ['n', 'Normal'], ['g', 'Grandes']] },
+    outline: { t: 'Contorno das peças', o: [['1', 'Ligado'], ['0', 'Desligado']], when: function () { return is3k(prefs.view); } },
+    aid: { t: 'Símbolos sobre as peças', o: [['1', 'Ligado'], ['0', 'Desligado']], when: function () { return is3k(prefs.view); } },
+    theme: { t: 'Cor do tabuleiro', o: [['classico', 'Clássico'], ['madeira', 'Madeira'], ['azul', 'Azul']], when: function () { return prefs.view !== 'vivo'; } },
+    p2: { t: 'Visual 2D', o: [['premium', 'Premium'], ['simples', 'Simples']], when: function () { return prefs.view === '2d'; } },
+    env: { t: 'Cenário 3D', o: [['sala', 'Sala'], ['jardim', 'Jardim'], ['espaco', 'Espaço']], when: function () { return prefs.view === '3d'; } },
+    cam: { t: 'Vista da câmera', o: [['auto', 'Normal'], ['alta', 'Alta'], ['media', 'Média'], ['baixa', 'Baixa']], when: function () { return is3k(prefs.view); } },
+    speed: { t: 'Velocidade das animações', o: [['normal', 'Normal'], ['rapido', 'Rápido']] },
+    camFx: { t: 'Câmera aproxima nas capturas', o: [['1', 'Ligado'], ['0', 'Desligado']], when: function () { return is3k(prefs.view); } },
+    evalbar: { t: 'Barra de vantagem', o: [['learn', 'No Aprender'], ['on', 'Sempre'], ['off', 'Nunca']] },
+    sound: { t: 'Sons', o: [['1', 'Ligado'], ['0', 'Desligado']] },
+    music: { t: 'Música', o: [['1', 'Ligada'], ['0', 'Desligada']] },
+    vibe: { t: 'Vibração', o: [['1', 'Ligada'], ['0', 'Desligada']], when: function () { return !!navigator.vibrate; } }
+  };
+  var SGROUPS = [['Visual', ['view', 'style', 'palette', 'psize', 'outline', 'aid']], ['Tabuleiro e cenário', ['theme', 'p2', 'env']], ['Câmera e animação', ['cam', 'speed', 'camFx', 'evalbar']], ['Som', ['sound', 'music', 'vibe']]];
+  function setVal(k) {
+    var v = prefs[k];
+    if (k === 'style' && prefs.view === 'vivo') return 'vivo';
+    if (typeof v === 'boolean') return v ? '1' : '0';
+    return String(v);
+  }
+  function each3(fn) { for (var k in app.views3) fn(app.views3[k], k); }
+  function look2d() {
+    var b = document.body;
+    ['rubi', 'safira', 'jade'].forEach(function (p) { b.classList.toggle('pal-' + p, prefs.palette === p); });
+    b.style.setProperty('--psz', PSIZE[prefs.psize] || 1);
+    b.classList.toggle('fast', prefs.speed === 'rapido');
+    if (app.view2d) app.view2d.fast = prefs.speed === 'rapido';
+  }
+  function applySetting(k, v) {
+    var on = v === '1';
+    switch (k) {
+      case 'view':
+        if (v !== '2d' && !app.has3d) { toast('Este aparelho não abre o 3D.'); break; }
+        if (is3k(v)) {
+          init3d(v).then(function (inst) {
+            if (!inst) { refreshSettingsUI(); return; }
+            prefs.view = v; prefs.last3 = v; savePrefs();
+            if (app.screen === 'game') useView(v); else if (app.screen === 'menu') showScreen('menu');
+            refreshSettingsUI();
+          });
+          return;
+        }
+        prefs.view = '2d'; savePrefs();
+        if (app.screen === 'game') useView('2d'); else if (app.screen === 'menu') showScreen('menu');
+        break;
+      case 'style':
+        if (v === 'vivo') { applySetting('view', 'vivo'); return; }
+        prefs.style = v; app.pieceStyle = v; savePrefs();
+        if (app.views3['3d']) app.views3['3d'].setStyle(v);
+        if (prefs.view === 'vivo') { applySetting('view', '3d'); return; }
+        break;
+      case 'palette': prefs.palette = v; app.palette = v; savePrefs(); each3(function (x) { x.setPalette(v); }); look2d(); break;
+      case 'psize': prefs.psize = v; app.pScale = PSIZE[v] || 1; savePrefs(); each3(function (x) { x.setPieceScale(app.pScale); }); look2d(); break;
+      case 'outline': prefs.outline = on; app.outlines = on; savePrefs(); each3(function (x) { x.setOutlines(on); }); break;
+      case 'aid': prefs.aid = on; prefs.aid2 = on; app.visionAid = on; savePrefs(); each3(function (x) { x.setAid(on); }); break;
+      case 'theme': prefs.theme = v; app.theme = v; document.body.dataset.theme = v; savePrefs(); if (app.views3['3d']) app.views3['3d'].setTheme(v); break;
+      case 'p2': prefs.p2 = v; savePrefs(); document.body.classList.toggle('p2-prem', v === 'premium'); queueLayout(); break;
+      case 'env': prefs.env = v; app.env = v; savePrefs(); if (app.views3['3d']) app.views3['3d'].setEnv(v); break;
+      case 'cam': prefs.cam = v; prefs.cam2 = v; app.camView = v; savePrefs(); camUI(); each3(function (x) { x.setCamView(v); }); layoutGame(); break;
+      case 'speed': prefs.speed = v; app.animSpeed = v; savePrefs(); each3(function (x) { x.speed = v; }); look2d(); break;
+      case 'camFx': prefs.camFx = on; app.camFx = on; savePrefs(); each3(function (x) { x.camFx = on; }); break;
+      case 'evalbar': prefs.evalbar = v; savePrefs(); if (app.game) { evalKey = ''; refreshStatus(); } break;
+      case 'sound': if (prefs.sound !== on) toggleSound(); break;
+      case 'music': if (prefs.music !== on) toggleMusic(); break;
+      case 'vibe': if (prefs.vibe !== on) toggleVibe(); break;
+    }
+    refreshSettingsUI();
+  }
+  function refreshSettingsUI() {
+    for (var k in menuMarks) menuMarks[k](setVal(k));
+    [].forEach.call(document.querySelectorAll('.setrows'), function (el) { renderSettings(el, el._keys, el._grouped); });
+  }
+  function renderSettings(el, keys, grouped) {
+    if (!el) return;
+    el._keys = keys; el._grouped = grouped; el.classList.add('setrows');
+    var html = '';
+    var row = function (k) {
+      var S = SET[k]; if (!S || (S.when && !S.when()) || (S.need3 && !app.has3d)) return '';
+      var cur = setVal(k);
+      return '<div class="srow"><label>' + S.t + '</label><div class="seg' + (S.o.length > 3 ? ' seg4' : '') + '" data-k="' + k + '">' + S.o.map(function (o) { return '<button data-v="' + o[0] + '"' + (o[0] === cur ? ' class="on"' : '') + '>' + o[1] + '</button>'; }).join('') + '</div></div>';
+    };
+    if (grouped) SGROUPS.forEach(function (g) { var r = g[1].map(row).join(''); if (r) html += '<h4>' + g[0] + '</h4>' + r; });
+    else html = keys.map(row).join('');
+    el.innerHTML = html;
+    if (!el._bound) {
+      el._bound = true;
+      el.addEventListener('click', function (e) {
+        var b = e.target.closest('button[data-v]'), sg = b && b.closest('.seg[data-k]'); if (!sg) return;
+        [].forEach.call(sg.children, function (x) { x.classList.toggle('on', x === b); });
+        sfx('click'); applySetting(sg.dataset.k, b.dataset.v);
+      });
+    }
+  }
+  function openGameSettings() {
+    if (app.screen !== 'game') return;
+    app.paused = true;
+    renderSettings($('gsBody'), null, true);
+    $('gSet').hidden = false; $('gSet').classList.remove('go'); void $('gSet').offsetWidth; $('gSet').classList.add('go');
+    refreshClocks();
+  }
+  function closeGameSettings() {
+    $('gSet').hidden = true; app.paused = false; lastTick = 0;
+    queueLayout();
+  }
+  app.openSettings = openGameSettings; app.closeSettings = closeGameSettings; app.applySetting = applySetting;
+  // Xadrez Vivo no menu: liga o modo e leva para o jogo escolhido
+  function vivoMenu() {
+    var on = prefs.view === 'vivo';
+    var html = '<div class="vgrid">' + [['ai', 'Contra o computador'], ['two', '2 jogadores'], ['jn', 'Jornada'], ['pz', 'Desafios']].map(function (o) { return '<button data-go="' + o[0] + '">' + o[1] + '</button>'; }).join('') + '</div>';
+    modal('Xadrez Vivo', 'As peças viram estátuas de pedra gigantes num salão antigo. Elas andam, lutam e viram pedregulho! Escolha como jogar:', on ? [{ t: 'Desligar Xadrez Vivo', fn: function () { applySetting('view', prefs.last3b || '3d'); } }, { t: 'Fechar' }] : [{ t: 'Fechar' }], { kind: 'vivo', icon: VIVO_ICON, html: html });
+    $('mExtra').onclick = function (e) {
+      var b = e.target.closest('button[data-go]'); if (!b) return;
+      $('modal').hidden = true; sfx('click');
+      var go = b.dataset.go;
+      if (prefs.view !== 'vivo') prefs.last3b = is3k(prefs.view) ? prefs.view : '2d';
+      init3d('vivo').then(function (inst) {
+        if (!inst) return;
+        prefs.view = 'vivo'; prefs.last3 = 'vivo'; savePrefs(); refreshSettingsUI();
+        if (go === 'ai') { showScreen('menu'); showPanel('pAI'); }
+        else if (go === 'two') { showScreen('menu'); showPanel('pTwo'); }
+        else if (go === 'jn') showScreen('jornada');
+        else showScreen('puzzles');
+        vivoTile();
+      });
+    };
+  }
+  var VIVO_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 21h16M6 21V10l2-2V4h2v2h4V4h2v4l2 2v11"/><path d="M10 21v-4a2 2 0 0 1 4 0v4"/></svg>';
+  function vivoTile() { var e = $('tVivoS'); if (e) e.textContent = prefs.view === 'vivo' ? 'Ligado' : 'Estátuas de pedra gigantes'; $('tVivo').classList.toggle('on', prefs.view === 'vivo'); }
+
   function clockOpt() { var m = +prefs.clock; return m ? { limit: m * 60000 } : null; }
   function aiHint(l) {
     $('aiHint').textContent = { iniciante: 'Para quem está aprendendo: o computador joga quase ao acaso.', facil: 'Pensa só um lance e às vezes se distrai.', medio: 'Um desafio equilibrado.', dificil: 'Pensa vários lances à frente. Boa sorte!', mestre: 'Usa toda a força: aberturas de livro e cálculo profundo.' }[l] || '';
@@ -957,27 +1121,24 @@
       marks.push(segInit(el.id, prefs.clock, function (v) { prefs.clock = v; savePrefs(); marks.forEach(function (m) { m(v); }); }));
     });
     segInit('segFlip', prefs.flip ? '1' : '0', function (v) { prefs.flip = v === '1'; savePrefs(); });
-    segInit('segTheme', prefs.theme, function (v) {
-      prefs.theme = v; savePrefs(); app.theme = v; document.body.dataset.theme = v;
-      if (app.view3d) app.view3d.setTheme(v);
+    ['segTheme:theme', 'segStyle:style', 'segEval:evalbar', 'segP2:p2', 'segCamFx:camFx', 'segAid:aid', 'segEnv:env', 'segView:view'].forEach(function (x) {
+      var a = x.split(':'); menuMarks[a[1]] = segInit(a[0], setVal(a[1]), function (v) { applySetting(a[1], v); });
     });
-    segInit('segStyle', prefs.style, function (v) { prefs.style = v; savePrefs(); app.pieceStyle = v; if (app.view3d) app.view3d.setStyle(v); });
-    segInit('segEval', prefs.evalbar, function (v) { prefs.evalbar = v; savePrefs(); if (app.game) { evalKey = ''; refreshStatus(); } });
-    segInit('segP2', prefs.p2, function (v) { prefs.p2 = v; savePrefs(); document.body.classList.toggle('p2-prem', v === 'premium'); });
-    segInit('segCamFx', prefs.camFx ? '1' : '0', function (v) { prefs.camFx = v === '1'; savePrefs(); app.camFx = prefs.camFx; if (app.view3d) app.view3d.camFx = prefs.camFx; });
-    segInit('segAid', prefs.aid ? '1' : '0', function (v) { prefs.aid = v === '1'; prefs.aid2 = prefs.aid; savePrefs(); if (app.view3d) app.view3d.setAid(prefs.aid); });
     $('camBtn').onclick = function () {
       var order = ['auto', 'alta', 'media', 'baixa'];
-      prefs.cam = order[(order.indexOf(prefs.cam) + 1) % 4]; prefs.cam2 = prefs.cam; savePrefs(); camUI(); sfx('click');
-      if (app.view3d) { app.view3d.setCamView(prefs.cam); layoutGame(); }
+      applySetting('cam', order[(order.indexOf(prefs.cam) + 1) % 4]); sfx('click');
     };
-    segInit('segEnv', prefs.env, function (v) { prefs.env = v; savePrefs(); app.env = v; if (app.view3d) app.view3d.setEnv(v); });
-    var markView = segInit('segView', prefs.view, function (v) {
-      prefs.view = v; savePrefs();
-      if (v === '3d') init3d().then(function () { if (!app.view3d) { prefs.view = '2d'; markView('2d'); } showScreen('menu'); });
-      else showScreen('menu');
-    });
     if (!app.has3d) { $('segView').hidden = true; $('set3d').hidden = true; }
+    renderSettings($('msExtra'), ['palette', 'psize', 'outline', 'speed']);
+    $('tVivo').onclick = function () { sfx('click'); vivoMenu(); };
+    $('gGear').onclick = function () { sfx('click'); openGameSettings(); };
+    $('gsDone').onclick = function () { sfx('click'); closeGameSettings(); };
+    $('gSet').addEventListener('click', function (e) { if (e.target === $('gSet')) closeGameSettings(); });
+    document.addEventListener('keydown', function (e) {
+      if (e.key !== 'Escape' || app.screen !== 'game') return;
+      e.preventDefault();
+      if (!$('gSet').hidden) closeGameSettings(); else if ($('promo').hidden) openGameSettings();
+    });
     $('bStartAI').onclick = function () {
       var c = prefs.color === 'r' ? (Math.random() < 0.5 ? 'w' : 'b') : prefs.color;
       startGame({ mode: 'ai', learn: prefs.learn, level: prefs.level, human: c === 'b' ? 8 : 0, clock: clockOpt() });
@@ -1008,9 +1169,7 @@
     $('cFlip').onclick = flip;
     $('cView').onclick = function () {
       sfx('click');
-      var next = prefs.view === '3d' ? '2d' : '3d';
-      if (next === '3d') init3d().then(function (v) { if (!v) return; prefs.view = '3d'; savePrefs(); markView('3d'); useView('3d'); });
-      else { prefs.view = '2d'; savePrefs(); markView('2d'); useView('2d'); }
+      applySetting('view', is3k(prefs.view) ? '2d' : (prefs.last3 || '3d'));
     };
     window.addEventListener('resize', function () { queueLayout(); });
     if (window.ResizeObserver) {
@@ -1023,6 +1182,7 @@
   function boot() {
     app.has3d = webglOK();
     app.theme = prefs.theme; document.body.dataset.theme = prefs.theme; document.body.classList.toggle('p2-prem', prefs.p2 === 'premium'); app.pieceStyle = prefs.style; app.env = prefs.env; app.camView = prefs.cam; app.visionAid = prefs.aid; app.camFx = prefs.camFx; camUI();
+    app.palette = prefs.palette; app.pScale = PSIZE[prefs.psize] || 1; app.outlines = prefs.outline; app.animSpeed = prefs.speed; look2d();
     app.view2d = new View2D($('board2d'), app);
     app.v = app.view2d;
     bind(); soundUI(); vibeUI();
@@ -1033,7 +1193,7 @@
       setTimeout(function () { sp.classList.add('out'); setTimeout(function () { sp.remove(); }, 600); }, Math.max(0, 450 - (Date.now() - t0)));
     };
     setTimeout(splashOff, 6000);
-    if (prefs.view === '3d' && app.has3d) init3d().then(function () { showScreen('menu'); splashOff(); });
+    if (is3k(prefs.view) && app.has3d) init3d(prefs.view).then(function (v) { if (!v) { prefs.view = '2d'; } showScreen('menu'); splashOff(); });
     else { if (!app.has3d) prefs.view = '2d'; splashOff(); }
     // hooks para testes automatizados
     app._start = startGame;

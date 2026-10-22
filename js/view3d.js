@@ -13,7 +13,8 @@ function sqPos(sq) { return new THREE.Vector3((sq & 7) - 3.5, 0, 3.5 - (sq >> 4)
 // ---------- Texturas procedurais ----------
 function rnd(a, b) { return a + Math.random() * (b - a); }
 // vistas da camera (elevacao em radianos)
-const VIEWS = { alta: 1.2, media: 0.95, baixa: 0.72 }; // 'auto' = enquadramento original (padrao)
+const VIEWS = { alta: 1.2, media: 0.95, baixa: 0.72 };
+export const PALETTES = { classico: [0xffffff, 0xffffff], rubi: [0xfff4ea, 0xff5a4a], safira: [0xf4f6ff, 0x6c8cff], jade: [0xf6fff4, 0x5cd08a] }; // 'auto' = enquadramento original (padrao)
 // temas do tabuleiro (o primeiro e o de maior contraste com as pecas)
 export const THEMES = {
   classico: { l: ['#d3a86c', '#bf9156'], d: ['#3f7b63', '#316650'], vl: [110, 80, 50], vd: [200, 230, 215], frame: '#6a4225' },
@@ -466,6 +467,7 @@ export class View3D {
     this.scene.environment = pmrem.fromScene(new RoomEnvironment(renderer), 0.04).texture;
     this.camera = new THREE.PerspectiveCamera(36, 1, 0.1, 200);
     this.FOV = 36; this.camFx = app.camFx !== false; this.camView = app.camView || 'auto'; this.aid = !!app.visionAid;
+    this.outlines = app.outlines !== false; this.pScale = app.pScale || 1; this.speed = app.animSpeed || 'normal';
 
     this.buildLights(); this.buildBoard(mobile);
     this.seg = mobile ? 28 : 40;
@@ -503,6 +505,7 @@ export class View3D {
     this.fps = { frames: 0, time: 0, last: 0 };
     this.setEnv(app.env || 'sala', true);
     if (app.pieceStyle && app.pieceStyle !== 'classico') this.setStyle(app.pieceStyle, true);
+    if (app.palette && app.palette !== 'classico') this.setPalette(app.palette);
     this.applyQuality();
     this.bindInput();
     this.resize();
@@ -528,18 +531,19 @@ export class View3D {
   buildBoard(mobile) {
     const s = this.scene;
     this.mobile = mobile;
-    const top = new THREE.Mesh(new THREE.PlaneGeometry(8, 8), new THREE.MeshPhysicalMaterial({ color: 0xc9c0b2, normalScale: new THREE.Vector2(0.12, 0.12),
-      roughnessMap: ctex(noiseCanvas(256, '#4a4a4a', 50), false, 4), roughness: 0.62, clearcoat: 0.3, clearcoatRoughness: 0.35, envMapIntensity: 0.42 }));
+    // casas foscas: sem brilho nem reflexo da luz, iguais de qualquer angulo
+    const top = new THREE.Mesh(new THREE.PlaneGeometry(8, 8), new THREE.MeshPhysicalMaterial({ color: 0xd2cabd, normalScale: new THREE.Vector2(0.08, 0.08),
+      roughness: 1, metalness: 0, clearcoat: 0, specularIntensity: 0, envMapIntensity: 0.12 }));
     this.boardTop = top; this.setTheme(this.app.theme || 'classico');
     top.rotation.x = -Math.PI / 2; top.position.y = 0.004; top.receiveShadow = true; s.add(top);
     const wc = woodCanvas(1024, 1024, true);
     const ftex = new THREE.CanvasTexture(wc); ftex.colorSpace = THREE.SRGBColorSpace; ftex.anisotropy = 8;
     const ftop = new THREE.Mesh(new THREE.PlaneGeometry(9.6, 9.6), new THREE.MeshPhysicalMaterial({ map: ftex, normalMap: new THREE.CanvasTexture(normalFrom(wc, 2.5, true)), normalScale: new THREE.Vector2(0.35, 0.35),
-      roughness: 0.45, clearcoat: 0.75, clearcoatRoughness: 0.2 }));
+      roughness: 0.85, clearcoat: 0, specularIntensity: 0.15, envMapIntensity: 0.25 }));
     ftop.rotation.x = -Math.PI / 2; ftop.position.y = 0.001; ftop.receiveShadow = true; s.add(ftop);
     const stex = new THREE.CanvasTexture(woodCanvas(512, 64, false)); stex.colorSpace = THREE.SRGBColorSpace;
     const frameG = rbox(9.6, 9.6, 0.42, 0.06, 3); frameG.rotateX(Math.PI / 2);
-    const frame = new THREE.Mesh(frameG, new THREE.MeshPhysicalMaterial({ map: stex, roughness: 0.42, clearcoat: 0.6, clearcoatRoughness: 0.25 }));
+    const frame = new THREE.Mesh(frameG, new THREE.MeshPhysicalMaterial({ map: stex, roughness: 0.8, clearcoat: 0, specularIntensity: 0.2, envMapIntensity: 0.3 }));
     stex.wrapS = stex.wrapT = THREE.RepeatWrapping; stex.repeat.set(0.1, 0.1);
     frame.position.y = -0.21 - 0.0; frame.castShadow = true; frame.receiveShadow = true; s.add(frame);
     // marcas de casas
@@ -587,6 +591,7 @@ export class View3D {
   setStyle(name, quiet) {
     const st = this.getStyle(name);
     this.style = name; this.geos = st.geos; this.mats = st.mats; this.checkMats = null; this.checkKing = null;
+    if (this.palette && this.palette !== 'classico') this.setPalette(this.palette);
     for (const k in this.meshes) this.pieceGroup.remove(this.meshes[k]);
     this.meshes = {};
     if (this.board) this.sync(this.board);
@@ -693,7 +698,7 @@ export class View3D {
     m.castShadow = true; m.receiveShadow = true;
     m.position.copy(sqPos(sq));
     if ((piece & 7) === E.N) m.rotation.y = (piece & 8) ? Math.PI : 0;
-    const ol = new THREE.Mesh(this.geos[piece & 7], this.outlineMats[piece & 8]); ol.renderOrder = -1; m.add(ol);
+    const ol = new THREE.Mesh(this.geos[piece & 7], this.outlineMats[piece & 8]); ol.renderOrder = -1; ol.visible = this.outlines !== false; m.add(ol);
     const ao = new THREE.Mesh(this.aoGeo, this.aoMat); ao.renderOrder = 1; ao.position.y = 0.007; m.add(ao);
     m.userData = { piece, sq, ol, ao };
     if (this.aid) this.addBadge(m);
@@ -728,6 +733,28 @@ export class View3D {
     sp.position.y = h; sp.scale.set(0.58, 0.58, 1); sp.renderOrder = 20; sp.raycast = () => {};
     m.add(sp); m.userData.badge = sp;
   }
+  setOutlines(on) {
+    this.outlines = !!on;
+    for (const k in this.meshes) { const o = this.meshes[k].userData.ol; if (o) o.visible = this.outlines; }
+    this.dirty = true;
+  }
+  // cores das pecas: muda so o tom do lado escuro (e um pouco o claro)
+  setPalette(name) {
+    this.palette = PALETTES[name] ? name : 'classico';
+    const P = PALETTES[this.palette];
+    for (const st of Object.values(this.styles)) for (const c of [0, 8]) {
+      const m = st.mats[c]; if (!m.userData.c0) m.userData.c0 = m.color.getHex();
+      const c0 = new THREE.Color(m.userData.c0);
+      if (c === 8 && this.palette !== 'classico') {
+        // lado escuro ganha a cor de verdade, com o brilho ajustado ao material (com textura ou sem)
+        const col = new THREE.Color(P[1]), lum = m.map ? 1.0 : 0.62;
+        m.color.copy(col).multiplyScalar(lum);
+      } else m.color.copy(c0).multiply(new THREE.Color(P[c ? 1 : 0]));
+    }
+    this.checkMats = null; if (this.hl) this.highlight(this.hl);
+    this.dirty = true;
+  }
+  setPieceScale(s) { this.pScale = s || 1; this.dirty = true; this.shadowDirty = true; }
   setAid(on) {
     this.aid = !!on;
     for (const k in this.meshes) { const m = this.meshes[k]; if (on) this.addBadge(m); else if (m.userData.badge) m.userData.badge.visible = false; }
@@ -750,7 +777,21 @@ export class View3D {
   }
 
   tween(dur, fn, delay = 0, tag) {
-    return new Promise((res) => { this.tweens.push({ t0: now() + delay, dur, fn, res, tag }); this.dirty = true; });
+    // Rapido: tudo mais curto; depois de um toque (rush) o resto da animacao corre 5x
+    let f = (this.speed === 'rapido' ? 0.55 : 1) * (this.slowmo || 1);
+    if (this.rushUntil && now() < this.rushUntil && tag !== 'cam') f *= 0.2;
+    return new Promise((res) => { this.tweens.push({ t0: now() + delay * f, dur: Math.max(0.01, dur * f), fn, res, tag }); this.dirty = true; });
+  }
+  // toque durante uma animacao: acelera tudo o que esta rodando
+  rushAll() {
+    const t = now(); let any = false;
+    for (const tw of this.tweens) {
+      if (tw.tag === 'cam') continue; any = true;
+      if (t < tw.t0) { tw.t0 = t + (tw.t0 - t) * 0.2; tw.dur *= 0.2; continue; }
+      const k = Math.min(1, (t - tw.t0) / tw.dur); tw.dur = Math.max(0.01, tw.dur * 0.2); tw.t0 = t - k * tw.dur;
+    }
+    if (any) { this.rushUntil = t + 2.5; this.dirty = true; }
+    return any;
   }
   // cancela animacoes de camera em andamento (ex.: cinema do xeque-mate) antes de uma nova
   // pula a animacao de camera (intro ou cinema) no primeiro toque
@@ -808,7 +849,7 @@ export class View3D {
       }
     }
     return Promise.all(jobs).then(() => {
-      anim.clear();
+      anim.clear(); this.rushUntil = 0;
       if (m.promo) {
         this.particles.burst(b.clone().setY(0.6), { colors: ['#ffe08a', '#fff4d0', '#ffb84a'], count: 60, up: 2.8, life: 1.3, grav: 3 });
         this.flash(b, 0xffd27a, 4);
@@ -1124,7 +1165,7 @@ export class View3D {
 
   bindInput() {
     const cv = this.canvas; let st = null;
-    cv.addEventListener('pointerdown', (e) => { if (this.menu) return; this.skipCam(); st = { x: e.clientX, y: e.clientY, id: e.pointerId, moved: false, th: this.cam.theta, ph: this.cam.phi }; try { cv.setPointerCapture(e.pointerId); } catch (er) { } });
+    cv.addEventListener('pointerdown', (e) => { if (this.menu) return; this.skipCam(); this.rushAll(); st = { x: e.clientX, y: e.clientY, id: e.pointerId, moved: false, th: this.cam.theta, ph: this.cam.phi }; try { cv.setPointerCapture(e.pointerId); } catch (er) { } });
     cv.addEventListener('pointermove', (e) => {
       if (!st || e.pointerId !== st.id) return;
       const dx = e.clientX - st.x, dy = e.clientY - st.y;
@@ -1176,7 +1217,7 @@ export class View3D {
       });
       this.tweens = kept.concat(this.tweens);
     }
-    if (this.particles.update(dt)) busy = true;
+    if (this.particles.update(dt / (this.slowmo || 1))) busy = true;
     if (this.shakeAmt > 0.001) { this.shakeAmt *= Math.pow(0.0005, dt); busy = true; } else this.shakeAmt = 0;
     if (this.menu) { this.cam.theta += dt * 0.12; busy = true; }
     // peca selecionada sobe um pouco
@@ -1190,7 +1231,8 @@ export class View3D {
       if (this.checkKing) this.checkKing.material.emissiveIntensity = 0.12 + (Math.sin(t * 5) * 0.5 + 0.5) * 0.35; }
     if (this.selSq >= 0) { const s = 1 + Math.sin(t * 6) * 0.08; this.dotMat.opacity = 0.7 + Math.sin(t * 6) * 0.15; for (const k in this.marks) this.marks[k].dot.scale.set(s, 1, s); busy = true; }
     for (const k in this.meshes) { const m = this.meshes[k], ao = m.userData.ao; if (ao) { ao.position.y = 0.007 - m.position.y; const sc = 1 + m.position.y * 0.8; ao.scale.set(sc, 1, sc); } const rg = m.userData.ring; if (rg) rg.position.y = 0.011 - m.position.y; }
-    const amb = !!this.motes && this.level < 3;
+    if (this.onFrame && this.onFrame(t, dt)) busy = true;
+    const amb = (!!this.motes && this.level < 3) || !!this.alwaysAmb;
     if (this.motes) {
       this.motes.visible = amb;
       if (amb) {
@@ -1207,14 +1249,14 @@ export class View3D {
       this.fps.frames = 0; this.fps.time = 0;
       // so a poeira mexendo: 30 quadros por segundo bastam e nao contam para a qualidade automatica
       if (!amb || (this._ambSkip = !this._ambSkip)) return;
-      this.placeCamera(); this.renderer.render(this.scene, this.camera); return;
+      this.placeCamera(); this.draw(); return;
     }
     // no menu basta 30 quadros por segundo (economiza bateria)
     if (this.menu && !this.dirty && (this._skip = !this._skip)) return;
     if (this.tweens.length || this.shadowDirty || this._liftMoving) { this.renderer.shadowMap.needsUpdate = true; this.shadowDirty = false; }
     this.dirty = false;
     this.placeCamera();
-    this.renderer.render(this.scene, this.camera);
+    this.draw();
     // ajuste automatico de qualidade
     if (dt > 0 && dt < 0.5) {
       this.fps.frames++; this.fps.time += dt;
@@ -1227,4 +1269,15 @@ export class View3D {
     }
   }
   isTweening(m) { return this._animMeshes.has(m); }
+  // tamanho das pecas: escala so na hora de desenhar (as animacoes continuam em escala 1)
+  draw() {
+    const ps = this.pScale || 1, kids = this.pieceGroup.children;
+    if (ps !== 1) for (const m of kids) m.scale.multiplyScalar(ps);
+    this.renderer.render(this.scene, this.camera);
+    if (ps !== 1) for (const m of kids) m.scale.multiplyScalar(1 / ps);
+  }
 }
+
+// para o modo Xadrez Vivo (vivo3d.js) reaproveitar a base
+export { THREE, mergeGeometries };
+export const H = { sqPos, ease, easeOut, now, rnd, glowCanvas, noiseCanvas, ctex, normalFrom, lathe, smooth, arc, tint, rbox, Particles };

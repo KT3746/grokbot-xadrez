@@ -109,6 +109,17 @@
     click: function (t) { tick(t, 1250, 0.09, 0.03); },
     promote: function (t) { [783.99, 987.77, 1174.66, 1567.98].forEach(function (f, i) { bell(t + i * 0.06, f, 0.12, 1.2, 0.8); }); },
     start: function (t) { [392, 523.25, 659.25].forEach(function (f, i) { bell(t + i * 0.11, f, 0.14, 1.6, 0.7); }); },
+    // ===== Xadrez Vivo: sons de pedra =====
+    stomp: function (t) { thump(t, 95, 40, 0.32, 0.16); knock(t, 260, 0.12, 0.07); },
+    stompH: function (t) { thump(t, 70, 30, 0.5, 0.24); knock(t, 180, 0.2, 0.1); knock(t + 0.01, 900, 0.05, 0.04); },
+    leap: function (t) { FX.whoosh(t); thump(t, 120, 60, 0.15, 0.12); },
+    swing: function (t) { FX.whoosh(t); },
+    strike: function (t) { bell(t, 523, 0.06, 0.4, 0.6); bell(t, 811, 0.04, 0.3, 0.6); knock(t, 1400, 0.25, 0.06); thump(t, 140, 50, 0.4, 0.18); },
+    shatter: function (t) { thump(t, 90, 32, 0.6, 0.3); for (var i = 0; i < 9; i++) knock(t + Math.random() * 0.35, 500 + Math.random() * 2600, 0.08 + Math.random() * 0.14, 0.04 + Math.random() * 0.06); rumble(t, 0.6, 0.25); },
+    crumble: function (t) { thump(t, 70, 25, 0.7, 0.5); for (var i = 0; i < 16; i++) knock(t + Math.random() * 0.9, 300 + Math.random() * 2200, 0.08 + Math.random() * 0.14, 0.05 + Math.random() * 0.08); rumble(t, 1.6, 0.45); },
+    rumble: function (t) { rumble(t, 1.3, 0.35); },
+    clink: function (t) { bell(t, 1567.98, 0.08, 0.6, 0.6); bell(t + 0.05, 2093, 0.05, 0.5, 0.6); },
+    awaken: function (t) { rumble(t, 2.2, 0.4); thump(t + 0.2, 55, 28, 0.4, 0.8); [146.83, 220, 293.66].forEach(function (f, i) { bell(t + 0.3 + i * 0.2, f, 0.08, 2.4, 0.9); }); },
     whoosh: function (t) {
       var src = ctx.createBufferSource(); src.buffer = noiseBuf;
       var bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.Q.value = 0.8;
@@ -118,8 +129,16 @@
     }
   };
 
+  // ronco grave de pedra arrastando
+  function rumble(t, dur, vol) {
+    var src = ctx.createBufferSource(); src.buffer = noiseBuf; src.loop = true;
+    var lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 220; lp.Q.value = 0.7;
+    var g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.08); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    src.connect(lp); lp.connect(g); g.connect(sfx); var s2 = ctx.createGain(); s2.gain.value = 0.3; g.connect(s2); s2.connect(verbIn);
+    src.start(t); src.stop(t + dur + 0.1);
+  }
   // a musica abaixa um pouco quando um som importante toca (mixagem)
-  var DUCK = { capture: 0.5, check: 0.4, mate: 0.15, lose: 0.2, draw: 0.35, promote: 0.4, castle: 0.7, start: 0.6 };
+  var DUCK = { shatter: 0.5, crumble: 0.25, awaken: 0.5, capture: 0.5, check: 0.4, mate: 0.15, lose: 0.2, draw: 0.35, promote: 0.4, castle: 0.7, start: 0.6 };
   var duckG = null;
   function duck(amt, hold) {
     if (!duckG || !musOn) return;
@@ -200,7 +219,44 @@
     var s2 = ctx.createGain(); s2.gain.value = 0.8; a.connect(s2); s2.connect(verbIn);
     [car, mod, tine].forEach(function (o) { o.start(t); o.stop(t + 3.3); });
   }
+  // ===== Xadrez Vivo: drones graves, coro distante e tambor no salao de pedra =====
+  var style = 'normal', hallVerb = null, hallIn = null;
+  var HALL = [[38, 45, 50, 53], [36, 43, 48, 52], [34, 41, 46, 50], [33, 40, 45, 49]];
+  function hallBus() {
+    if (hallIn) return hallIn;
+    hallVerb = ctx.createConvolver(); hallVerb.buffer = impulse(6);
+    hallIn = ctx.createGain(); hallIn.gain.value = 1; var out = ctx.createGain(); out.gain.value = 0.7;
+    hallIn.connect(hallVerb); hallVerb.connect(out); out.connect(mus);
+    return hallIn;
+  }
+  function hallBar(t) {
+    var ch = HALL[bar % HALL.length], hb = hallBus(), L = BAR * 1.5;
+    // drone grave (serra filtrada)
+    [ch[0] - 12, ch[0]].forEach(function (n, i) {
+      var o = ctx.createOscillator(); o.type = 'sawtooth'; o.frequency.value = mtof(n); o.detune.value = i ? 6 : -4;
+      var lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 160 + tension * 260;
+      var g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(0.03, t + 3); g.gain.setValueAtTime(0.03, t + L - 1); g.gain.linearRampToValueAtTime(0.0001, t + L + 2);
+      o.connect(lp); lp.connect(g); g.connect(mus); var s2 = ctx.createGain(); s2.gain.value = 0.4; g.connect(s2); s2.connect(hb);
+      o.start(t); o.stop(t + L + 2.1);
+    });
+    // coro: senos suaves com vibrato lento, so no eco
+    ch.slice(1).forEach(function (n, i) {
+      var o = ctx.createOscillator(); o.type = 'triangle'; o.frequency.value = mtof(n + 12);
+      var v = ctx.createOscillator(); v.frequency.value = 4.5 + i * 0.3; var vg = ctx.createGain(); vg.gain.value = 3; v.connect(vg); vg.connect(o.detune);
+      var g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t + 1 + i * 0.6); g.gain.linearRampToValueAtTime(0.012, t + 4 + i * 0.6); g.gain.linearRampToValueAtTime(0.0001, t + L + 1);
+      o.connect(g); g.connect(hb); o.start(t); v.start(t); o.stop(t + L + 1.2); v.stop(t + L + 1.2);
+    });
+    // tambor distante
+    for (var k = 0; k < 3; k++) if (Math.random() < 0.7) { var tt = t + 1.5 + k * 3.6 + Math.random() * 0.3;
+      var o = ctx.createOscillator(); o.type = 'sine'; o.frequency.setValueAtTime(80, tt); o.frequency.exponentialRampToValueAtTime(38, tt + 0.5);
+      var g = ctx.createGain(); env(g, tt, 0.12 + tension * 0.1, 0.01, 0.8); o.connect(g); g.connect(hb); g.connect(mus); o.start(tt); o.stop(tt + 1); }
+    // sino grave de vez em quando
+    if (Math.random() < 0.5) bell(t + 5 + Math.random() * 3, mtof(ch[2] + 12), 0.05, 3.5, 1);
+    bar++;
+    return L;
+  }
   function scheduleBar(t) {
+    if (style === 'vivo') return hallBar(t);
     var ch = CHORDS[bar % CHORDS.length];
     pad(t, ch, BAR);
     var bass = ctx.createOscillator(); bass.type = 'sine'; bass.frequency.value = mtof(ch[0] - 12);
@@ -222,7 +278,7 @@
     nextBar = Math.max(nextBar, ctx.currentTime + 0.1);
     timer = setInterval(function () {
       if (!ctx || ctx.state !== 'running') return;
-      while (nextBar < ctx.currentTime + 1.5) { scheduleBar(nextBar); nextBar += BAR; }
+      while (nextBar < ctx.currentTime + 1.5) { var len = scheduleBar(nextBar); nextBar += len || BAR; }
     }, 300);
   }
   function stopMusic() {
@@ -238,6 +294,8 @@
     setSfx: function (on) { sfxOn = on; if (sfx) sfx.gain.value = on ? 1 : 0; },
     setMusic: function (on) { musOn = on; if (on) startMusic(); else stopMusic(); },
     // 0 = calmo, 1 = perigo maximo (xeque, relogio no fim)
+    // 'normal' ou 'vivo' (salao de pedra); troca na proxima frase musical
+    setStyle: function (s) { style = s === 'vivo' ? 'vivo' : 'normal'; },
     setTension: function (x) { tTarget = Math.max(0, Math.min(1, x || 0)); },
     get sfxOn() { return sfxOn; }, get musicOn() { return musOn; }
   };

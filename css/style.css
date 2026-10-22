@@ -488,3 +488,45 @@ body.reviewing #mainBar, body.reviewing #status, body.reviewing #coach, body.rev
 .b2-mark { position: absolute; z-index: 7; transform: translate(-70%, -30%); min-width: 26px; height: 26px; padding: 0 5px; border-radius: 13px; display: grid; place-items: center; font: 900 14px/1 system-ui, sans-serif; color: #fff !important; box-shadow: 0 2px 6px rgba(0, 0, 0, .5); border: 2px solid #fff; animation: mkIn .4s cubic-bezier(.3, 1.6, .5, 1); pointer-events: none; }
 .b2-mark.k-br { background: #18b8a8; } .b2-mark.k-ot { background: #2f8fe0; } .b2-mark.k-im { background: #d9a400; } .b2-mark.k-er { background: #e9781a; } .b2-mark.k-gr { background: #e03a3a; }
 @keyframes mkIn { from { transform: translate(-70%, -30%) scale(0); } }
+/* ===== Xadrez Vivo, ajustes ao vivo, cores e tamanho das pecas ===== */
+#c3v { position: fixed; inset: 0; display: none; z-index: 0; touch-action: none; }
+body.vivo #vign { display: block; }
+.tile.vtile { grid-column: 1 / -1; flex-direction: row; gap: 12px; min-height: 58px; margin-top: 8px; width: 100%; background: linear-gradient(100deg, rgba(120, 104, 84, .35), rgba(40, 34, 30, .55)); border-color: rgba(230, 200, 150, .3); }
+.tile.vtile span { display: flex; flex-direction: column; align-items: flex-start; font-size: 16px; }
+.tile.vtile small { font-weight: 600; color: var(--mute); font-size: 12.5px; }
+.tile.vtile.on { border-color: #ffd36a; box-shadow: 0 0 0 1px rgba(255, 211, 106, .5), 0 0 18px rgba(255, 190, 80, .25); }
+.tile.vtile.on small { color: #ffd36a; }
+.card.vivo { max-width: 400px; }
+.vgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 0 0 12px; }
+.vgrid button { min-height: 54px; border-radius: 14px; font-weight: 800; font-size: 16px; background: linear-gradient(180deg, rgba(255, 217, 107, .22), rgba(255, 255, 255, .06)); border: 1px solid rgba(255, 217, 107, .35); }
+#mBtns button { min-width: 0; }
+.scard { max-width: 520px; max-height: calc(100vh - 40px); max-height: calc(100dvh - 40px); overflow-y: auto; text-align: left; padding: 16px 16px 14px; overscroll-behavior: contain; }
+#gSet { z-index: 12; }
+#gSet.go .scard { animation: pop .28s cubic-bezier(.2, .9, .3, 1.2) both; }
+.gshead { display: flex; align-items: center; justify-content: space-between; gap: 10px; position: sticky; top: -16px; margin: -16px -16px 0; padding: 14px 16px 10px; background: #243049; border-bottom: 1px solid rgba(255, 255, 255, .08); z-index: 2; }
+.gshead h3 { margin: 0; font-size: 22px; }
+.gpause { font-size: 12.5px; font-weight: 800; color: #2a1a05; background: #ffd36a; border-radius: 999px; padding: 3px 10px; white-space: nowrap; }
+.setrows h4 { margin: 14px 0 4px; font-size: 13px; letter-spacing: .08em; text-transform: uppercase; color: var(--gold); }
+.srow { margin: 6px 0 8px; }
+.srow label { display: block; font-size: 14px; color: var(--mute); margin: 0 0 4px; }
+.srow .seg button { min-height: 42px; font-size: 14.5px; }
+.seg.seg4 button { font-size: 13.5px; padding: 0 2px; }
+.gsnote { font-size: 13.5px !important; color: var(--mute) !important; margin: 10px 0 10px !important; }
+#gsDone { width: 100%; min-height: 52px; border-radius: 14px; font-weight: 800; font-size: 17px; background: linear-gradient(180deg, #ffd96b, #e39b2d); color: #2a1a05; }
+#msExtra .srow { margin-top: 8px; }
+#msExtra .srow label { margin-bottom: 4px; }
+@media (min-width: 900px) { .scard { max-width: 640px; } .srow { display: grid; grid-template-columns: 200px 1fr; align-items: center; gap: 12px; } .srow label { margin: 0; } }
+/* tamanho das pecas 2D */
+.b2-pc .pcs { transform: scale(var(--psz, 1)); transform-origin: 50% 80%; }
+.b2-pc.lifted .pcs { transform: translateY(-6%) scale(calc(var(--psz, 1) * 1.08)); }
+/* animacoes rapidas no 2D */
+body.fast .b2-pc { transition-duration: .13s; }
+body.fast .b2-pc.hop:not(.land) .pcs { animation-duration: .14s; }
+/* cores das pecas 2D */
+body.pal-rubi .pcs.pc-b g { fill: #6a1a17; } body.pal-safira .pcs.pc-b g { fill: #1d2f6c; } body.pal-jade .pcs.pc-b g { fill: #17573a; }
+body.p2-prem.pal-rubi .pcs.pc-b > g:not(.gl) { fill: url(#pgBr); } body.p2-prem.pal-safira .pcs.pc-b > g:not(.gl) { fill: url(#pgBs); } body.p2-prem.pal-jade .pcs.pc-b > g:not(.gl) { fill: url(#pgBj); }
+/* 2D Premium fosco: sem ponto de brilho nas casas */
+body.p2-prem .b2-sq { box-shadow: inset 1px 1px 0 rgba(255, 255, 255, .07), inset -1px -1px 0 rgba(0, 0, 0, .12); }
+body.p2-prem .b2-sq.light { background: var(--sqL1); }
+body.p2-prem .b2-sq.dark { background: var(--sqD1); }
+body.p2-prem .b2-tex { mix-blend-mode: soft-light; opacity: .55; }

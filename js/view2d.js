@@ -92,9 +92,9 @@
       void e.offsetWidth;
       e.style.transition = ''; e.style.transform = self.tf(mv[1]);
       e.classList.remove('hop'); void e.offsetWidth; e.classList.add('hop');
-      setTimeout(function () { e.style.zIndex = ''; e.classList.add('land'); }, 230);
+      setTimeout(function () { e.style.zIndex = ''; e.classList.add('land'); }, self.fast ? 125 : 230);
     });
-    return new Promise(function (res) { setTimeout(res, 240); });
+    return new Promise(function (res) { setTimeout(res, self.fast ? 135 : 240); });
   };
   View2D.prototype.highlight = function (h) {
     for (var k in this.squares) {

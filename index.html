@@ -10,16 +10,20 @@
 <title>XADREZÃO</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%231d2740'/%3E%3Cpath fill='%23f5c84c' d='M46.5 8h7v6h6v7h-6v7h-7v-7h-6v-7h6zM28 42c0-9 10-12 19-8l3 3 3-3c9-4 19-1 19 8 0 10-8 18-10 24H38c-2-6-10-14-10-24zM36 68h28l2 8H34zM26 80h48v10H26z'/%3E%3C/svg%3E">
 <style>#splash{position:fixed;inset:0;z-index:99;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;background:radial-gradient(ellipse at 50% 38%,#26325a 0,#0f1424 62%);color:#f5c84c;pointer-events:none;transition:opacity .55s ease,transform .55s ease;font-family:system-ui,sans-serif}#splash.out{opacity:0;transform:scale(1.06)}#splash svg{width:84px;height:84px;filter:drop-shadow(0 6px 18px rgba(245,200,76,.45));animation:spF 1.6s ease-in-out infinite}#splash b{font:900 30px/1 Georgia,serif;letter-spacing:.08em;background:linear-gradient(180deg,#ffe9a8,#e0a52a);-webkit-background-clip:text;background-clip:text;color:transparent}#splash i{display:block;width:150px;height:4px;border-radius:4px;background:rgba(255,255,255,.12);overflow:hidden}#splash i u{display:block;width:40%;height:100%;border-radius:4px;background:linear-gradient(90deg,#f5c84c,#fff1c2);animation:spL 1.1s ease-in-out infinite}#splash small{color:#9aa6c2;font-size:14px}@keyframes spF{50%{transform:translateY(-6px)}}@keyframes spL{0%{transform:translateX(-100%)}100%{transform:translateX(260%)}}</style>
-<link rel="stylesheet" href="css/style.css?v=202610212146">
+<link rel="stylesheet" href="css/style.css?v=202610221106">
 </head>
 <body>
 <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
   <linearGradient id="pgW" x1="0" y1="0" x2=".85" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset=".45" stop-color="#f7ecd6"/><stop offset="1" stop-color="#cdb48a"/></linearGradient>
   <linearGradient id="pgB" x1="0" y1="0" x2=".85" y2="1"><stop offset="0" stop-color="#7a6253"/><stop offset=".4" stop-color="#33281f"/><stop offset="1" stop-color="#0e0a08"/></linearGradient>
+  <linearGradient id="pgBr" x1="0" y1="0" x2=".85" y2="1"><stop offset="0" stop-color="#d0605a"/><stop offset=".45" stop-color="#7a1f1c"/><stop offset="1" stop-color="#2a0807"/></linearGradient>
+  <linearGradient id="pgBs" x1="0" y1="0" x2=".85" y2="1"><stop offset="0" stop-color="#6f8fe0"/><stop offset=".45" stop-color="#22377a"/><stop offset="1" stop-color="#0a1230"/></linearGradient>
+  <linearGradient id="pgBj" x1="0" y1="0" x2=".85" y2="1"><stop offset="0" stop-color="#6fd0a0"/><stop offset=".45" stop-color="#1d6a45"/><stop offset="1" stop-color="#062818"/></linearGradient>
   <linearGradient id="pgGl" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".75"/><stop offset=".42" stop-color="#fff" stop-opacity=".08"/><stop offset=".5" stop-color="#fff" stop-opacity="0"/></linearGradient>
 </defs></svg>
 <div id="splash"><svg viewBox="0 0 100 100"><path fill="#f5c84c" d="M46.5 8h7v6h6v7h-6v7h-7v-7h-6v-7h6zM28 42c0-9 10-12 19-8l3 3 3-3c9-4 19-1 19 8 0 10-8 18-10 24H38c-2-6-10-14-10-24zM36 68h28l2 8H34zM26 80h48v10H26z"/></svg><b>XADREZÃO</b><i><u></u></i><small>Preparando o tabuleiro...</small></div>
 <canvas id="c3d" aria-label="Tabuleiro 3D"></canvas>
+<canvas id="c3v" aria-label="Xadrez Vivo"></canvas>
 <div id="bgfx"></div><div id="vign"></div>
 
 <section id="menu" class="screen show">
@@ -42,12 +46,13 @@
         <button class="tile" id="tAchv"><svg viewBox="0 0 24 24"><circle cx="12" cy="9" r="6"/><path d="M8.5 14L7 22l5-3 5 3-1.5-8"/></svg><span>Conquistas</span><em class="badge2" id="tAchvN"></em></button>
         <button class="tile" id="tSettings"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg><span>Ajustes</span></button>
       </div>
+      <button class="tile vtile" id="tVivo"><svg viewBox="0 0 24 24"><path d="M4 21h16M6 21V10l2-2V4h2v2h4V4h2v4l2 2v11"/><path d="M10 21v-4a2 2 0 0 1 4 0v4"/></svg><span>Xadrez Vivo<small id="tVivoS">Estátuas de pedra gigantes</small></span></button>
     </div>
 
     <div class="panel" id="pSettings" hidden>
       <h2>Ajustes</h2>
       <label>Visual</label>
-      <div class="seg" id="segView"><button data-v="3d">Visual 3D</button><button data-v="2d">Visual 2D</button></div>
+      <div class="seg" id="segView"><button data-v="3d">3D</button><button data-v="2d">2D</button><button data-v="vivo">Xadrez Vivo</button></div>
       <label>Cor do tabuleiro</label>
       <div class="seg" id="segTheme" aria-label="Cor do tabuleiro"><button data-v="classico">Clássico</button><button data-v="madeira">Madeira</button><button data-v="azul">Azul</button></div>
       <label>Barra de vantagem</label>
@@ -56,7 +61,7 @@
       <div class="seg" id="segP2"><button data-v="premium">Premium</button><button data-v="simples">Simples</button></div>
       <div id="set3d">
         <label>Peças 3D</label>
-        <div class="seg" id="segStyle"><button data-v="classico">Clássico</button><button data-v="moderno">Moderno</button><button data-v="metal">Metal</button></div>
+        <div class="seg seg4" id="segStyle"><button data-v="classico">Clássico</button><button data-v="moderno">Moderno</button><button data-v="metal">Metal</button><button data-v="vivo">Vivo</button></div>
         <label>Símbolos sobre as peças (ajuda de visão)</label>
         <div class="seg" id="segAid"><button data-v="1">Ligado</button><button data-v="0">Desligado</button></div>
         <label>Câmera aproxima nas capturas</label>
@@ -64,6 +69,7 @@
         <label>Cenário 3D</label>
         <div class="seg" id="segEnv"><button data-v="sala">Sala</button><button data-v="jardim">Jardim</button><button data-v="espaco">Espaço</button></div>
       </div>
+      <div id="msExtra"></div>
       <label>Som e vibração</label>
       <div class="toggles">
         <button class="tog" id="mSound"></button>
@@ -138,6 +144,7 @@
     <button class="ico" id="gMenu" aria-label="Voltar ao menu"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg><span>Menu</span></button>
     <div class="brand">XADREZÃO</div>
     <div class="right">
+      <button class="ico" id="gGear" aria-label="Ajustes da partida (Esc)" title="Ajustes (Esc)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button>
       <button class="ico" id="gSound" aria-label="Som"></button>
       <button class="ico" id="gMusic" aria-label="Música"></button>
       <button class="ico" id="gVibe" aria-label="Vibração"></button>
@@ -177,6 +184,14 @@
     <div class="row" id="mBtns"></div>
   </div>
 </div>
+<div id="gSet" class="modal" hidden>
+  <div class="card scard">
+    <div class="gshead"><h3>Ajustes da partida</h3><span class="gpause">Relógio pausado</span></div>
+    <div id="gsBody"></div>
+    <p class="gsnote">Tudo muda na hora e fica salvo. No computador, Esc abre e fecha.</p>
+    <button class="pri" id="gsDone">Voltar ao jogo</button>
+  </div>
+</div>
 <div id="promo" class="modal" hidden>
   <div class="card">
     <h3>Promover o peão</h3>
@@ -189,16 +204,16 @@
 <div id="achPop" hidden><div class="ai"></div><div class="at"><em>Conquista desbloqueada!</em><b></b><small></small></div></div>
 <div id="banner" hidden><b></b><span></span></div>
 
-<script>window.XV = '202610212146';</script>
-<script src="js/engine.js?v=202610212146"></script>
-<script src="js/pieces.js?v=202610212146"></script>
-<script src="js/avatars.js?v=202610212146"></script>
-<script src="js/journey.js?v=202610212146"></script>
-<script src="js/sound.js?v=202610212146"></script>
-<script src="js/view2d.js?v=202610212146"></script>
-<script src="js/stats.js?v=202610212146"></script>
-<script src="js/puzzles.js?v=202610212146"></script>
-<script src="js/learn.js?v=202610212146"></script>
-<script src="js/app.js?v=202610212146"></script>
+<script>window.XV = '202610221106';</script>
+<script src="js/engine.js?v=202610221106"></script>
+<script src="js/pieces.js?v=202610221106"></script>
+<script src="js/avatars.js?v=202610221106"></script>
+<script src="js/journey.js?v=202610221106"></script>
+<script src="js/sound.js?v=202610221106"></script>
+<script src="js/view2d.js?v=202610221106"></script>
+<script src="js/stats.js?v=202610221106"></script>
+<script src="js/puzzles.js?v=202610221106"></script>
+<script src="js/learn.js?v=202610221106"></script>
+<script src="js/app.js?v=202610221106"></script>
 </body>
 </html>
