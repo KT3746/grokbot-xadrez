@@ -680,7 +680,7 @@ body.vivo:not(.vwide) #game .top { height: 48px; }
 #fightOv.out { opacity: 0; transition-duration: .25s; }
 #fightOv .fpanel { position: relative; width: min(94vw, 1040px); height: min(84vh, 640px); height: min(84dvh, 640px); border-radius: 18px; overflow: hidden; background: #0b0e18; box-shadow: 0 20px 60px rgba(0, 0, 0, .7), 0 0 0 1px rgba(255, 210, 140, .25); transform: scale(.94); transition: transform .22s ease; }
 #fightOv.in .fpanel { transform: scale(1); }
-@media (max-aspect-ratio: 3/4) { #fightOv .fpanel { width: 100vw; height: 76vh; height: 76dvh; border-radius: 0; } }
+@media (max-aspect-ratio: 3/4) { #fightOv .fpanel { width: 100vw; height: 64vh; height: 64dvh; border-radius: 0; } }
 #fightOv canvas { display: block; width: 100%; height: 100%; }
 #fightOv .flabel { position: absolute; left: 50%; top: 12px; transform: translateX(-50%); padding: 7px 14px; border-radius: 999px; background: rgba(8, 10, 18, .78); color: #f3ead8; font-size: 15px; white-space: nowrap; border: 1px solid rgba(255, 255, 255, .14); pointer-events: none; }
 #fightOv .flabel b { font-weight: 700; }

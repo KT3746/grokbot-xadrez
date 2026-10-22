@@ -8,7 +8,7 @@ export function makeFight(M, mv) {
       super(canvas, app);
       this.isFight = true; this.noAmb = true; this.alwaysAmb = false;
       this.fc = { look: new THREE.Vector3(0, 0.5, 0), theta: 0, phi: 0.3, dist: 4 };
-      this.active = false;
+      this.active = false; this._base = new Set(this.scene.children);
     }
     // a arena so assiste: o toque e tratado pela camada por cima (pular)
     bindInput() { }
@@ -40,6 +40,9 @@ export function makeFight(M, mv) {
     stop() {
       this._onKill = null; this.tweens = []; this.warp = null; this.rushUntil = 0; this.shakeAmt = 0; this._animMeshes.clear();
       if (this.cam.lookOff) this.cam.lookOff.set(0, 0, 0); this.cam.rFactor = 1;
+      // o que ficou pela metade (ondas de choque, faiscas) sai da cena
+      if (this._base) for (const c of [...this.scene.children]) if (!this._base.has(c) && !(this.cracks || []).includes(c)) this.scene.remove(c);
+      this.renderer.toneMappingExposure = this._exp0 || 1.15; if (this.glowLight) this.glowLight.intensity = 0;
       this.active = false;
     }
     // monta a luta perto do centro: atacante ao lado da vitima, na mesma direcao do lance de verdade
@@ -52,16 +55,16 @@ export function makeFight(M, mv) {
       const before = new Array(128).fill(0), after = new Array(128).fill(0);
       before[from] = m.piece; before[to] = cap;
       after[to] = m.promo ? (m.promo | (m.piece & 8)) : m.piece;
-      for (const k in this.meshes) this.pieceGroup.remove(this.meshes[k]);
+      for (const c of [...this.pieceGroup.children]) this.pieceGroup.remove(c);
       this.meshes = {}; this.sync(before); this.highlight({ sel: -1, dests: {}, last: null, check: -1 });
       const a = sqPos(from), b = sqPos(to), dir = b.clone().sub(a).setY(0).normalize();
       let px = -dir.z, pz = dir.x; if (pz < -0.01 || (Math.abs(pz) <= 0.01 && px < 0)) { px = -px; pz = -pz; }
       const hx = px - dir.x * 0.18, hz = pz - dir.z * 0.18;
       const f = this.fc; f.theta = Math.atan2(hx, hz); f.phi = 0.3;
-      f.look.copy(a).lerp(b, 0.55).setY(0.5);
+      f.look.copy(b).addScaledVector(dir, -0.36).setY(0.46);
       // distancia para caber os dois (largura ~2.3, altura ~1.7)
       const tv = Math.tan(this.FOV * Math.PI / 360), asp = this.W / Math.max(1, this.H);
-      f.dist = Math.max(1.0 / tv, 1.3 / (tv * asp)) + 0.9;
+      f.dist = Math.max(1.0 / tv, 0.85 / (tv * asp)) + 0.5;
       this.cam.rFactor = 1; this.setActive(true);
       const mv2 = { from, to, piece: m.piece, cap, promo: m.promo || 0, flags: m.promo ? E.F_PROMO : 0 };
       // termina logo depois do golpe final (as metades caindo ja contam a historia)
