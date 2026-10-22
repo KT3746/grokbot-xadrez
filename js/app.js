@@ -37,22 +37,34 @@
   }
 
   // ===== Visuais =====
+  // medidas sem a escala da animacao de entrada da tela (senao o tabuleiro fica 3% maior e encosta nos jogadores)
+  function rectOf(el) {
+    var r = el.getBoundingClientRect(), g = $('game').getBoundingClientRect(), gw = $('game').offsetWidth || 1;
+    var k = g.width / gw || 1, ox = (window.innerWidth - window.innerWidth * k) / 2, oy = (window.innerHeight - window.innerHeight * k) / 2;
+    return { left: (r.left - ox) / k, top: (r.top - oy) / k, width: r.width / k, height: r.height / k, right: (r.right - ox) / k, bottom: (r.bottom - oy) / k };
+  }
+  app.rectOf = rectOf;
   app.stageRect = function () {
-    var r = $('stage').getBoundingClientRect();
+    var r = rectOf($('stage'));
     return { left: r.left, top: r.top, width: r.width, height: r.height };
   };
   // Retrato: o palco fica so do tamanho que o tabuleiro precisa e a sobra vai para cima,
   // assim jogadores, status e botoes ficam colados no tabuleiro.
   function layoutGame() {
-    var g = $('game'), st = $('stage'), sp = $('gSpace');
+    var g = $('game'), st = $('stage'), sp = $('gSpace'), sp2 = $('gSpace2');
     if (!g.classList.contains('show')) return;
-    st.style.flex = ''; st.style.height = ''; sp.style.flexGrow = '0';
-    var r = st.getBoundingClientRect();
+    st.style.flex = ''; st.style.height = ''; sp.style.flexGrow = '0'; sp2.style.flexGrow = '0';
+    var r = { width: st.offsetWidth, height: st.offsetHeight };
     if (r.width < 10 || r.height < 10) return;
-    var need = (app.v && app.v === app.view3d) ? app.view3d.fitLayout(r.width, r.height) + 6 : Math.min(r.width, r.height);
-    if (need < r.height - 4) { st.style.flex = '0 0 auto'; st.style.height = need + 'px'; sp.style.flexGrow = '1'; }
-    var r2 = st.getBoundingClientRect();
+    // PC em tela grande: o tabuleiro tem um tamanho maximo e o jogo fica centralizado
+    var wide = window.innerWidth >= 1000, cap = wide ? Math.max(560, Math.min(900, Math.round(window.innerHeight * 0.74))) : 1e9;
+    var avail = Math.min(r.height, cap);
+    var need = (app.v && app.v === app.view3d) ? app.view3d.fitLayout(r.width, avail) + 6 : Math.min(r.width, avail);
+    need = Math.min(need, avail);
+    if (need < r.height - 4) { st.style.flex = '0 0 auto'; st.style.height = need + 'px'; sp.style.flexGrow = '1'; if (wide) sp2.style.flexGrow = '1'; }
+    var r2 = { width: st.offsetWidth, height: st.offsetHeight };
     var prem = document.body.classList.contains('p2-prem'), s = Math.floor(Math.min(r2.width, r2.height) - (prem ? 22 : 14));
+    document.documentElement.style.setProperty('--plw', (app.v && app.v === app.view3d ? 560 : Math.max(560, Math.min(s + 18, 900))) + 'px');
     $('board2d').style.width = s + 'px'; $('board2d').style.height = s + 'px';
     var fr = $('b2frame'); fr.style.width = fr.style.height = (s + 18) + 'px';
     if (app.view3d) app.view3d.resize();
@@ -375,6 +387,13 @@
     if (p && (p & 8) === turn) { select(sq); return; }
     if (app.sel >= 0) { sfx('illegal'); buzz('illegal'); }
     app.clearSel();
+  };
+  // mouse por cima de uma casa: 'grab' (peca que pode mexer), 'pointer' (casa de destino) ou ''
+  app.hoverKind = function (sq) {
+    if (sq < 0 || app.busy || app.over || !app.game || !isHumanTurn() || app.review) return '';
+    if (app.sel >= 0 && app.dests[sq]) return 'pointer';
+    var p = app.game.pos.board[sq];
+    return p && (p & 8) === app.game.pos.turn ? 'grab' : '';
   };
   app.tryMove = function (from, to, opts) {
     if (app.busy || app.over || !isHumanTurn()) return false;
@@ -1097,7 +1116,12 @@
     window.addEventListener('pointerdown', unlock, { once: false, passive: true });
     document.addEventListener('gesturestart', function (e) { e.preventDefault(); });
     document.addEventListener('dblclick', function (e) { e.preventDefault(); });
-    document.addEventListener('contextmenu', function (e) { if (e.target.closest('#board2d,#c3d')) e.preventDefault(); });
+    document.addEventListener('contextmenu', function (e) {
+      if (!e.target.closest('#board2d,#c3d,#c3v')) return;
+      e.preventDefault();
+      // botao direito cancela a peca escolhida
+      if (app.screen === 'game' && app.sel >= 0) { app.clearSel(); sfx('click'); }
+    });
 
     $('bVsAI').onclick = function () { sfx('click'); showPanel('pAI'); };
     $('bJornada').onclick = function () { sfx('click'); showScreen('jornada'); };
@@ -1135,9 +1159,20 @@
     $('gsDone').onclick = function () { sfx('click'); closeGameSettings(); };
     $('gSet').addEventListener('click', function (e) { if (e.target === $('gSet')) closeGameSettings(); });
     document.addEventListener('keydown', function (e) {
-      if (e.key !== 'Escape' || app.screen !== 'game') return;
-      e.preventDefault();
-      if (!$('gSet').hidden) closeGameSettings(); else if ($('promo').hidden) openGameSettings();
+      if (app.screen !== 'game' || e.altKey || e.repeat) return;
+      if (e.target && /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) return;
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        if (!$('gSet').hidden) closeGameSettings(); else if ($('promo').hidden && $('modal').hidden) openGameSettings();
+        return;
+      }
+      // atalhos: Z desfazer, F virar (so com o jogo livre na tela)
+      if (!$('gSet').hidden || !$('modal').hidden || !$('promo').hidden) return;
+      var k = (e.key || '').toLowerCase(), b = null;
+      if (k === 'z' && !e.shiftKey) b = $('cUndo');
+      else if (k === 'f' && !e.ctrlKey && !e.metaKey) b = $('cFlip');
+      if (!b || b.disabled || b.offsetParent === null) return;
+      e.preventDefault(); b.click();
     });
     $('bStartAI').onclick = function () {
       var c = prefs.color === 'r' ? (Math.random() < 0.5 ? 'w' : 'b') : prefs.color;
@@ -1176,7 +1211,9 @@
       var ro = new ResizeObserver(queueLayout);
       ['game', 'plTop', 'hist', 'plBot', 'status', 'coach'].forEach(function (id) { ro.observe($(id)); });
       ro.observe($('mainBar')); ro.observe($('revBar')); ro.observe($('revCard')); ro.observe(document.querySelector('#game .top'));
+      ro.observe($('stage')); ro.observe($('evalBar'));
     }
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(queueLayout);
   }
 
   function boot() {

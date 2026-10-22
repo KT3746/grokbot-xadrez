@@ -140,8 +140,9 @@
   View2D.prototype.bindInput = function () {
     var self = this, drag = null;
     this.el.addEventListener('pointerdown', function (e) {
+      if (e.button === 2) { if (drag) { drag.el.classList.remove('dragging'); drag.el.style.transform = self.tf(drag.sq); drag = null; } return; }
       if (e.button > 0) return;
-      e.preventDefault();
+      e.preventDefault(); setHover(-1, '');
       var sq = self.sqAt(e.clientX, e.clientY); if (sq < 0) return;
       var app = self.app, wasSel = app.sel === sq;
       if (!wasSel) app.onSquare(sq);
@@ -150,7 +151,23 @@
         try { self.el.setPointerCapture(e.pointerId); } catch (er) { }
       } else drag = null;
     });
+    // mouse: casa sob o cursor ganha destaque e o cursor mostra o que da para fazer
+    var hov = -1;
+    function setHover(sq, kind) {
+      if (hov >= 0 && self.squares[hov]) self.squares[hov].classList.remove('hov', 'hov-t');
+      hov = kind ? sq : -1;
+      if (hov >= 0) self.squares[hov].classList.add(kind === 'pointer' ? 'hov-t' : 'hov');
+      self.el.style.cursor = drag && drag.moved ? 'grabbing' : (kind || '');
+    }
+    this.clearHover = function () { setHover(-1, ''); };
+    this.el.addEventListener('pointerleave', function (e) { if (e.pointerType === 'mouse' && !drag) setHover(-1, ''); });
     this.el.addEventListener('pointermove', function (e) {
+      if (e.pointerType === 'mouse') {
+        var hs = self.sqAt(e.clientX, e.clientY);
+        if (drag && drag.moved) setHover(hs, hs >= 0 && hs !== drag.sq && self.app.dests && self.app.dests[hs] ? 'pointer' : '');
+        else setHover(hs, self.app.hoverKind ? self.app.hoverKind(hs) : '');
+        if (drag && drag.moved) self.el.style.cursor = 'grabbing';
+      }
       if (!drag || e.pointerId !== drag.id) return;
       var dx = e.clientX - drag.x, dy = e.clientY - drag.y;
       if (!drag.moved && dx * dx + dy * dy < 64) return;
@@ -162,7 +179,7 @@
     function end(e) {
       if (!drag || e.pointerId !== drag.id) return;
       var d = drag; drag = null;
-      d.el.classList.remove('dragging');
+      d.el.classList.remove('dragging'); setHover(-1, '');
       if (d.moved) {
         var to = self.sqAt(e.clientX, e.clientY);
         if (to >= 0 && to !== d.sq && self.app.tryMove(d.sq, to, { instant: true })) return;

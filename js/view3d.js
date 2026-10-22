@@ -1085,12 +1085,19 @@ export class View3D {
       for (const x of [-4.2, 4.2]) for (const z of [-4.2, 4.2]) { a.push(new THREE.Vector3(x, 0, z)); a.push(new THREE.Vector3(x, 1.1, z)); }
       return a;
     })());
+    const fpts = this._fitFrame || (this._fitFrame = (() => {
+      const a = [], e = this.frameHalf || 4.8;
+      for (const x of [-e, e]) for (const z of [-e, e]) for (const y of this.frameYs || [0, -0.42]) a.push(new THREE.Vector3(x, y, z));
+      return a;
+    })());
     const dirv = new THREE.Vector3(Math.cos(phi) * Math.sin(theta), Math.sin(phi), Math.cos(phi) * Math.cos(theta));
     const v = new THREE.Vector3();
     const box = (r) => {
       c.position.copy(look).addScaledVector(dirv, r); c.lookAt(look); c.updateMatrixWorld();
       let x0 = 9, x1 = -9, y0 = 9, y1 = -9;
       for (const p of pts) { v.copy(p).project(c); if (v.z > 1) return null; x0 = Math.min(x0, v.x); x1 = Math.max(x1, v.x); y0 = Math.min(y0, v.y); y1 = Math.max(y1, v.y); }
+      // a moldura (com as letras) tambem tem que caber na altura, para os jogadores nunca ficarem por cima
+      for (const p of fpts) { v.copy(p).project(c); if (v.z > 1) return null; y0 = Math.min(y0, v.y); y1 = Math.max(y1, v.y); }
       return { x0, x1, y0, y1 };
     };
     // margem: 3% dos lados, 4% em cima e embaixo
@@ -1163,10 +1170,29 @@ export class View3D {
     return { left: x0, right: x1, top: y0, bottom: y1, width: x1 - x0, height: y1 - y0 };
   }
 
+  // retangulo da moldura e das pecas mais altas na tela (px), para testar o layout
+  frameRect() {
+    const c = this.camera; c.updateMatrixWorld();
+    let x0 = 1e9, x1 = -1e9, y0 = 1e9, y1 = -1e9;
+    for (const q of [...(this._fitPts || []), ...(this._fitFrame || [])]) {
+      const p = q.clone().project(c), sx = (p.x + 1) / 2 * this.W, sy = (1 - p.y) / 2 * this.H;
+      x0 = Math.min(x0, sx); x1 = Math.max(x1, sx); y0 = Math.min(y0, sy); y1 = Math.max(y1, sy);
+    }
+    return { left: x0, right: x1, top: y0, bottom: y1 };
+  }
+
   bindInput() {
     const cv = this.canvas; let st = null;
-    cv.addEventListener('pointerdown', (e) => { if (this.menu) return; this.skipCam(); this.rushAll(); st = { x: e.clientX, y: e.clientY, id: e.pointerId, moved: false, th: this.cam.theta, ph: this.cam.phi }; try { cv.setPointerCapture(e.pointerId); } catch (er) { } });
+    cv.addEventListener('pointerdown', (e) => { if (this.menu) return; if (e.button === 2) { st = null; return; } if (e.button > 0) return; this.setHover(-1, ''); this.skipCam(); this.rushAll(); st = { x: e.clientX, y: e.clientY, id: e.pointerId, moved: false, th: this.cam.theta, ph: this.cam.phi }; try { cv.setPointerCapture(e.pointerId); } catch (er) { } });
+    // mouse parado sobre o tabuleiro: casa destacada e cursor de mao
+    let hvT = 0;
+    const hover = (x, y) => {
+      const sq = this.menu ? -1 : this.pick(x, y), kind = this.app.hoverKind ? this.app.hoverKind(sq) : '';
+      this.setHover(kind ? sq : -1, kind);
+    };
+    cv.addEventListener('pointerleave', () => { if (!st) this.setHover(-1, ''); });
     cv.addEventListener('pointermove', (e) => {
+      if (!st && e.pointerType === 'mouse') { const t = performance.now(); if (t - hvT > 40) { hvT = t; hover(e.clientX, e.clientY); } return; }
       if (!st || e.pointerId !== st.id) return;
       const dx = e.clientX - st.x, dy = e.clientY - st.y;
       if (!st.moved && dx * dx + dy * dy < 100) return;
@@ -1186,6 +1212,18 @@ export class View3D {
     cv.addEventListener('pointercancel', () => { st = null; });
   }
 
+  setHover(sq, kind) {
+    if (!this.hoverMesh) {
+      const g = new THREE.PlaneGeometry(1, 1); g.rotateX(-Math.PI / 2);
+      this.hoverMesh = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.16, depthWrite: false, toneMapped: false }));
+      this.hoverMesh.renderOrder = 1; this.hoverMesh.visible = false; this.scene.add(this.hoverMesh);
+    }
+    const m = this.hoverMesh, on = sq >= 0;
+    if (on) { const p = sqPos(sq); m.position.set(p.x, 0.01, p.z); m.material.color.set(kind === 'pointer' ? 0xffe08a : 0xffffff); m.material.opacity = kind === 'pointer' ? 0.28 : 0.16; }
+    if (m.visible !== on || on) this.dirty = true;
+    m.visible = on;
+    this.canvas.style.cursor = on ? kind : '';
+  }
   pick(x, y) {
     const ndc = new THREE.Vector2(x / this.W * 2 - 1, -(y / this.H) * 2 + 1);
     const rc = this._rc || (this._rc = new THREE.Raycaster()); rc.setFromCamera(ndc, this.camera);

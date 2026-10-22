@@ -204,7 +204,7 @@ export function makeVivo(M) {
       super(canvas, app);
       this.isVivo = true; this.ownSounds = true; this.alwaysAmb = true;
       const a = []; for (const x of [-4.2, 4.2]) for (const z of [-4.2, 4.2]) { a.push(new THREE.Vector3(x, 0, z)); a.push(new THREE.Vector3(x, 1.45, z)); }
-      this._fitPts = a; this._fitKey = null;
+      this._fitPts = a; this.frameHalf = 4.8; this.frameYs = [0.02, -0.2]; this._fitFrame = null; this._fitKey = null;
       if (this.camView !== 'auto' && !VV[this.camView]) this.camView = 'auto';
     }
 

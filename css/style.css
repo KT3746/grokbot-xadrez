@@ -82,7 +82,7 @@ body:not(.three) #game { background: radial-gradient(120% 80% at 50% 0%, var(--b
 .player .caps { display: flex; flex: 1; min-width: 0; overflow: hidden; }
 .player .caps .pcs { width: 20px; height: 20px; margin-right: -6px; flex: none; }
 .player .adv { color: var(--mute); font-weight: 700; font-size: 14px; }
-#gSpace { flex: 0 1 0; min-height: 0; }
+#gSpace, #gSpace2 { flex: 0 1 0; min-height: 0; }
 #stage { flex: 1; position: relative; display: flex; align-items: center; justify-content: center; min-height: 0; }
 body.three #stage { pointer-events: none; }
 body.three #board2d { display: none; }
@@ -530,3 +530,33 @@ body.p2-prem .b2-sq { box-shadow: inset 1px 1px 0 rgba(255, 255, 255, .07), inse
 body.p2-prem .b2-sq.light { background: var(--sqL1); }
 body.p2-prem .b2-sq.dark { background: var(--sqD1); }
 body.p2-prem .b2-tex { mix-blend-mode: soft-light; opacity: .55; }
+
+/* ===== PC: mouse, teclado e layout em telas largas ===== */
+#gsKeys { display: none; margin-top: 6px; }
+#gsKeys h4 { margin: 14px 0 6px; font-size: 13px; letter-spacing: .08em; text-transform: uppercase; color: var(--gold); }
+#gsKeys ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+#gsKeys li { display: flex; align-items: center; gap: 10px; font-size: 14.5px; color: #d6dcea; }
+#gsKeys kbd { min-width: 34px; padding: 3px 9px; border-radius: 8px; background: rgba(255, 255, 255, .1); border: 1px solid rgba(255, 255, 255, .2); border-bottom-width: 3px; font-family: inherit; font-weight: 800; font-size: 13px; line-height: 1.3; color: #fff; text-align: center; }
+.b2-sq.hov::after, .b2-sq.hov-t::after { content: ""; position: absolute; inset: 0; pointer-events: none; }
+.b2-sq.hov::after { box-shadow: inset 0 0 0 3px rgba(255, 255, 255, .55); background: rgba(255, 255, 255, .1); }
+.b2-sq.hov-t::after { box-shadow: inset 0 0 0 3px rgba(255, 214, 90, .9); background: rgba(255, 214, 90, .18); }
+@media (hover: hover) and (pointer: fine) {
+  #gsKeys { display: block; }
+  button { cursor: pointer; }
+  button:disabled { cursor: default; }
+  .controls button, .ico, .tile, .big, .seg button, .camBtn, .card .row button, #gsDone, .pzgrid button, #hist .mv.rv { transition: background .15s, filter .15s, transform .15s, box-shadow .15s, color .15s; }
+  .controls button:not(:disabled):hover { background: linear-gradient(180deg, rgba(255, 255, 255, .2), rgba(255, 255, 255, .09)); border-color: rgba(255, 255, 255, .24); transform: translateY(-1px); }
+  .controls button.pri:not(:disabled):hover, .big.gold:hover, .card .row button.pri:hover, #gsDone:hover { filter: brightness(1.08); }
+  .ico:hover { background: rgba(255, 255, 255, .15); }
+  .tile:hover, .big:not(.gold):hover { filter: brightness(1.15); transform: translateY(-2px); box-shadow: 0 8px 22px rgba(0, 0, 0, .3); }
+  .seg button:not(.on):hover { background: rgba(255, 255, 255, .08); color: #fff; }
+  .camBtn:hover { filter: brightness(1.2); }
+  .card .row button:not(.pri):hover { background: rgba(255, 255, 255, .17); }
+  .pzgrid button:hover { filter: brightness(1.18); transform: translateY(-1px); }
+  #hist .mv.rv:hover { background: rgba(255, 255, 255, .14); }
+}
+@media (min-width: 1000px) {
+  #hist { justify-content: safe center; max-width: 900px; margin-left: auto; margin-right: auto; box-sizing: border-box; }
+  #status, #coach, #revCard { max-width: 760px; margin-left: auto; margin-right: auto; box-sizing: border-box; }
+  .player { max-width: var(--plw, 560px); }
+}
