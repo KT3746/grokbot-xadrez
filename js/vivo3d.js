@@ -28,8 +28,25 @@ export function makeVivo(M) {
   function plinth() {
     return [P(cyl(0.34, 0.38, 0.1, 8), 0, 0.05, 0, 0.8, 0, Math.PI / 8), P(cyl(0.29, 0.33, 0.05, 8), 0, 0.125, 0, 0.88, 0, Math.PI / 8)];
   }
-  function sword(len) {
-    return merge([P(box(0.028, len, 0.012), 0, 0.03 + len / 2, 0, 1.05), P(box(0.11, 0.022, 0.035), 0, 0.03, 0, 0.8), P(cyl(0.014, 0.014, 0.08, 6), 0, -0.02, 0, 0.75), P(sph(0.022, 6, 5), 0, -0.065, 0, 0.8)]);
+  // armas de pedra (desenho proprio): espada, montante, lanca, martelo e cajado com lamina curva
+  function sword(len, w = 0.028, grip = 0.08) {
+    return merge([P(box(w, len, 0.012), 0, 0.03 + len / 2, 0, 1.05), P(cyl(0, w * 0.72, 0.07, 4), 0, 0.03 + len + 0.035, 0, 1.05, 0, Math.PI / 4, 0, 1, 1, 0.43),
+      P(box(w * 0.3, len * 0.8, 0.016), 0, 0.03 + len * 0.42, 0, 0.82),
+      P(box(0.11 + w * 1.6, 0.022, 0.035), 0, 0.03, 0, 0.8), P(cyl(0.014, 0.014, grip, 6), 0, 0.02 - grip / 2, 0, 0.75), P(sph(0.022, 6, 5), 0, 0.01 - grip, 0, 0.8)]);
+  }
+  function lance(len) {
+    return merge([P(cyl(0.004, 0.032, len, 8), 0, len / 2, 0, 1.04), P(cyl(0.075, 0.012, 0.12, 10), 0, 0.02, 0, 0.82), P(cyl(0.02, 0.022, 0.22, 6), 0, -0.1, 0, 0.75), P(sph(0.026, 6, 5), 0, -0.22, 0, 0.8)]);
+  }
+  function hammer(len) {
+    const top = len - 0.2;
+    return merge([P(cyl(0.02, 0.024, len, 6), 0, len / 2 - 0.2, 0, 0.78), P(box(0.12, 0.13, 0.25), 0, top, 0, 1.0), P(box(0.14, 0.15, 0.04), 0, top, 0.115, 0.85), P(box(0.14, 0.15, 0.04), 0, top, -0.115, 0.85),
+      P(cyl(0, 0.04, 0.08, 4), 0, top + 0.1, 0, 1.05), P(cyl(0, 0.035, 0.07, 4), 0, top, -0.16, 1.05, -Math.PI / 2), P(cyl(0.03, 0.03, 0.05, 6), 0, -0.2, 0, 0.7)]);
+  }
+  function glaive(len, orb) {
+    const g = [P(cyl(0.016, 0.018, len, 6), 0, len / 2 - 0.42, 0, 0.8), P(sph(orb, 10, 8), 0, len - 0.42 + orb * 0.6, 0, 1.25), P(cyl(0.03, 0.02, 0.05, 6), 0, len - 0.44, 0, 0.9)];
+    // lamina curva presa abaixo da esfera, virada para a frente
+    for (let i = 0; i < 6; i++) { const a = -0.3 + i * 0.32, r = 0.16; g.push(P(box(0.012, 0.075, 0.03 - i * 0.003), 0, len - 0.52 + Math.sin(a) * r, -0.05 - (1 - Math.cos(a)) * r * 0.9 - i * 0.022, 1.06, a * 0.8)); }
+    return merge(g);
   }
   function staff(len, orb) {
     return merge([P(cyl(0.016, 0.018, len, 6), 0, len / 2 - 0.42, 0, 0.8), P(sph(orb, 10, 8), 0, len - 0.42 + orb * 0.6, 0, 1.25), P(cyl(0.03, 0.02, 0.05, 6), 0, len - 0.44, 0, 0.9)]);
@@ -44,7 +61,7 @@ export function makeVivo(M) {
       P(sph(0.085), 0, 0.75, 0, 1.02), P(new THREE.SphereGeometry(0.098, 12, 6, 0, Math.PI * 2, 0, Math.PI / 2), 0, 0.765, 0, 0.88),
       P(box(0.025, 0.07, 0.17), 0, 0.875, 0.01, 0.78), P(box(0.2, 0.018, 0.03), 0, 0.77, -0.085, 0.7),
       P(cyl(0.15, 0.15, 0.035, 14), -0.16, 0.47, -0.08, 0.72, Math.PI / 2, 0.45), P(sph(0.035, 8, 6), -0.175, 0.47, -0.1, 0.95)]),
-      weapon: { geo: sword(0.3), pivot: new THREE.Vector3(0.17, 0.47, -0.05), rest: -0.25 } };
+      weapon: { geo: sword(0.34), pivot: new THREE.Vector3(0.17, 0.47, -0.05), rest: -0.25 } };
     // Cavalo: cavalo de pedra empinando
     Pp[E.N] = { h: 1.05, body: merge([...plinth(),
       P(cyl(0.05, 0.045, 0.24, 6), -0.08, 0.26, -0.1, 0.8, -0.3), P(cyl(0.05, 0.045, 0.24, 6), 0.08, 0.26, -0.1, 0.8, -0.3),
@@ -53,28 +70,30 @@ export function makeVivo(M) {
       P(box(0.17, 0.17, 0.36), 0, 0.85, -0.2, 1.02, 0.6), P(cyl(0.075, 0.085, 0.09, 10), 0, 0.74, -0.34, 0.92, 0.6 + Math.PI / 2),
       P(cyl(0, 0.035, 0.11, 5), -0.055, 1.0, -0.07, 0.95), P(cyl(0, 0.035, 0.11, 5), 0.055, 1.0, -0.07, 0.95),
       P(box(0.05, 0.42, 0.09), 0, 0.72, 0.07, 0.72, -0.45),
-      P(sph(0.022, 6, 5), -0.088, 0.91, -0.22, 0.25), P(sph(0.022, 6, 5), 0.088, 0.91, -0.22, 0.25)]) };
+      P(sph(0.022, 6, 5), -0.088, 0.91, -0.22, 0.25), P(sph(0.022, 6, 5), 0.088, 0.91, -0.22, 0.25)]),
+      weapon: { geo: lance(0.95), pivot: new THREE.Vector3(0.2, 0.6, 0.02), rest: -1.25, tip: 0.95 } };
     // Torre: torre que anda
     const cren = []; for (let i = 0; i < 6; i++) { const a = i / 6 * Math.PI * 2; cren.push(P(box(0.1, 0.11, 0.1), Math.sin(a) * 0.23, 0.865, Math.cos(a) * 0.23, 0.95, 0, a)); }
     Pp[E.R] = { h: 0.95, body: merge([...plinth(),
       P(box(0.12, 0.08, 0.19), -0.11, 0.19, -0.03, 0.75), P(box(0.12, 0.08, 0.19), 0.11, 0.19, -0.03, 0.75),
       P(cyl(0.25, 0.27, 0.5, 14), 0, 0.48, 0, 1), P(cyl(0.272, 0.272, 0.04, 14), 0, 0.63, 0, 0.78), P(cyl(0.29, 0.27, 0.08, 14), 0, 0.77, 0, 0.95), ...cren,
       P(box(0.13, 0.19, 0.05), 0, 0.33, -0.25, 0.32), P(box(0.05, 0.09, 0.04), 0, 0.57, -0.255, 0.3),
-      P(cyl(0.045, 0.04, 0.2, 6), -0.29, 0.5, -0.02, 0.88, 0, 0, 0.35), P(cyl(0.045, 0.04, 0.2, 6), 0.29, 0.5, -0.02, 0.88, 0, 0, -0.35)]) };
+      P(cyl(0.045, 0.04, 0.2, 6), -0.29, 0.5, -0.02, 0.88, 0, 0, 0.35), P(cyl(0.045, 0.04, 0.2, 6), 0.29, 0.5, -0.02, 0.88, 0, 0, -0.35)]),
+      weapon: { geo: hammer(0.78), pivot: new THREE.Vector3(0.36, 0.44, -0.04), rest: -0.12, tip: 0.58 } };
     // Bispo: figura de manto com cajado
     Pp[E.B] = { h: 1.08, body: merge([...plinth(),
       P(cyl(0.13, 0.24, 0.56, 14), 0, 0.43, 0, 0.95), P(cyl(0.165, 0.17, 0.04, 14), 0, 0.55, 0, 0.7),
       P(sph(0.15), 0, 0.72, 0, 1, 0, 0, 0, 1, 0.7, 0.9), P(sph(0.085), 0, 0.86, -0.01, 1.02),
       P(cyl(0, 0.115, 0.24, 12), 0, 0.97, 0, 0.9), P(box(0.02, 0.1, 0.13), 0, 1.0, -0.06, 0.7),
       P(cyl(0.05, 0.07, 0.24, 8), -0.14, 0.62, -0.06, 0.92, -0.9), P(sph(0.045, 8, 6), -0.1, 0.56, -0.16, 1)]),
-      weapon: { geo: staff(0.98, 0.055), pivot: new THREE.Vector3(0.19, 0.56, -0.07), rest: -0.08, tip: 0.6 } };
+      weapon: { geo: glaive(0.98, 0.055), pivot: new THREE.Vector3(0.19, 0.56, -0.07), rest: -0.08, tip: 0.6 } };
     // Dama: coroa, capa e cetro
     Pp[E.Q] = { h: 1.16, crownY: 1.02, body: merge([...plinth(),
       P(cyl(0.15, 0.27, 0.52, 16), 0, 0.41, 0, 0.98), P(cyl(0.15, 0.12, 0.2, 12), 0, 0.76, 0, 1),
       P(sph(0.06, 8, 6), -0.13, 0.84, 0, 0.95), P(sph(0.06, 8, 6), 0.13, 0.84, 0, 0.95),
       P(cyl(0.13, 0.1, 0.06, 12), 0, 0.87, 0, 0.82), P(sph(0.085), 0, 0.95, 0, 1.03),
       P(cyl(0.14, 0.31, 0.74, 14), 0, 0.5, 0.13, 0.7, 0, 0, 0, 1, 1, 0.45)]),
-      weapon: { geo: staff(0.62, 0.045), pivot: new THREE.Vector3(0.19, 0.62, -0.08), rest: -0.2, tip: 0.23 } };
+      weapon: { geo: sword(0.6, 0.03), pivot: new THREE.Vector3(0.2, 0.6, -0.08), rest: -0.22, tip: 0.66 } };
     const qc = [P(cyl(0.088, 0.078, 0.055, 12), 0, 0.028, 0, 1)];
     for (let i = 0; i < 6; i++) { const a = i / 6 * Math.PI * 2; qc.push(P(cyl(0, 0.024, 0.075, 4), Math.sin(a) * 0.08, 0.09, Math.cos(a) * 0.08, 1)); qc.push(P(sph(0.016, 6, 4), Math.sin(a) * 0.08, 0.135, Math.cos(a) * 0.08, 1.1)); }
     Pp[E.Q].crown = merge(qc);
@@ -84,7 +103,7 @@ export function makeVivo(M) {
       P(sph(0.07, 8, 6), -0.15, 0.88, 0, 0.95), P(sph(0.07, 8, 6), 0.15, 0.88, 0, 0.95),
       P(sph(0.09), 0, 1.0, 0, 1.03), P(cyl(0.07, 0.015, 0.13, 8), 0, 0.92, -0.06, 0.85),
       P(cyl(0.16, 0.34, 0.8, 14), 0, 0.53, 0.14, 0.68, 0, 0, 0, 1, 1, 0.45), P(cyl(0.18, 0.18, 0.04, 14), 0, 0.6, 0, 0.7)]),
-      weapon: { geo: sword(0.4), pivot: new THREE.Vector3(0.21, 0.6, -0.06), rest: -0.25 } };
+      weapon: { geo: sword(0.66, 0.046, 0.16), pivot: new THREE.Vector3(0.22, 0.6, -0.06), rest: -0.22, tip: 0.72 } };
     const kc = [P(cyl(0.1, 0.092, 0.075, 12), 0, 0.038, 0, 1), P(box(0.03, 0.13, 0.03), 0, 0.15, 0, 1.05), P(box(0.095, 0.03, 0.03), 0, 0.17, 0, 1.05)];
     for (let i = 0; i < 4; i++) { const a = i / 4 * Math.PI * 2 + Math.PI / 4; kc.push(P(box(0.035, 0.06, 0.035), Math.sin(a) * 0.09, 0.09, Math.cos(a) * 0.09, 1, 0, a)); }
     Pp[E.K].crown = merge(kc);
@@ -782,8 +801,181 @@ export function makeVivo(M) {
         hf.m.position.copy(hf.p).addScaledVector(hf.n, dist * ps * (0.3 * k + 0.7 * e)); hf.m.position.y = hf.p.y + Math.sin(a) * (lift || 0.18) * ps;
       });
     }
-    // --- golpes por tipo de peca ---
+    // --- duelo ate a morte: a vitima apara o primeiro golpe, o segundo mata ---
     brutalStrike(mesh, victim, dir, t, b, head) {
+      const V = (n) => this.pickVar(t, n);
+      let plan;
+      if (t === E.P) plan = ['diag', 'decap', 'impale'][V(3)];
+      else if (t === E.B) plan = ['diag', 'decap', 'impale', 'old0'][V(4)];
+      else if (t === E.Q) plan = ['diag', 'decap', 'spin', 'old0'][V(4)];
+      else if (t === E.K) plan = ['diag', 'decap', 'spin'][V(3)];
+      else if (t === E.R) plan = ['smash', 'sweep', 'old1'][V(3)];
+      if (!plan || !mesh.userData.weapon) return this.brutalOld(mesh, victim, dir, t, b, head);
+      if (plan.startsWith('old')) { const fv = this.forceVar; this.forceVar = +plan[3]; const r = this.brutalOld(mesh, victim, dir, t, b, head); this.forceVar = fv; return r; }
+      return this.duel(mesh, victim, dir, t, plan === 'impale' ? 1 : 0).then(() => this.finish(mesh, victim, dir, t, plan));
+    }
+    // camera de luta: chega perto do duelo, segura ate o golpe fatal e volta (um toque pula)
+    duelCam(p, dur) {
+      if (!this.camFx || this.menu || this.isPreview || this.cam.target || this.tweens.some((tw) => tw.tag === 'cam')) return;
+      const off = this.cam.lookOff || (this.cam.lookOff = new THREE.Vector3()), goal = new THREE.Vector3(p.x * 0.85, 0.12, p.z * 0.85), z = this.mobile ? 0.5 : 0.45;
+      this.tween(dur, (k) => {
+        const a = k < 0.16 ? ease(k / 0.16) : k < 0.7 ? 1 : 1 - ease((k - 0.7) / 0.3);
+        off.copy(goal).multiplyScalar(a); this.cam.rFactor = 1 - z * a;
+        if (k >= 1) { off.set(0, 0, 0); this.cam.rFactor = 1; }
+      }, 0, 'cam');
+    }
+    // a vitima vira, levanta a arma para se defender; o atacante golpeia e as armas se chocam
+    duel(mesh, victim, dir, t, low) {
+      this.duelCam(mesh.position.clone().lerp(victim.position, 0.6), 2.4);
+      const w = mesh.userData.weapon, rest = mesh.userData.rest || 0, vw = victim.userData.weapon, vrest = victim.userData.rest || 0;
+      const ps = this.pScale || 1, p0 = mesh.position.clone(), vp = victim.position.clone(), anim = this._animMeshes; anim.add(victim);
+      const vy0 = victim.rotation.y, face = Math.atan2(dir.x, dir.z), dy = ((face - vy0) % (Math.PI * 2) + Math.PI * 3) % (Math.PI * 2) - Math.PI;
+      const hammer = t === E.R, up = hammer ? 1.7 : 1.5;
+      snd('windup'); this.tremble(victim, 0.25, 0.008);
+      return this.tween(0.26, (k) => {
+        const e = ease(k);
+        victim.rotation.y = vy0 + dy * e; victim.rotation.x = -0.1 * e;
+        if (vw) { vw.rotation.x = vrest - 0.35 * e; vw.rotation.z = 0.95 * e; }
+        w.rotation.x = rest + up * e; mesh.rotation.x = 0.14 * e; mesh.rotation.z = (low ? 0 : 0.22) * e;
+      }).then(() => { snd('swing'); return this.tween(0.08, (k) => { const e = easeIn(k); w.rotation.x = rest + up - (up + 0.75) * e; mesh.rotation.x = 0.14 - 0.24 * e; mesh.rotation.z = (low ? 0 : 0.22) * (1 - 2 * e); mesh.position.set(p0.x + dir.x * 0.12 * e, 0, p0.z + dir.z * 0.12 * e); }); })
+        .then(() => {
+          // choque das armas: faiscas de metal, clarao curto, tranco
+          const vh = (victim.userData.h || 0.9) * ps, cp = p0.clone().lerp(vp, 0.55).setY(Math.min(vh, (mesh.userData.h || 0.9) * ps) * 0.72);
+          snd('clash'); if (hammer) snd('crunch');
+          this.particles.burst(cp, { colors: ['#ffffff', '#fff1b8', '#ffc24a', '#ff8a2a'], count: Math.round(70 * (this.qL() >= 3 ? 0.55 : 1)), up: 1.6, speed: 7.5, life: 0.42, grav: 9, size: 0.055 });
+          this.flash(cp, 0xfff0c0, 7); this.flashExp(0.5); this.shake(0.12);
+          if (this.camFx && !this.menu && !this.isPreview && !this.cam.target && !this.tweens.some((tw) => tw.tag === 'cam')) this.punch(cp);
+          const m0 = mesh.position.clone();
+          return this.tween(0.2, (k) => {
+            const e = easeOut(k), b2 = Math.sin(Math.PI * k);
+            w.rotation.x = rest - 0.75 + 1.25 * e; mesh.position.set(m0.x - dir.x * 0.1 * e, 0, m0.z - dir.z * 0.1 * e);
+            victim.position.set(vp.x + dir.x * 0.08 * b2, 0, vp.z + dir.z * 0.08 * b2); victim.rotation.x = -0.1 - 0.12 * b2;
+            if (vw) vw.rotation.z = 0.95 - 0.7 * e;
+          });
+        });
+    }
+    // golpe fatal
+    finish(mesh, victim, dir, t, plan) {
+      const w = mesh.userData.weapon, rest = mesh.userData.rest || 0, ps = this.pScale || 1, p0 = mesh.position.clone().setY(0);
+      const vp = victim.position.clone().setY(0), vh = (victim.userData.h || 0.9) * ps, king = t === E.K, pw = king || t === E.Q ? 1.3 : 1;
+      const side = new THREE.Vector3(-dir.z, 0, dir.x), UP = new THREE.Vector3(0, 1, 0), sparks = ['#ffffff', '#ffe6a8', '#ffb050'];
+      const recover = (dur = 0.3) => { const from = mesh.position.clone(), rx = mesh.rotation.x, rz = mesh.rotation.z, wx = w.rotation.x, wz = w.rotation.z; return this.tween(dur, (k) => { const e = ease(k); mesh.position.set(from.x + (p0.x - from.x) * e, from.y * (1 - e), from.z + (p0.z - from.z) * e); mesh.rotation.x = rx * (1 - e); mesh.rotation.z = rz * (1 - e); w.rotation.x = wx + (rest - wx) * e; w.rotation.z = wz * (1 - e); }); };
+      const kill = () => { this.slowMo(0.6, 0.14); this.flashExp(1.2); };
+      if (plan === 'diag' || plan === 'decap' || plan === 'spin') {
+        const sgn = Math.random() < 0.5 ? 1 : -1, hv = king ? 1.15 : 1;
+        // levanta a arma bem alto (inclinada para o corte diagonal) e desce com tudo
+        const tilt = plan === 'diag' ? 0.42 * sgn : 0, h0 = mesh.rotation.y;
+        snd('windup');
+        let go;
+        if (plan === 'spin') {
+          go = this.tween(0.26 * hv, (k) => { const e = ease(k); mesh.rotation.y = h0 + 0.8 * e; w.rotation.x = rest - 1.3 * e; mesh.rotation.x = 0.08 * e; })
+            .then(() => { snd('swing'); return this.tween(0.13, (k) => { const e = easeIn(k); mesh.rotation.y = h0 + 0.8 - 1.6 * e; }); });
+        } else {
+          go = this.tween(0.28 * hv, (k) => { const e = ease(k); w.rotation.x = rest + 0.5 + 1.6 * e; mesh.rotation.x = 0.2 * e; mesh.rotation.z = tilt * e; mesh.position.y = 0.06 * e; })
+            .then(() => { snd('swing'); return this.tween(0.09, (k) => { const e = easeIn(k); w.rotation.x = rest + 2.1 - (plan === 'decap' ? 3.0 : 3.9) * e; mesh.rotation.x = 0.2 - 0.5 * e; mesh.rotation.z = tilt * (1 - 2 * e); mesh.position.set(p0.x + dir.x * 0.2 * e, 0.06 * (1 - e), p0.z + dir.z * 0.2 * e); }); });
+        }
+        return go.then(() => {
+          snd('cleave'); snd('smash'); snd('crunch'); kill();
+          if (plan === 'decap') this.decapitate(victim, dir, side.clone().multiplyScalar(sgn), vh, pw);
+          else if (plan === 'spin') this.sliceH(victim, dir, side.clone().multiplyScalar(sgn), vh, pw);
+          else this.sliceDiag(victim, dir, side, sgn, vh, pw);
+          this.impact(vp, { power: pw, mid: vh * (plan === 'decap' ? 0.8 : 0.55), sound: false, noSlow: true, sparks });
+          if (plan === 'spin') mesh.rotation.y = h0;
+          return this.tween(0.12, () => { }).then(() => recover(0.32));
+        });
+      }
+      if (plan === 'impale') {
+        // estocada: recua, investe e atravessa a estatua, que racha por dentro e estoura
+        const thrust = t === E.B ? -1.45 : -1.6;
+        snd('windup');
+        return this.tween(0.22, (k) => { const e = ease(k); w.rotation.x = rest + (thrust - rest) * e; w.rotation.z = 0; mesh.rotation.x = 0.1 * e; mesh.position.set(p0.x - dir.x * 0.16 * e, 0, p0.z - dir.z * 0.16 * e); })
+          .then(() => { snd('swing'); return this.tween(0.08, (k) => { const e = easeIn(k); mesh.position.set(p0.x + dir.x * (-0.16 + 0.5 * e), 0, p0.z + dir.z * (-0.16 + 0.5 * e)); mesh.rotation.x = 0.1 - 0.25 * e; }); })
+          .then(() => {
+            snd('impale'); kill(); this.shake(0.16);
+            const ep = vp.clone().setY(vh * 0.55).addScaledVector(dir, -0.18 * ps);
+            this.particles.burst(ep, { colors: sparks, count: 50, up: 1, speed: 5.5, life: 0.35, grav: 6, size: 0.06 });
+            this.particles.burst(ep.clone().addScaledVector(dir, 0.4 * ps), { colors: ['#9a9186', '#c8beb0', '#6d665e'], count: 40, up: 0.8, speed: 4.5, life: 0.8, grav: 8, size: 0.07, normal: true });
+            this.heat(victim, 0xff5a1a, 0.3, 1.6);
+            const v0 = victim.position.clone();
+            return this.tween(0.34, (k) => { victim.position.set(v0.x + dir.x * 0.1 * k + Math.sin(k * 90) * 0.02, 0.16 * Math.sin(Math.PI / 2 * k) * ps, v0.z + dir.z * 0.1 * k + Math.cos(k * 77) * 0.02); victim.rotation.x = -0.25 * k; });
+          })
+          .then(() => { snd('crack'); this.explode(victim, 'fling', dir, 2.0 * pw, { sparks, noSlow: true }); return recover(0.3); });
+      }
+      if (plan === 'smash') {
+        // martelada de cima: a estatua e esmagada contra o chao
+        snd('windup');
+        return this.tween(0.3, (k) => { const e = ease(k); w.rotation.x = rest + 0.2 + 2.0 * e; mesh.rotation.x = 0.24 * e; mesh.position.y = 0.1 * e; })
+          .then(() => { snd('swing'); let hit = false; return this.tween(0.1, (k) => {
+            const e = easeIn(k); w.rotation.x = rest + 2.2 - 3.9 * e; mesh.rotation.x = 0.24 - 0.55 * e; mesh.position.set(p0.x + dir.x * 0.18 * e, 0.1 * (1 - e), p0.z + dir.z * 0.18 * e);
+            if (!hit && k > 0.6) { hit = true; victim.scale.set(1.15, 0.85, 1.15); }
+          }); })
+          .then(() => this.tween(0.07, (k) => { victim.scale.set(1.15 + 0.25 * k, 0.85 - 0.55 * k, 1.15 + 0.25 * k); }))
+          .then(() => {
+            snd('crunch'); kill();
+            this.explode(victim, 'crush', dir, 2.2, { big: true, noSlow: true }); this.addCrack(vp.clone().addScaledVector(dir, 0.3), 1.3);
+            this.shake(0.4);
+            return this.tween(0.12, () => { }).then(() => recover(0.35));
+          });
+      }
+      // martelo de lado: gira o corpo e a estatua voa em pedacos
+      const h0 = mesh.rotation.y, sg = Math.random() < 0.5 ? 1 : -1;
+      snd('windup');
+      return this.tween(0.28, (k) => { const e = ease(k); mesh.rotation.y = h0 + 1.0 * sg * e; w.rotation.x = rest - 1.35 * e; mesh.rotation.x = 0.1 * e; })
+        .then(() => { snd('swing'); return this.tween(0.12, (k) => { const e = easeIn(k); mesh.rotation.y = h0 + sg * (1.0 - 1.7 * e); }); })
+        .then(() => {
+          snd('crunch'); snd('smash'); kill();
+          const fd = dir.clone().addScaledVector(side, -sg * 0.9).normalize();
+          this.explode(victim, 'fling', fd, 2.4, { noSlow: true });
+          return this.tween(0.16, (k) => { mesh.rotation.y = h0 + sg * (-0.7 + 0.7 * ease(k)); }).then(() => recover(0.3));
+        });
+    }
+    // gira um pedaco cortado em torno do proprio centro (c0) e o leva ate c
+    spinAt(hf, c0, c, q) { hf.m.quaternion.copy(hf.q0).premultiply(q); hf.m.position.copy(hf.p).sub(c0).applyQuaternion(q).add(c); }
+    // corte na diagonal: a metade de cima escorrega pela linha do corte e cai
+    sliceDiag(victim, dir, side, sgn, vh, pw) {
+      const UP = new THREE.Vector3(0, 1, 0), a = rnd(0.55, 0.85);
+      const n = side.clone().multiplyScalar(sgn * Math.sin(a)).addScaledVector(UP, Math.cos(a)).addScaledVector(dir, rnd(-0.12, 0.12)).normalize();
+      const hs = this.cutInTwo(victim, n, victim.position.clone().setY(vh * rnd(0.48, 0.6)));
+      const top = hs[0], bot = hs[1], ps = this.pScale || 1;
+      const s = UP.clone().multiplyScalar(-1).addScaledVector(n, n.y).normalize(), ax = UP.clone().cross(s).normalize(), q = new THREE.Quaternion();
+      this.tween(0.36, (k) => { top.m.position.copy(top.p).addScaledVector(s, 0.3 * ps * k * k); })
+        .then(() => { const sh = top.m.position.clone().sub(top.p), c0 = top.p.clone().setY(vh * 0.78), c1 = c0.clone().add(sh), c = new THREE.Vector3(); return this.tween(0.36, (k) => { const e = k * k; q.setFromAxisAngle(ax, e * 1.5); c.copy(c1).addScaledVector(s, 0.35 * ps * k).addScaledVector(dir, 0.12 * k); c.y = Math.max(0.12 * ps, c1.y - vh * 0.62 * e); this.spinAt(top, c0, c, q); }); })
+        .then(() => { snd('shatter'); this.breakHalf(top, 1.2 * pw, 0.55, s.clone().setY(0).multiplyScalar(1.5)); });
+      const ax2 = UP.clone().cross(dir).normalize(), q2 = new THREE.Quaternion();
+      this.tween(0.45, () => { }).then(() => this.tween(0.42, (k) => { const e = k * k; q2.setFromAxisAngle(ax2, e * 1.2); bot.m.quaternion.copy(bot.q0).premultiply(q2); }))
+        .then(() => this.breakHalf(bot, 0.9 * pw, 0.45, dir, true));
+    }
+    // decapitacao: a cabeca sai girando, o corpo fica de pe um instante e desaba
+    decapitate(victim, dir, side, vh, pw) {
+      const UP = new THREE.Vector3(0, 1, 0), ps = this.pScale || 1;
+      const n = UP.clone().addScaledVector(side, rnd(0.08, 0.2)).addScaledVector(dir, 0.08).normalize();
+      const hs = this.cutInTwo(victim, n, victim.position.clone().setY(vh * 0.74)), head = hs[0], body = hs[1];
+      const vel = dir.clone().multiplyScalar(rnd(2.2, 3.2)).addScaledVector(side, rnd(0.6, 1.4)).setY(rnd(3.0, 3.8)).multiplyScalar(ps);
+      const spin = new THREE.Vector3(rnd(-1, 1), rnd(-1, 1), rnd(-1, 1)).normalize(), q = new THREE.Quaternion(), T = 0.8;
+      this.particles.burst(head.p.clone().setY(vh * 0.74), { colors: ['#9a9186', '#c8beb0', '#6d665e'], count: 30, up: 1.6, speed: 3.5, life: 0.7, grav: 8, size: 0.07, normal: true });
+      const c0 = head.p.clone().setY(vh * 0.86), c = new THREE.Vector3();
+      this.tween(T, (k) => {
+        const tt = k * T; q.setFromAxisAngle(spin, tt * 11);
+        c.set(c0.x + vel.x * tt, Math.max(0.1 * ps, c0.y + vel.y * tt - 9.8 * ps * tt * tt / 2), c0.z + vel.z * tt); this.spinAt(head, c0, c, q);
+      }).then(() => { snd('crunch'); this.breakHalf(head, 0.9, 0.3, vel.clone().setY(0).multiplyScalar(0.35)); this.addCrack(head.m.position.clone(), 0.6); });
+      const ax = UP.clone().cross(dir).normalize(), q2 = new THREE.Quaternion();
+      this.tween(0.5, (k) => { body.m.position.x = body.p.x + Math.sin(k * 50) * 0.012; }).then(() => this.tween(0.42, (k) => { const e = k * k; q2.setFromAxisAngle(ax, e * 1.45); body.m.quaternion.copy(body.q0).premultiply(q2); }))
+        .then(() => { snd('shatter'); this.breakHalf(body, 1.0 * pw, 0.6, dir); this.shake(0.15); });
+    }
+    // corte na horizontal (giro): a parte de cima voa de lado
+    sliceH(victim, dir, side, vh, pw) {
+      const UP = new THREE.Vector3(0, 1, 0), ps = this.pScale || 1;
+      const n = UP.clone().addScaledVector(dir, rnd(-0.25, 0.25)).addScaledVector(side, 0.12).normalize();
+      const hs = this.cutInTwo(victim, n, victim.position.clone().setY(vh * rnd(0.45, 0.58)));
+      const top = hs[0], bot = hs[1], q = new THREE.Quaternion(), ax = UP.clone().cross(side).normalize(), cutY = vh * 0.52;
+      const c0 = top.p.clone().setY(vh * 0.75), c = new THREE.Vector3();
+      this.tween(0.7, (k) => {
+        q.setFromAxisAngle(ax, k * 2.4);
+        c.copy(c0).addScaledVector(side, 1.2 * ps * k).addScaledVector(dir, 0.4 * k); c.y = Math.max(0.12 * ps, c0.y + Math.sin(Math.PI * k * 0.8) * 0.4 - (c0.y + 0.4) * k * k); this.spinAt(top, c0, c, q);
+      }).then(() => { snd('shatter'); this.breakHalf(top, 1.2 * pw, 0.5, side); });
+      this.tween(0.3, () => { }).then(() => this.breakHalf(bot, 0.9 * pw, 0.45, null, true));
+    }
+    brutalOld(mesh, victim, dir, t, b, head) {
       const w = mesh.userData.weapon, rest = mesh.userData.rest || 0, p0 = mesh.position.clone(), ps = this.pScale || 1;
       const vh = (victim.userData.h || 0.9) * ps, vp = victim.position.clone();
       const back = (e, x) => { mesh.position.set(p0.x + dir.x * x * e, mesh.position.y, p0.z + dir.z * x * e); };
@@ -920,12 +1112,28 @@ export function makeVivo(M) {
           .then(() => { const s0 = mesh.position.clone(); return this.tween(0.3, (k) => { const e = ease(k); mesh.position.set(s0.x + (b.x - s0.x) * e, Math.sin(Math.PI * k) * 0.35, s0.z + (b.z - s0.z) * e); }); })
           .then(() => land(b));
       }
-      let hit = false;
-      return crouch(0.26).then(() => { snd('leap'); return this.tween(0.55 + dist * 0.05, (k) => {
+      // carga de lanca: salta, abaixa a lanca e atravessa a estatua
+      this.duelCam(b.clone().lerp(a, 0.35), 2.2);
+      const w = mesh.userData.weapon, rest = mesh.userData.rest || 0, ps = this.pScale || 1, vh = (victim.userData.h || 0.9) * ps;
+      const stop = b.clone().addScaledVector(dir, -0.78), d1 = a.distanceTo(stop);
+      return crouch(0.2).then(() => { snd('leap'); snd('charge'); return this.tween(0.42 + d1 * 0.05, (k) => {
         const e = ease(k); mesh.scale.set(1, 1, 1);
-        mesh.position.set(a.x + (b.x - a.x) * e, Math.sin(Math.PI * k) * 1.05, a.z + (b.z - a.z) * e); mesh.rotation.x = 0.3 - k * 0.7;
-        if (!hit && k > 0.7) { hit = true; this.explode(victim, 'fling', dir, 2.3); }
-      }); }).then(() => land(b));
+        mesh.position.set(a.x + (stop.x - a.x) * e, Math.sin(Math.PI * k) * 0.8, a.z + (stop.z - a.z) * e); mesh.rotation.x = 0.3 - k * 0.3;
+        if (w) w.rotation.x = rest + (-1.6 - rest) * e;
+      }); }).then(() => { mesh.position.y = 0; snd('stompH'); this.dust(stop, 1.2); return this.tween(0.08, (k) => { const e = easeIn(k); mesh.position.set(stop.x + dir.x * 0.3 * e, 0, stop.z + dir.z * 0.3 * e); mesh.rotation.x = -0.15 * e; }); })
+        .then(() => {
+          snd('impale'); snd('clash'); this.slowMo(0.7, 0.14); this.flashExp(1.1); this.shake(0.2);
+          const ep = victim.position.clone().setY(vh * 0.5).addScaledVector(dir, -0.2 * ps);
+          this.particles.burst(ep, { colors: ['#ffffff', '#ffe6a8', '#ffb050'], count: 55, up: 1, speed: 6, life: 0.35, grav: 6, size: 0.06 });
+          this.heat(victim, 0xff5a1a, 0.25, 1.6);
+          const v0 = victim.position.clone(), m0 = mesh.position.clone();
+          return this.tween(0.3, (k) => { const e = ease(k); victim.position.set(v0.x + dir.x * 0.22 * e, 0.28 * Math.sin(Math.PI / 2 * k) * ps, v0.z + dir.z * 0.22 * e); victim.rotation.x = -0.4 * e; mesh.position.set(m0.x + dir.x * 0.2 * e, 0, m0.z + dir.z * 0.2 * e); mesh.rotation.x = -0.15 - 0.3 * e; });
+        })
+        .then(() => {
+          snd('crunch'); this.explode(victim, 'fling', dir, 2.3, { noSlow: true });
+          const s0 = mesh.position.clone(), r0 = mesh.rotation.x;
+          return this.tween(0.32, (k) => { const e = ease(k); mesh.position.set(s0.x + (b.x - s0.x) * e, Math.sin(Math.PI * k) * 0.3, s0.z + (b.z - s0.z) * e); mesh.rotation.x = r0 * (1 - e); if (w) w.rotation.x = -1.6 + (rest + 1.6) * e; });
+        }).then(() => land(b));
     }
     orb(color, s) {
       if (!this.orbTex) this.orbTex = new THREE.CanvasTexture(glowCanvas('rgba(255,255,255,1)', 'rgba(255,255,255,0)'));
