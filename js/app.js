@@ -9,7 +9,7 @@
 
   var PHONE = Math.min(screen.width, screen.height) < 700;
   var prefs = load(PREFS) || {};
-  prefs = { style: prefs.style || 'classico', env: prefs.env || 'sala', theme: prefs.theme || 'classico', clock: prefs.clock || '0', view: prefs.view || '3d', sound: prefs.sound !== false, music: prefs.music !== false, vibe: prefs.vibe !== false, learn: !!prefs.learn, level: prefs.level || 'medio', color: prefs.color || 'w', flip: prefs.flip !== false, cam: prefs.cam2 || 'auto', aid: !!prefs.aid2, camFx: prefs.camFx !== false };
+  prefs = { style: prefs.style || 'classico', env: prefs.env || 'sala', theme: prefs.theme || 'classico', clock: prefs.clock || '0', view: prefs.view || '3d', sound: prefs.sound !== false, music: prefs.music !== false, vibe: prefs.vibe !== false, learn: !!prefs.learn, level: prefs.level || 'medio', color: prefs.color || 'w', flip: prefs.flip !== false, cam: prefs.cam2 || 'auto', aid: !!prefs.aid2, camFx: prefs.camFx !== false, p2: prefs.p2 || 'premium' };
 
   var app = {
     game: null, mode: 'ai', level: 'medio', human: 0, autoFlip: true, orient: 0,
@@ -50,8 +50,9 @@
     var need = (app.v && app.v === app.view3d) ? app.view3d.fitLayout(r.width, r.height) + 6 : Math.min(r.width, r.height);
     if (need < r.height - 4) { st.style.flex = '0 0 auto'; st.style.height = need + 'px'; sp.style.flexGrow = '1'; }
     var r2 = st.getBoundingClientRect();
-    var s = Math.floor(Math.min(r2.width - 14, r2.height - 14));
+    var prem = document.body.classList.contains('p2-prem'), s = Math.floor(Math.min(r2.width, r2.height) - (prem ? 22 : 14));
     $('board2d').style.width = s + 'px'; $('board2d').style.height = s + 'px';
+    var fr = $('b2frame'); fr.style.width = fr.style.height = (s + 18) + 'px';
     if (app.view3d) app.view3d.resize();
   }
   var layoutQ = 0;
@@ -731,6 +732,7 @@
       if (app.view3d) app.view3d.setTheme(v);
     });
     segInit('segStyle', prefs.style, function (v) { prefs.style = v; savePrefs(); app.pieceStyle = v; if (app.view3d) app.view3d.setStyle(v); });
+    segInit('segP2', prefs.p2, function (v) { prefs.p2 = v; savePrefs(); document.body.classList.toggle('p2-prem', v === 'premium'); });
     segInit('segCamFx', prefs.camFx ? '1' : '0', function (v) { prefs.camFx = v === '1'; savePrefs(); app.camFx = prefs.camFx; if (app.view3d) app.view3d.camFx = prefs.camFx; });
     segInit('segAid', prefs.aid ? '1' : '0', function (v) { prefs.aid = v === '1'; prefs.aid2 = prefs.aid; savePrefs(); if (app.view3d) app.view3d.setAid(prefs.aid); });
     $('camBtn').onclick = function () {
@@ -783,7 +785,7 @@
 
   function boot() {
     app.has3d = webglOK();
-    app.theme = prefs.theme; document.body.dataset.theme = prefs.theme; app.pieceStyle = prefs.style; app.env = prefs.env; app.camView = prefs.cam; app.visionAid = prefs.aid; app.camFx = prefs.camFx; camUI();
+    app.theme = prefs.theme; document.body.dataset.theme = prefs.theme; document.body.classList.toggle('p2-prem', prefs.p2 === 'premium'); app.pieceStyle = prefs.style; app.env = prefs.env; app.camView = prefs.cam; app.visionAid = prefs.aid; app.camFx = prefs.camFx; camUI();
     app.view2d = new View2D($('board2d'), app);
     app.v = app.view2d;
     bind(); soundUI(); vibeUI();

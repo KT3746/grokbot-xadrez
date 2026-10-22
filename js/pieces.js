@@ -12,7 +12,7 @@
   function svg(piece) {
     var t = piece & 7, black = piece & 8;
     var cls = black ? 'pc-b' : 'pc-w';
-    return '<svg viewBox="0 0 100 100" class="pcs ' + cls + '" aria-hidden="true"><g>' + shapes[t] + base + '</g></svg>';
+    return '<svg viewBox="0 0 100 100" class="pcs ' + cls + '" aria-hidden="true"><g>' + shapes[t] + base + '</g><g class="gl">' + shapes[t] + base + '</g></svg>';
   }
   var NAMES = { 1: 'Peão', 2: 'Cavalo', 3: 'Bispo', 4: 'Torre', 5: 'Dama', 6: 'Rei' };
   // SVG solto (cores embutidas), para virar textura no 3D

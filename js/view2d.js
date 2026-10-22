@@ -12,9 +12,38 @@
       d.innerHTML = '<i class="mk"></i><b class="cf"></b><b class="cr"></b>';
       this.sqLayer.appendChild(d); this.squares[sq] = d;
     }
+    var tx = document.createElement('div'); tx.className = 'b2-tex'; tx.style.backgroundImage = 'url(' + boardTexture() + ')'; this.sqLayer.appendChild(tx);
     this.place();
     this.bindInput();
   }
+  // textura fina (veios e granulado) desenhada uma vez, usada por cima das casas no visual Premium
+  var texURL = null;
+  function boardTexture() {
+    if (texURL) return texURL;
+    var c = document.createElement('canvas'); c.width = c.height = 512; var g = c.getContext('2d');
+    g.fillStyle = '#808080'; g.fillRect(0, 0, 512, 512);
+    var img = g.getImageData(0, 0, 512, 512), d = img.data;
+    for (var i = 0; i < d.length; i += 4) { var v = 128 + (Math.random() - 0.5) * 34; d[i] = d[i + 1] = d[i + 2] = v; }
+    g.putImageData(img, 0, 0);
+    for (var k = 0; k < 110; k++) {
+      g.strokeStyle = Math.random() < 0.5 ? 'rgba(255,255,255,' + (0.1 + Math.random() * 0.22) + ')' : 'rgba(0,0,0,' + (0.08 + Math.random() * 0.16) + ')';
+      g.lineWidth = 0.6 + Math.random() * 1.8; g.beginPath();
+      var x = Math.random() * 512, y = Math.random() * 512; g.moveTo(x, y);
+      for (var j = 0; j < 6; j++) { x += (Math.random() - 0.3) * 120; y += (Math.random() - 0.5) * 70; g.quadraticCurveTo(x - 30, y + (Math.random() - 0.5) * 40, x, y); }
+      g.stroke();
+    }
+    texURL = c.toDataURL('image/jpeg', 0.8);
+    return texURL;
+  }
+  View2D.prototype.trail = function (from, to) {
+    var a = this.cell(from), b = this.cell(to), w = this.el.clientWidth / 8;
+    var x1 = (a.c + 0.5) * w, y1 = (a.r + 0.5) * w, x2 = (b.c + 0.5) * w, y2 = (b.r + 0.5) * w;
+    var len = Math.hypot(x2 - x1, y2 - y1), ang = Math.atan2(y2 - y1, x2 - x1);
+    var t = document.createElement('div'); t.className = 'b2-trail';
+    t.style.width = len + 'px'; t.style.height = (w * 0.34) + 'px'; t.style.left = x1 + 'px'; t.style.top = (y1 - w * 0.17) + 'px';
+    t.style.transform = 'rotate(' + ang + 'rad)';
+    this.el.appendChild(t); setTimeout(function () { t.remove(); }, 800);
+  };
   View2D.prototype.cell = function (sq) {
     var f = sq & 7, r = sq >> 4;
     return this.orient === 0 ? { c: f, r: 7 - r } : { c: 7 - f, r: r };
@@ -58,6 +87,7 @@
     }
     moves.forEach(function (mv) {
       var e = self.pieces[mv[1]]; if (!e) return;
+      if (document.body.classList.contains('p2-prem')) self.trail(mv[0], mv[1]);
       e.style.transition = 'none'; e.style.transform = self.tf(mv[0]); e.style.zIndex = 5;
       void e.offsetWidth;
       e.style.transition = ''; e.style.transform = self.tf(mv[1]);
