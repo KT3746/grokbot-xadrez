@@ -895,7 +895,7 @@
 
   // ===== Telas =====
   function showScreen(s) {
-    if (s !== 'game' && !$('gSet').hidden) closeGameSettings();
+    if (s !== 'game' && PV.open && PV.mode === 'game') closeGameSettings();
     app.screen = s;
     if (s !== 'game' && window.XSound && XSound.setTension) XSound.setTension(0);
     [].forEach.call(document.querySelectorAll('.screen'), function (el) { el.classList.toggle('show', el.id === s); });
@@ -973,17 +973,17 @@
   var menuMarks = {};
   var SET = {
     view: { t: 'Visual', o: [['2d', '2D'], ['3d', '3D'], ['vivo', 'Xadrez Vivo']], need3: true },
-    style: { t: 'Peças', o: [['classico', 'Clássico'], ['moderno', 'Moderno'], ['metal', 'Metal'], ['vivo', 'Xadrez Vivo']], when: function () { return is3k(prefs.view); } },
+    style: { t: 'Peças', o: [['classico', 'Clássico'], ['moderno', 'Moderno'], ['metal', 'Metal'], ['vivo', 'Xadrez Vivo']], when: function (g) { return is3k(g('view')); } },
     palette: { t: 'Cores das peças', o: [['classico', 'Marfim'], ['rubi', 'Rubi'], ['safira', 'Safira'], ['jade', 'Jade']] },
     psize: { t: 'Tamanho das peças', o: [['p', 'Pequenas'], ['n', 'Normal'], ['g', 'Grandes']] },
-    outline: { t: 'Contorno das peças', o: [['1', 'Ligado'], ['0', 'Desligado']], when: function () { return is3k(prefs.view); } },
-    aid: { t: 'Símbolos sobre as peças', o: [['1', 'Ligado'], ['0', 'Desligado']], when: function () { return is3k(prefs.view); } },
-    theme: { t: 'Cor do tabuleiro', o: [['classico', 'Clássico'], ['madeira', 'Madeira'], ['azul', 'Azul']], when: function () { return prefs.view !== 'vivo'; } },
-    p2: { t: 'Visual 2D', o: [['premium', 'Premium'], ['simples', 'Simples']], when: function () { return prefs.view === '2d'; } },
-    env: { t: 'Cenário 3D', o: [['sala', 'Sala'], ['jardim', 'Jardim'], ['espaco', 'Espaço']], when: function () { return prefs.view === '3d'; } },
-    cam: { t: 'Vista da câmera', o: [['auto', 'Normal'], ['alta', 'Alta'], ['media', 'Média'], ['baixa', 'Baixa']], when: function () { return is3k(prefs.view); } },
+    outline: { t: 'Contorno das peças', o: [['1', 'Ligado'], ['0', 'Desligado']], when: function (g) { return is3k(g('view')); } },
+    aid: { t: 'Símbolos sobre as peças', o: [['1', 'Ligado'], ['0', 'Desligado']], when: function (g) { return is3k(g('view')); } },
+    theme: { t: 'Cor do tabuleiro', o: [['classico', 'Clássico'], ['madeira', 'Madeira'], ['azul', 'Azul']], when: function (g) { return g('view') !== 'vivo'; } },
+    p2: { t: 'Visual 2D', o: [['premium', 'Premium'], ['simples', 'Simples']], when: function (g) { return g('view') === '2d'; } },
+    env: { t: 'Cenário 3D', o: [['sala', 'Sala'], ['jardim', 'Jardim'], ['espaco', 'Espaço']], when: function (g) { return g('view') === '3d'; } },
+    cam: { t: 'Vista da câmera', o: [['auto', 'Normal'], ['alta', 'Alta'], ['media', 'Média'], ['baixa', 'Baixa']], when: function (g) { return is3k(g('view')); } },
     speed: { t: 'Velocidade das animações', o: [['normal', 'Normal'], ['rapido', 'Rápido']] },
-    camFx: { t: 'Câmera aproxima nas capturas', o: [['1', 'Ligado'], ['0', 'Desligado']], when: function () { return is3k(prefs.view); } },
+    camFx: { t: 'Câmera aproxima nas capturas', o: [['1', 'Ligado'], ['0', 'Desligado']], when: function (g) { return is3k(g('view')); } },
     evalbar: { t: 'Barra de vantagem', o: [['learn', 'No Aprender'], ['on', 'Sempre'], ['off', 'Nunca']] },
     sound: { t: 'Sons', o: [['1', 'Ligado'], ['0', 'Desligado']] },
     music: { t: 'Música', o: [['1', 'Ligada'], ['0', 'Desligada']] },
@@ -1053,7 +1053,7 @@
     el._keys = keys; el._grouped = grouped; el.classList.add('setrows');
     var html = '';
     var row = function (k) {
-      var S = SET[k]; if (!S || (S.when && !S.when()) || (S.need3 && !app.has3d)) return '';
+      var S = SET[k]; if (!S || (S.when && !S.when(setVal)) || (S.need3 && !app.has3d)) return '';
       var cur = setVal(k);
       return '<div class="srow"><label>' + S.t + '</label><div class="seg' + (S.o.length > 3 ? ' seg4' : '') + '" data-k="' + k + '">' + S.o.map(function (o) { return '<button data-v="' + o[0] + '"' + (o[0] === cur ? ' class="on"' : '') + '>' + o[1] + '</button>'; }).join('') + '</div></div>';
     };
@@ -1069,18 +1069,283 @@
       });
     }
   }
-  function openGameSettings() {
-    if (app.screen !== 'game') return;
-    app.paused = true;
-    renderSettings($('gsBody'), null, true);
+  // ===== Ajustes com prévia ao vivo =====
+  // Nada muda no jogo até tocar em Aplicar. A prévia desenha um tabuleiro de exemplo com o visual escolhido.
+  var DEF = { view: '3d', style: 'classico', palette: 'classico', psize: 'n', outline: '1', aid: '0', theme: 'classico', p2: 'premium', env: 'sala', cam: 'auto', speed: 'normal', camFx: '1', evalbar: 'learn', sound: '1', music: '1', vibe: '1' };
+  var PV = { open: false, mode: 'game', base: null, d: null, hov: null, inst: {}, cls: {}, kind: null, v2: null, keep: false };
+  var PVSAMPLE = (function () {
+    var fen = 'r1bq1rk1/ppp2ppp/2np1n2/2b1p3/2B1P3/2NP1N2/PPP2PPP/R1BQ1RK1 w - - 0 7';
+    var pos = new E.Position(fen), q = E.sqFromName, from = q('f3'), dests = {}, cap = null;
+    pos.legal().forEach(function (m) { if (m.from !== from) return; dests[m.to] = m.cap ? 2 : 1; if (m.to === q('e5')) cap = m; });
+    var board = Array.prototype.slice.call(pos.board);
+    pos.make(cap); var after = Array.prototype.slice.call(pos.board); pos.unmake();
+    return { board: board, after: after, cap: cap, hl: { sel: from, dests: dests, last: { from: q('d7'), to: q('d6') }, check: -1, hint: null } };
+  })();
+  // miniaturas nos botoes
+  var PALC = { classico: ['#f3e2c0', '#2b1c15'], rubi: ['#f3e2c0', '#7a1f1c'], safira: ['#f3e2c0', '#22377a'], jade: ['#f3e2c0', '#1d6a45'] };
+  var THC = { classico: ['#e8d1a8', '#5d8a76'], madeira: ['#e2bb85', '#93643f'], azul: ['#c3cdd5', '#5a7590'] };
+  var ENVC = { sala: 'linear-gradient(160deg,#6b4a2e,#2a1a10)', jardim: 'linear-gradient(180deg,#9fd0ff 0 45%,#4f8f45 46%,#2f5f2a)', espaco: 'radial-gradient(circle at 30% 30%,#fff 0 1px,transparent 2px),radial-gradient(circle at 70% 60%,#fff 0 1px,transparent 2px),linear-gradient(160deg,#2b1f5c,#07061a)' };
+  var PAWN = 'M12 3a3 3 0 0 0-1.9 5.3C8.8 9 8 10.2 8 11.5h1.6l-1.3 5.5H6.5v3h11v-3h-1.8l-1.3-5.5H16c0-1.3-.8-2.5-2.1-3.2A3 3 0 0 0 12 3z';
+  var SW = {
+    view: function (v) { return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round">' + (v === '2d' ? '<rect x="4" y="4" width="16" height="16" rx="1"/><path d="M4 12h16M12 4v16" stroke-width="1.6"/><path d="M4 4h8v8H4zM12 12h8v8h-8z" fill="currentColor" stroke="none" opacity=".45"/>' : v === '3d' ? '<path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M4 7.5L12 12l8-4.5M12 12v9"/>' : VIVO_ICON.replace(/^<svg[^>]*>|<\/svg>$/g, '')) + '</svg>'; },
+    style: function (v) {
+      if (v === 'vivo') return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' + VIVO_ICON.replace(/^<svg[^>]*>|<\/svg>$/g, '') + '</svg>';
+      var f = { classico: 'url(#swIv)', moderno: '#e9eef5', metal: 'url(#swMt)' }[v];
+      var d = v === 'moderno' ? 'M9 4h6v4h-1.5v8H16v4H8v-4h2.5V8H9z' : PAWN;
+      return '<svg viewBox="0 0 24 24"><defs><linearGradient id="swIv" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff6e2"/><stop offset="1" stop-color="#c9a873"/></linearGradient><linearGradient id="swMt" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f4f6f8"/><stop offset=".5" stop-color="#8b939c"/><stop offset="1" stop-color="#d9dde2"/></linearGradient></defs><path d="' + d + '" fill="' + f + '" stroke="rgba(0,0,0,.55)" stroke-width="1"/></svg>';
+    },
+    palette: function (v) { var c = PALC[v]; return '<b class="dd" style="background:' + c[0] + '"></b><b class="dd" style="background:' + c[1] + '"></b>'; },
+    theme: function (v) { var c = THC[v]; return '<b class="ck" style="background:conic-gradient(' + c[1] + ' 0 25%,' + c[0] + ' 0 50%,' + c[1] + ' 0 75%,' + c[0] + ' 0)"></b>'; },
+    p2: function (v) { return '<b class="ck' + (v === 'premium' ? ' pr' : '') + '" style="background:conic-gradient(#5d8a76 0 25%,#e8d1a8 0 50%,#5d8a76 0 75%,#e8d1a8 0)"></b>'; },
+    env: function (v) { return '<b class="ck env" style="background:' + ENVC[v] + '"></b>'; },
+    psize: function (v) { var z = { p: 0.62, n: 0.8, g: 1 }[v]; return '<svg viewBox="0 0 24 24"><g transform="translate(12 21) scale(' + z + ') translate(-12 -21)"><path d="' + PAWN + '" fill="currentColor"/></g></svg>'; },
+    cam: function (v) { var a = { auto: 50, alta: 70, media: 42, baixa: 22 }[v] * Math.PI / 180, x = 4 + Math.cos(a) * 14, y = 19 - Math.sin(a) * 14;
+      return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M2 19h20" opacity=".6"/><path d="M4 19L' + x.toFixed(1) + ' ' + y.toFixed(1) + '" stroke-dasharray="2 2.2"/><circle cx="' + x.toFixed(1) + '" cy="' + y.toFixed(1) + '" r="2.4" fill="currentColor"/>' + (v === 'auto' ? '<path d="M17 4l1 2 2 1-2 1-1 2-1-2-2-1 2-1z" fill="currentColor" stroke="none"/>' : '') + '</svg>'; }
+  };
+  function pvSnap() {
+    var b = {}; for (var k in SET) b[k] = setVal(k);
+    if (!app.has3d) b.view = '2d';
+    b.st3 = prefs.style; return b;
+  }
+  // regras entre as opcoes: "Xadrez Vivo" e visual e estilo ao mesmo tempo
+  function pvSet(s, k, v) {
+    s[k] = v;
+    if (k === 'style') { if (v === 'vivo') s.view = 'vivo'; else { s.st3 = v; if (s.view === 'vivo') s.view = '3d'; } }
+    if (k === 'view') s.style = v === 'vivo' ? 'vivo' : s.st3;
+    return s;
+  }
+  function pvState() { var s = Object.assign({}, PV.d); if (PV.hov) pvSet(s, PV.hov.k, PV.hov.v); return s; }
+  function pvChanged() { return Object.keys(SET).filter(function (k) { return PV.d[k] !== PV.base[k] && !(k === 'vibe' && !navigator.vibrate); }); }
+  function pvIsDef() { var d = PV.d; return Object.keys(DEF).every(function (k) { return d[k] === (k === 'view' && !app.has3d ? '2d' : DEF[k]); }); }
+  function optName(k, v) { var o = (SET[k].o.filter(function (x) { return x[0] === v; })[0]) || []; return o[1] || v; }
+  function pvRender() {
+    var get = function (k) { return PV.d[k]; }, html = '';
+    SGROUPS.forEach(function (g) {
+      var r = g[1].map(function (k) {
+        var S = SET[k]; if (!S || (S.when && !S.when(get)) || (S.need3 && !app.has3d)) return '';
+        var cur = PV.d[k], was = PV.base[k], chg = cur !== was, sw = SW[k];
+        return '<div class="srow' + (chg ? ' chg' : '') + '"><label>' + S.t + '<i class="cdot" title="Alterado"></i><em class="ctag">alterado</em></label><div class="seg' + (S.o.length > 3 ? ' seg4' : '') + (sw ? ' segsw' : '') + '" data-k="' + k + '">' + S.o.map(function (o) {
+          var cl = (o[0] === cur ? 'on' : '') + (chg && o[0] === was ? ' was' : '');
+          return '<button data-v="' + o[0] + '"' + (cl ? ' class="' + cl.trim() + '"' : '') + (chg && o[0] === was ? ' title="Como está agora no jogo"' : '') + '>' + (sw ? '<i class="sw">' + sw(o[0]) + '</i>' : '') + '<span>' + o[1] + '</span></button>';
+        }).join('') + '</div></div>';
+      }).join('');
+      if (r) html += '<h4>' + g[0] + '</h4>' + r;
+    });
+    $('gsBody').innerHTML = html;
+    var n = pvChanged().length;
+    $('gsCount').textContent = n ? (n === 1 ? '1 alteração' : n + ' alterações') + ' para aplicar' : 'Nada mudou ainda';
+    $('gsCount').classList.toggle('on', n > 0);
+    $('gsReset').disabled = pvIsDef();
+  }
+  function pvLabel(s) {
+    var k = pvKind(s), a;
+    if (k === 'vivo') a = ['Xadrez Vivo', optName('palette', s.palette), optName('cam', s.cam) === 'Normal' ? '' : 'Vista ' + optName('cam', s.cam).toLowerCase()];
+    else if (k === '3d') a = ['3D', optName('style', s.st3), optName('theme', s.theme), optName('env', s.env)];
+    else a = ['2D ' + optName('p2', s.p2), optName('theme', s.theme), optName('palette', s.palette)];
+    return a.filter(Boolean).join(' · ');
+  }
+  function pvKind(s) { return app.has3d && is3k(s.view) ? s.view : '2d'; }
+  function pvClass(kind) {
+    if (PV.cls[kind]) return Promise.resolve(PV.cls[kind]);
+    return import('./view3d.js?v=' + V).then(function (M) {
+      if (kind !== 'vivo') return (PV.cls[kind] = M.makePreview(M.View3D));
+      return import('./vivo3d.js?v=' + V).then(function (mv) { return (PV.cls[kind] = M.makePreview(mv.makeVivo(M))); });
+    });
+  }
+  function pvFake(s) {
+    return { theme: s.theme, env: s.env, pieceStyle: s.st3, palette: s.palette, outlines: s.outline === '1', pScale: PSIZE[s.psize] || 1, animSpeed: s.speed, camView: s.cam, visionAid: s.aid === '1', camFx: s.camFx === '1',
+      sel: -1, dests: {}, onSquare: function () { }, tryMove: function () { return false; }, clearSel: function () { }, hoverKind: function () { return ''; }, stageRect: function () { return { left: 0, top: 0, width: 10, height: 10 }; } };
+  }
+  function pvLoading(on, txt) { var l = $('pvLoad'); l.hidden = !on; if (txt) l.textContent = txt; }
+  function pvSwitch(kind) {
+    PV.kind = kind; $('pvBox').dataset.kind = kind;
+    for (var k in PV.inst) {
+      if (k === kind) continue;
+      var x = PV.inst[k];
+      // no celular so uma previa 3D existe por vez; no PC a outra fica guardada (parada) para o mouse ir e voltar rapido
+      if (PV.keep) { x.active = false; x.canvas.style.display = 'none'; } else { x.dispose(); delete PV.inst[k]; }
+    }
+    $('pv2').hidden = kind !== '2d';
+    if (kind === '2d') { pvLoading(false); pv2Ensure(); return; }
+    var have = PV.inst[kind];
+    if (have) { have.active = true; have.canvas.style.display = 'block'; have.resize(); have.dirty = true; pvLoading(false); return; }
+    pvLoading(true, kind === 'vivo' ? 'Erguendo o salão de pedra...' : 'Montando a prévia 3D...');
+    pvClass(kind).then(function (C) {
+      if (!PV.open || PV.inst[kind]) return;
+      if (PV.kind !== kind && !PV.keep) return;
+      var cv = document.createElement('canvas'); cv.className = 'pvc'; $('pvBox').insertBefore(cv, $('pvLoad'));
+      var s = pvState(), inst = new C(cv, pvFake(s));
+      inst.sync(PVSAMPLE.board); inst.highlight(PVSAMPLE.hl);
+      inst._pv = { theme: s.theme, env: s.env, st3: s.st3, palette: s.palette, outline: s.outline, psize: s.psize, aid: s.aid, cam: s.cam };
+      PV.inst[kind] = inst;
+      if (PV.kind !== kind) { inst.active = false; cv.style.display = 'none'; return; }
+      pvLoading(false); pvUpdate();
+    }).catch(function (e) { console.warn(e); pvLoading(true, 'Este aparelho não conseguiu mostrar a prévia 3D.'); });
+  }
+  function pv3Look(inst, s) {
+    var L = inst._pv || (inst._pv = {});
+    var ch = function (k, v, fn) { if (L[k] !== v) { L[k] = v; fn(v); } };
+    if (!inst.isVivo) {
+      ch('theme', s.theme, function (v) { inst.setTheme(v); });
+      ch('env', s.env, function (v) { inst.setEnv(v); });
+      ch('st3', s.st3, function (v) { inst.setStyle(v); });
+    }
+    ch('palette', s.palette, function (v) { inst.setPalette(v); });
+    ch('outline', s.outline, function (v) { inst.setOutlines(v === '1'); });
+    ch('psize', s.psize, function (v) { inst.setPieceScale(PSIZE[v] || 1); });
+    ch('aid', s.aid, function (v) { inst.setAid(v === '1'); });
+    ch('cam', s.cam, function (v) { inst.setCamView(v); });
+    inst.speed = s.speed; inst.camFx = s.camFx === '1';
+  }
+  // 2D: um documento a parte (iframe), com as classes do visual so dele, sem mexer no jogo
+  function pv2Ensure() {
+    if (PV.v2 || PV.v2wait) { pv2Fit(); return; }
+    var f = $('pv2'), defs = document.querySelector('body > svg[aria-hidden]');
+    PV.v2wait = true;
+    f.onload = function () {
+      PV.v2wait = false;
+      if (!PV.open) return;
+      var doc = f.contentDocument; if (!doc || !doc.getElementById('board2d')) return;
+      PV.v2 = new View2D(doc.getElementById('board2d'), pvFake(PV.d));
+      PV.v2.sync(PVSAMPLE.board); PV.v2.highlight(PVSAMPLE.hl);
+      PV.v2look = null; pvUpdate();
+    };
+    f.srcdoc = '<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><link rel="stylesheet" href="css/style.css?v=' + V + '"><style>html,body{background:transparent!important;overflow:hidden}#stage{position:absolute;inset:0;display:flex;align-items:center;justify-content:center}</style></head><body>' + (defs ? defs.outerHTML : '') + '<div id="stage"><div id="b2frame"></div><div id="board2d"></div></div></body></html>';
+  }
+  function pv2Fit() {
+    if (!PV.v2) return;
+    var doc = PV.v2.el.ownerDocument, w = $('pvBox').clientWidth, h = $('pvBox').clientHeight;
+    var prem = doc.body.classList.contains('p2-prem'), s = Math.floor(Math.min(w * 0.92, h - 84) - (prem ? 22 : 14));
+    var st = doc.getElementById('stage'); st.style.top = '38px'; st.style.bottom = '46px';
+    PV.v2.el.style.width = PV.v2.el.style.height = s + 'px';
+    var fr = doc.getElementById('b2frame'); fr.style.width = fr.style.height = (s + 18) + 'px';
+  }
+  function pv2Look(s) {
+    if (!PV.v2) return;
+    var b = PV.v2.el.ownerDocument.body;
+    b.dataset.theme = s.theme;
+    b.classList.toggle('p2-prem', s.p2 === 'premium');
+    ['rubi', 'safira', 'jade'].forEach(function (p) { b.classList.toggle('pal-' + p, s.palette === p); });
+    b.style.setProperty('--psz', PSIZE[s.psize] || 1);
+    b.classList.toggle('fast', s.speed === 'rapido'); PV.v2.fast = s.speed === 'rapido';
+    pv2Fit();
+  }
+  function pvUpdate() {
+    if (!PV.open) return;
+    var s = pvState(), kind = pvKind(s);
+    $('pvTag').textContent = pvLabel(s);
+    $('pvBox').classList.toggle('hov', !!PV.hov);
+    if (kind !== PV.kind) pvSwitch(kind);
+    if (kind === '2d') pv2Look(s);
+    else if (PV.inst[kind]) pv3Look(PV.inst[kind], s);
+  }
+  // mouse por cima de uma opcao: mostra na previa sem escolher
+  var pvHovT = 0;
+  function pvHover(k, v) {
+    clearTimeout(pvHovT);
+    var want = k == null || PV.d[k] === v ? null : { k: k, v: v };
+    if (JSON.stringify(want) === JSON.stringify(PV.hov)) return;
+    var slow = want && (k === 'view' || (k === 'style' && (v === 'vivo' || PV.d.view === 'vivo')));
+    pvHovT = setTimeout(function () { PV.hov = want; pvUpdate(); }, !want ? 160 : slow ? 340 : 70);
+  }
+  function pvTest() {
+    var kind = PV.kind, v = kind === '2d' ? PV.v2 : PV.inst[kind];
+    if (!v || PV.testing) return;
+    XSound.unmute(4500);
+    PV.testing = true; $('pvTest').classList.add('busy');
+    v.highlight({ sel: -1, dests: {}, last: null, check: -1 });
+    v.animate(PVSAMPLE.cap, PVSAMPLE.after, {}).then(function () {
+      if (!v.ownSounds) XSound.play('capture');
+      setTimeout(function () {
+        PV.testing = false; $('pvTest').classList.remove('busy');
+        if (v.dead || !PV.open) return;
+        v.sync(PVSAMPLE.board); v.highlight(PVSAMPLE.hl);
+      }, 1500);
+    });
+    if (kind === '2d' || !v.ownSounds) XSound.play('move');
+  }
+  function pvMusic() {
+    var b = $('pvMusic');
+    if (XSound.sampling) { XSound.stopSample(); b.classList.remove('busy'); return; }
+    if (!XSound.sample(PV.kind === 'vivo' ? 'vivo' : 'normal', 9)) return;
+    b.classList.add('busy'); clearTimeout(PV.musT);
+    PV.musT = setTimeout(function () { b.classList.remove('busy'); }, 9000);
+  }
+  function openGameSettings(mode) {
+    if (PV.open) return;
+    mode = typeof mode === 'string' ? mode : (app.screen === 'game' ? 'game' : 'menu');
+    PV.open = true; PV.mode = mode; PV.hov = null;
+    PV.keep = matchMedia('(hover: hover) and (pointer: fine)').matches && !PHONE;
+    if (mode === 'game') app.paused = true;
+    // o jogo para de desenhar enquanto o painel esta aberto (so a previa usa a placa de video)
+    each3(function (x) { x.hold = true; });
+    PV.base = pvSnap(); PV.d = Object.assign({}, PV.base);
+    $('gsTitle').textContent = mode === 'game' ? 'Ajustes da partida' : 'Ajustes';
+    $('gSet').classList.toggle('ingame', mode === 'game');
+    pvRender();
     $('gSet').hidden = false; $('gSet').classList.remove('go'); void $('gSet').offsetWidth; $('gSet').classList.add('go');
-    refreshClocks();
+    $('gsOpts').scrollTop = 0;
+    PV.kind = null; pvUpdate();
+    if (mode === 'game') refreshClocks();
   }
   function closeGameSettings() {
-    $('gSet').hidden = true; app.paused = false; lastTick = 0;
+    if (!PV.open) { $('gSet').hidden = true; return; }
+    PV.open = false; PV.hov = null; clearTimeout(pvHovT);
+    for (var k in PV.inst) PV.inst[k].dispose();
+    PV.inst = {}; PV.kind = null;
+    if (PV.v2 || PV.v2wait) { var f = $('pv2'); f.onload = null; f.removeAttribute('srcdoc'); f.src = 'about:blank'; PV.v2 = null; PV.v2wait = false; }
+    if (window.XSound && XSound.stopSample) XSound.stopSample();
+    $('pvMusic').classList.remove('busy'); $('pvTest').classList.remove('busy'); PV.testing = false;
+    $('gSet').hidden = true;
+    each3(function (x) { x.hold = false; x.dirty = true; });
+    if (PV.mode === 'game') { app.paused = false; lastTick = 0; }
     queueLayout();
   }
-  app.openSettings = openGameSettings; app.closeSettings = closeGameSettings; app.applySetting = applySetting;
+  function pvApply() {
+    var d = PV.d, b = PV.base, ch = pvChanged(), st3 = d.st3;
+    closeGameSettings();
+    ch.forEach(function (k) { if (k !== 'view' && k !== 'style') applySetting(k, d[k]); });
+    if (st3 !== prefs.style) { prefs.style = st3; app.pieceStyle = st3; savePrefs(); if (app.views3['3d']) app.views3['3d'].setStyle(st3); }
+    if (d.view !== b.view) applySetting('view', d.view);
+    refreshSettingsUI();
+    if (ch.length) toast(ch.length === 1 ? 'Ajuste aplicado' : 'Ajustes aplicados');
+  }
+  function pvBind() {
+    var body = $('gsBody');
+    body.addEventListener('click', function (e) {
+      var b = e.target.closest('button[data-v]'), sg = b && b.closest('.seg[data-k]'); if (!sg) return;
+      sfx('click'); clearTimeout(pvHovT); PV.hov = null;
+      pvSet(PV.d, sg.dataset.k, b.dataset.v);
+      pvRender(); pvUpdate();
+    });
+    body.addEventListener('pointerover', function (e) {
+      if (e.pointerType !== 'mouse') return;
+      var b = e.target.closest('button[data-v]'), sg = b && b.closest('.seg[data-k]');
+      if (sg) pvHover(sg.dataset.k, b.dataset.v);
+    });
+    body.addEventListener('pointerout', function (e) {
+      if (e.pointerType !== 'mouse') return;
+      var to = e.relatedTarget && e.relatedTarget.closest ? e.relatedTarget.closest('#gsBody button[data-v]') : null;
+      if (!to) pvHover(null);
+    });
+    $('gsApply').onclick = function () { sfx('click'); pvApply(); };
+    $('gsCancel').onclick = function () { sfx('click'); closeGameSettings(); };
+    $('gsX').onclick = function () { sfx('click'); closeGameSettings(); };
+    $('gsReset').onclick = function () {
+      sfx('click'); var d = Object.assign({}, DEF, { st3: 'classico' }); if (!app.has3d) d.view = '2d';
+      PV.d = d; PV.hov = null; pvRender(); pvUpdate();
+    };
+    $('pvTest').onclick = function () { pvTest(); };
+    $('pvMusic').onclick = function () { pvMusic(); };
+    $('gSet').addEventListener('click', function (e) { if (e.target === $('gSet')) closeGameSettings(); });
+    var ro = window.ResizeObserver ? new ResizeObserver(function () {
+      if (!PV.open) return;
+      for (var k in PV.inst) if (PV.inst[k].active) PV.inst[k].resize();
+      pv2Fit();
+    }) : null;
+    if (ro) ro.observe($('pvBox'));
+  }
+  app.openSettings = openGameSettings; app.closeSettings = closeGameSettings; app.applySetting = applySetting; app.pv = PV;
   // Xadrez Vivo no menu: liga o modo e leva para o jogo escolhido
   function vivoMenu() {
     var on = prefs.view === 'vivo';
@@ -1126,7 +1391,7 @@
     $('bVsAI').onclick = function () { sfx('click'); showPanel('pAI'); };
     $('bJornada').onclick = function () { sfx('click'); showScreen('jornada'); };
     $('bTwo').onclick = function () { sfx('click'); showPanel('pTwo'); };
-    $('tSettings').onclick = function () { sfx('click'); showPanel('pSettings'); };
+    $('tSettings').onclick = function () { sfx('click'); openGameSettings('menu'); };
     $('tGuide').onclick = function () { sfx('click'); showScreen('guide'); };
     [].forEach.call(document.querySelectorAll('[data-home]'), function (b) { b.onclick = function () { sfx('click'); showScreen('menu'); }; });
     $('bLearnPlay').onclick = function () { sfx('click'); startGame({ mode: 'ai', learn: true, level: 'iniciante', human: 0 }); };
@@ -1156,9 +1421,10 @@
     renderSettings($('msExtra'), ['palette', 'psize', 'outline', 'speed']);
     $('tVivo').onclick = function () { sfx('click'); vivoMenu(); };
     $('gGear').onclick = function () { sfx('click'); openGameSettings(); };
-    $('gsDone').onclick = function () { sfx('click'); closeGameSettings(); };
-    $('gSet').addEventListener('click', function (e) { if (e.target === $('gSet')) closeGameSettings(); });
+    pvBind();
     document.addEventListener('keydown', function (e) {
+      // Esc com os ajustes abertos: cancela (nada muda)
+      if (PV.open && e.key === 'Escape') { e.preventDefault(); closeGameSettings(); return; }
       if (app.screen !== 'game' || e.altKey || e.repeat) return;
       if (e.target && /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) return;
       if (e.key === 'Escape') {

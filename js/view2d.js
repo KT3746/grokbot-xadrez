@@ -87,7 +87,7 @@
     }
     moves.forEach(function (mv) {
       var e = self.pieces[mv[1]]; if (!e) return;
-      if (document.body.classList.contains('p2-prem')) self.trail(mv[0], mv[1]);
+      if ((self.el.ownerDocument || document).body.classList.contains('p2-prem')) self.trail(mv[0], mv[1]);
       e.style.transition = 'none'; e.style.transform = self.tf(mv[0]); e.style.zIndex = 5;
       void e.offsetWidth;
       e.style.transition = ''; e.style.transform = self.tf(mv[1]);

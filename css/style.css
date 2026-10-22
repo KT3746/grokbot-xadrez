@@ -500,10 +500,8 @@ body.vivo #vign { display: block; }
 .vgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 0 0 12px; }
 .vgrid button { min-height: 54px; border-radius: 14px; font-weight: 800; font-size: 16px; background: linear-gradient(180deg, rgba(255, 217, 107, .22), rgba(255, 255, 255, .06)); border: 1px solid rgba(255, 217, 107, .35); }
 #mBtns button { min-width: 0; }
-.scard { max-width: 520px; max-height: calc(100vh - 40px); max-height: calc(100dvh - 40px); overflow-y: auto; text-align: left; padding: 16px 16px 14px; overscroll-behavior: contain; }
 #gSet { z-index: 12; }
 #gSet.go .scard { animation: pop .28s cubic-bezier(.2, .9, .3, 1.2) both; }
-.gshead { display: flex; align-items: center; justify-content: space-between; gap: 10px; position: sticky; top: -16px; margin: -16px -16px 0; padding: 14px 16px 10px; background: #243049; border-bottom: 1px solid rgba(255, 255, 255, .08); z-index: 2; }
 .gshead h3 { margin: 0; font-size: 22px; }
 .gpause { font-size: 12.5px; font-weight: 800; color: #2a1a05; background: #ffd36a; border-radius: 999px; padding: 3px 10px; white-space: nowrap; }
 .setrows h4 { margin: 14px 0 4px; font-size: 13px; letter-spacing: .08em; text-transform: uppercase; color: var(--gold); }
@@ -511,11 +509,8 @@ body.vivo #vign { display: block; }
 .srow label { display: block; font-size: 14px; color: var(--mute); margin: 0 0 4px; }
 .srow .seg button { min-height: 42px; font-size: 14.5px; }
 .seg.seg4 button { font-size: 13.5px; padding: 0 2px; }
-.gsnote { font-size: 13.5px !important; color: var(--mute) !important; margin: 10px 0 10px !important; }
-#gsDone { width: 100%; min-height: 52px; border-radius: 14px; font-weight: 800; font-size: 17px; background: linear-gradient(180deg, #ffd96b, #e39b2d); color: #2a1a05; }
 #msExtra .srow { margin-top: 8px; }
 #msExtra .srow label { margin-bottom: 4px; }
-@media (min-width: 900px) { .scard { max-width: 640px; } .srow { display: grid; grid-template-columns: 200px 1fr; align-items: center; gap: 12px; } .srow label { margin: 0; } }
 /* tamanho das pecas 2D */
 .b2-pc .pcs { transform: scale(var(--psz, 1)); transform-origin: 50% 80%; }
 .b2-pc.lifted .pcs { transform: translateY(-6%) scale(calc(var(--psz, 1) * 1.08)); }
@@ -544,9 +539,9 @@ body.p2-prem .b2-tex { mix-blend-mode: soft-light; opacity: .55; }
   #gsKeys { display: block; }
   button { cursor: pointer; }
   button:disabled { cursor: default; }
-  .controls button, .ico, .tile, .big, .seg button, .camBtn, .card .row button, #gsDone, .pzgrid button, #hist .mv.rv { transition: background .15s, filter .15s, transform .15s, box-shadow .15s, color .15s; }
+  .controls button, .ico, .tile, .big, .seg button, .camBtn, .card .row button, .pzgrid button, #hist .mv.rv { transition: background .15s, filter .15s, transform .15s, box-shadow .15s, color .15s; }
   .controls button:not(:disabled):hover { background: linear-gradient(180deg, rgba(255, 255, 255, .2), rgba(255, 255, 255, .09)); border-color: rgba(255, 255, 255, .24); transform: translateY(-1px); }
-  .controls button.pri:not(:disabled):hover, .big.gold:hover, .card .row button.pri:hover, #gsDone:hover { filter: brightness(1.08); }
+  .controls button.pri:not(:disabled):hover, .big.gold:hover, .card .row button.pri:hover, #gsApply:hover { filter: brightness(1.08); }
   .ico:hover { background: rgba(255, 255, 255, .15); }
   .tile:hover, .big:not(.gold):hover { filter: brightness(1.15); transform: translateY(-2px); box-shadow: 0 8px 22px rgba(0, 0, 0, .3); }
   .seg button:not(.on):hover { background: rgba(255, 255, 255, .08); color: #fff; }
@@ -559,4 +554,93 @@ body.p2-prem .b2-tex { mix-blend-mode: soft-light; opacity: .55; }
   #hist { justify-content: safe center; max-width: 900px; margin-left: auto; margin-right: auto; box-sizing: border-box; }
   #status, #coach, #revCard { max-width: 760px; margin-left: auto; margin-right: auto; box-sizing: border-box; }
   .player { max-width: var(--plw, 560px); }
+}
+
+/* ===== Ajustes com previa ao vivo ===== */
+#gSet { padding: 0; }
+.scard.pvcard { width: 100%; max-width: none; height: 100%; max-height: none; border-radius: 0; padding: 0; display: flex; flex-direction: column; overflow: hidden; text-align: left; background: linear-gradient(180deg, #1f2a42, #141b2c); }
+.pvcard .gshead { flex: none; display: flex; align-items: center; gap: 10px; padding: calc(10px + env(safe-area-inset-top)) 12px 10px 16px; background: #243049; border-bottom: 1px solid rgba(255, 255, 255, .08); }
+.pvcard .gshead h3 { margin: 0; font-size: 21px; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#gSet:not(.ingame) .gpause { display: none; }
+.gsx { flex: none; width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; background: rgba(255, 255, 255, .08); }
+.gsx svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; }
+.pvgrid { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.pvside { flex: none; height: clamp(230px, 40vh, 430px); height: clamp(230px, 43dvh, 430px); padding: 10px 12px 4px; display: flex; flex-direction: column; gap: 6px; box-shadow: 0 10px 18px -12px rgba(0, 0, 0, .8); position: relative; z-index: 1; }
+#pvBox { position: relative; flex: 1; min-height: 0; border-radius: 16px; overflow: hidden; touch-action: none; isolation: isolate;
+  background: radial-gradient(120% 90% at 50% 0%, var(--bg1), var(--bg2)); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .1), 0 6px 18px rgba(0, 0, 0, .35); }
+#pvBox .pvc { position: absolute; left: 0; top: 0; display: block; }
+#pv2 { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; background: transparent; }
+#pv2[hidden] { display: none; }
+#pvLoad { position: absolute; inset: 0; display: grid; place-items: center; text-align: center; padding: 20px; color: var(--mute); font-weight: 700; font-size: 15px; z-index: 2;
+  background: linear-gradient(100deg, rgba(255, 255, 255, 0) 30%, rgba(255, 255, 255, .07) 50%, rgba(255, 255, 255, 0) 70%) 0 0 / 250% 100%, radial-gradient(120% 90% at 50% 0%, var(--bg1), var(--bg2)); animation: pvShim 1.3s linear infinite; }
+#pvLoad[hidden] { display: none; }
+@keyframes pvShim { to { background-position: -250% 0, 0 0; } }
+.pvtop { position: absolute; left: 8px; top: 8px; right: 8px; display: flex; gap: 6px; align-items: center; pointer-events: none; z-index: 3; }
+.pvchip { flex: none; font-size: 11.5px; font-weight: 900; letter-spacing: .06em; text-transform: uppercase; color: #2a1a05; background: var(--gold); border-radius: 999px; padding: 3px 9px; }
+#pvTag { min-width: 0; font-size: 12.5px; font-weight: 800; color: #fff; background: rgba(8, 12, 22, .62); border-radius: 999px; padding: 3px 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); }
+#pvBox.hov .pvchip::after { content: " do mouse"; }
+#pvBox.hov #pvTag { box-shadow: inset 0 0 0 1.5px rgba(245, 200, 76, .8); }
+.pvsnd { position: absolute; right: 8px; bottom: 8px; display: flex; gap: 6px; z-index: 3; }
+.pvsnd button { display: flex; align-items: center; gap: 5px; height: 34px; padding: 0 11px 0 9px; border-radius: 999px; font-size: 13px; font-weight: 800; color: #fff; background: rgba(8, 12, 22, .66); border: 1px solid rgba(255, 255, 255, .18); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); }
+.pvsnd svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+#pvTest svg { fill: currentColor; stroke: none; }
+.pvsnd button.busy { background: linear-gradient(180deg, #ffd96b, #e39b2d); color: #2a1a05; border-color: transparent; }
+.pvcard .pvnote { margin: 0; font-size: 12.5px; color: var(--mute); text-align: center; line-height: 1.3; }
+.pvcard .pvnote b { color: var(--gold); }
+.pvopts { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 2px 14px 14px; -webkit-overflow-scrolling: touch; }
+.pvopts h4 { margin: 14px 0 4px; font-size: 12.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--gold); }
+.pvopts .srow { margin: 6px 0 10px; }
+.pvopts .srow label { display: flex; align-items: center; gap: 6px; font-size: 14px; color: #c9d1e2; margin: 0 0 5px; }
+.cdot, .ctag { display: none; }
+.srow.chg .cdot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--gold); box-shadow: 0 0 0 3px rgba(245, 200, 76, .2), 0 0 8px rgba(245, 200, 76, .7); }
+.srow.chg .ctag { display: inline; font-style: normal; font-size: 11px; font-weight: 800; color: var(--gold); text-transform: lowercase; letter-spacing: .02em; }
+.seg button.was { box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, .28); }
+.seg button.was::after { content: "atual"; position: absolute; top: 2px; right: 5px; font-size: 9.5px; font-weight: 800; letter-spacing: .03em; color: rgba(255, 255, 255, .55); }
+.seg button { position: relative; }
+.segsw button { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; min-height: 58px !important; padding: 5px 2px; line-height: 1.1; }
+.segsw button span { font-size: 13px; }
+.seg.seg4.segsw button span { font-size: 12.5px; }
+.sw { display: flex; align-items: center; justify-content: center; gap: 2px; height: 22px; }
+.sw svg { width: 22px; height: 22px; }
+.sw .dd { width: 13px; height: 13px; border-radius: 50%; box-shadow: inset 0 -2px 3px rgba(0, 0, 0, .35), 0 0 0 1px rgba(0, 0, 0, .45); }
+.sw .ck { width: 22px; height: 18px; border-radius: 4px; box-shadow: 0 0 0 1px rgba(0, 0, 0, .45); background-size: 100% 100%; }
+.sw .ck.pr { box-shadow: 0 0 0 2px #6e4322, 0 0 0 3px rgba(255, 210, 120, .5); }
+.sw .ck.env { width: 26px; }
+.seg button.on .sw svg { filter: drop-shadow(0 1px 0 rgba(255, 255, 255, .3)); }
+.pvopts #gsKeys { margin: 8px 0 4px; padding-top: 4px; border-top: 1px solid rgba(255, 255, 255, .07); }
+.pvfoot { flex: none; display: flex; align-items: center; gap: 8px; padding: 10px 12px calc(10px + env(safe-area-inset-bottom)); background: #1b2337; border-top: 1px solid rgba(255, 255, 255, .08); }
+#gsCount { flex: 1; min-width: 0; font-size: 12.5px; color: var(--mute); text-align: center; line-height: 1.2; }
+#gsCount.on { color: var(--gold); font-weight: 800; }
+.pvreset { flex: none; height: 46px; padding: 0 10px; border-radius: 12px; font-size: 13.5px; font-weight: 700; color: var(--mute); text-decoration: underline; text-underline-offset: 3px; }
+.pvreset:disabled { opacity: .35; }
+.pvcancel { flex: none; height: 46px; padding: 0 14px; border-radius: 12px; font-weight: 800; font-size: 15px; background: rgba(255, 255, 255, .1); border: 1px solid rgba(255, 255, 255, .14); }
+#gsApply { flex: none; height: 46px; padding: 0 20px; border-radius: 12px; font-weight: 900; font-size: 16px; background: linear-gradient(180deg, #ffd96b, #e39b2d); color: #2a1a05; box-shadow: 0 4px 14px rgba(227, 155, 45, .35); }
+@media (max-width: 560px) {
+  .pvcard .gshead h3 { font-size: 17px; }
+  .pvfoot { flex-wrap: wrap; row-gap: 6px; padding-top: 6px; }
+  #gsCount { order: -1; flex: 0 0 100%; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .pvfoot .pvreset { margin-right: auto; }
+}
+@media (max-width: 360px) { .pvreset { font-size: 12.5px; padding: 0 4px; } }
+/* telas largas (PC e celular deitado): previa grande de um lado, opcoes do outro */
+@media (min-width: 900px), (orientation: landscape) and (min-width: 640px) {
+  .pvgrid { flex-direction: row; }
+  .pvside { height: auto; flex: 1 1 56%; min-width: 0; padding: 14px; box-shadow: none; border-right: 1px solid rgba(255, 255, 255, .07); }
+  .pvopts { flex: 1 1 44%; min-width: 0; padding: 4px 20px 16px; }
+  .pvcard .pvnote { font-size: 13px; }
+}
+@media (min-width: 900px) and (min-height: 560px) {
+  #gSet { padding: 22px; }
+  .scard.pvcard { width: min(1280px, 100%); height: min(860px, 100%); border-radius: 22px; box-shadow: 0 30px 80px rgba(0, 0, 0, .6), 0 0 0 1px rgba(255, 255, 255, .1); }
+  .pvcard .gshead { padding: 14px 14px 12px 22px; }
+  .pvside { padding: 18px; }
+  .pvfoot { padding: 12px 18px; }
+  .pvsnd button { height: 38px; font-size: 14px; }
+  #pvTag { font-size: 13.5px; }
+}
+@media (hover: hover) and (pointer: fine) {
+  .gsx:hover, .pvcancel:hover { background: rgba(255, 255, 255, .17); }
+  .pvreset:not(:disabled):hover { color: #fff; }
+  .pvsnd button:hover { background: rgba(30, 40, 64, .85); }
+  .seg button.was:not(.on):hover { box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, .45); }
 }

@@ -147,7 +147,7 @@
     g.linearRampToValueAtTime(amt, t + 0.04); g.setValueAtTime(amt, t + hold); g.linearRampToValueAtTime(1, t + hold + 0.9);
   }
   function play(name) {
-    if (!ctx || !sfxOn || !FX[name]) return;
+    if (!ctx || !(sfxOn || force) || !FX[name]) return;
     if (ctx.state === 'suspended') ctx.resume();
     if (DUCK[name] != null) duck(DUCK[name], name === 'mate' || name === 'lose' ? 2.6 : 0.25);
     try { FX[name](ctx.currentTime + 0.01); } catch (e) { }
@@ -289,7 +289,36 @@
     mus.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.8);
   }
 
+  // previa dos ajustes: sons de teste mesmo com o som desligado, e um trecho da musica
+  var force = false, forceT = 0, smpT = 0, smpOld = null;
+  function unmute(ms) {
+    init(); if (!ctx) return;
+    force = true; sfx.gain.value = 1; clearTimeout(forceT);
+    forceT = setTimeout(function () { force = false; if (sfx) sfx.gain.value = sfxOn ? 1 : 0; }, ms || 3000);
+  }
+  function stopSample() {
+    if (smpOld == null) return;
+    clearTimeout(smpT); style = smpOld; smpOld = null;
+    if (!musOn) stopMusic();
+  }
+  function sample(st, sec) {
+    init(); if (!ctx) return false;
+    if (ctx.state === 'suspended') ctx.resume();
+    if (smpOld == null) smpOld = style;
+    clearTimeout(smpT);
+    style = st === 'vivo' ? 'vivo' : 'normal';
+    // recomeca ja com o estilo pedido
+    if (timer) { clearInterval(timer); timer = null; }
+    nextBar = ctx.currentTime + 0.05;
+    startMusic();
+    mus.gain.cancelScheduledValues(ctx.currentTime); mus.gain.setValueAtTime(Math.max(0.0001, mus.gain.value), ctx.currentTime); mus.gain.linearRampToValueAtTime(0.8, ctx.currentTime + 0.5);
+    smpT = setTimeout(stopSample, (sec || 8) * 1000);
+    return true;
+  }
+
   window.XSound = {
+    unmute: unmute, sample: sample, stopSample: stopSample,
+    get sampling() { return smpOld != null; },
     init: init, play: play,
     setSfx: function (on) { sfxOn = on; if (sfx) sfx.gain.value = on ? 1 : 0; },
     setMusic: function (on) { musOn = on; if (on) startMusic(); else stopMusic(); },

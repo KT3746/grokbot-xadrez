@@ -1237,8 +1237,10 @@ export class View3D {
   }
 
   loop(tms) {
+    if (this.dead) return;
     requestAnimationFrame(this.loop);
-    if (!this.active) return;
+    // hold: o painel de ajustes esta aberto por cima, o jogo nao desenha
+    if (!this.active || this.hold) return;
     const t = now(), dt = Math.min(0.05, this.fps.last ? t - this.fps.last : 0.016);
     this.fps.last = t;
     let busy = false;
@@ -1307,6 +1309,12 @@ export class View3D {
     }
   }
   isTweening(m) { return this._animMeshes.has(m); }
+  // solta a GPU de vez (usado pela previa dos ajustes)
+  dispose() {
+    this.dead = true; this.active = false; this.tweens = [];
+    try { this.renderer.dispose(); this.renderer.forceContextLoss(); } catch (e) { }
+    if (this.canvas && this.canvas.parentNode) this.canvas.parentNode.removeChild(this.canvas);
+  }
   // tamanho das pecas: escala so na hora de desenhar (as animacoes continuam em escala 1)
   draw() {
     const ps = this.pScale || 1, kids = this.pieceGroup.children;
@@ -1314,6 +1322,46 @@ export class View3D {
     this.renderer.render(this.scene, this.camera);
     if (ps !== 1) for (const m of kids) m.scale.multiplyScalar(1 / ps);
   }
+}
+
+// Previa dos ajustes: o mesmo visual num quadro pequeno, com a camera balancando devagar
+export function makePreview(Base) {
+  return class PreviewView extends Base {
+    constructor(canvas, app) {
+      super(canvas, app);
+      this.isPreview = true; this.alwaysAmb = true; this.lockQ = true; this.userT = -9; this._t0 = now();
+      const touch = () => { this.userT = now(); };
+      canvas.addEventListener('pointerdown', touch); canvas.addEventListener('pointermove', (e) => { if (e.buttons) touch(); });
+      this.resize(); this.cam.phi = this.defaultPhi(); this.cam.theta = this.thetaFor(0);
+    }
+    resize() {
+      const box = this.canvas.parentElement, w = Math.max(2, box ? box.clientWidth : 2), h = Math.max(2, box ? box.clientHeight : 2);
+      this.renderer.setSize(w, h, false);
+      this.canvas.style.width = w + 'px'; this.canvas.style.height = h + 'px';
+      this.W = w; this.H = h;
+      const m = Math.round(Math.min(w, h) * 0.035);
+      this.stage = { left: m, top: m, width: w - 2 * m, height: h - 2 * m }; this.stageAspect = this.stage.width / this.stage.height;
+      this.camera.aspect = w / h; this._fitKey = null;
+      if (this.cam && this.tweens) this.fitLayout(this.stage.width, this.stage.height);
+      this.dirty = true;
+    }
+    applyQuality() { super.applyQuality(); this.alwaysAmb = true; }
+    // metade dos quadros (30 por segundo) basta para a previa
+    loop(t) {
+      if (this.dead) return;
+      if ((this._half = !this._half)) { requestAnimationFrame(this.loop); return; }
+      super.loop(t);
+    }
+    onFrame(t, dt) {
+      const busy = super.onFrame ? super.onFrame(t, dt) : false;
+      // balanco lento da camera (para quando a pessoa gira com o dedo ou o mouse)
+      if (!this.cam.target && t - this.userT > 2.2 && !this.tweens.some((tw) => tw.tag === 'cam')) {
+        const goal = this.thetaFor(0) + Math.sin((t - this._t0) * 0.3) * 0.42;
+        this.cam.theta += (goal - this.cam.theta) * Math.min(1, dt * 1.6);
+      }
+      return busy;
+    }
+  };
 }
 
 // para o modo Xadrez Vivo (vivo3d.js) reaproveitar a base
