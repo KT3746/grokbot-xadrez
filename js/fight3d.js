@@ -33,9 +33,12 @@ export function makeFight(M, mv) {
       this.rim2.position.set(-dv.x * 9 - dv.z * 4, 6, -dv.z * 9 + dv.x * 4);
       c.clearViewOffset(); c.fov = this.FOV; c.aspect = this.W / this.H; c.updateProjectionMatrix();
     }
+    cutInTwo(...a) { if (this._onKill) this._onKill(); return super.cutInTwo(...a); }
+    explode(...a) { if (this._onKill) this._onKill(); return super.explode(...a); }
+    shatter(...a) { if (this._onKill) this._onKill(); return super.shatter(...a); }
     // para tudo na hora (pular)
     stop() {
-      this.tweens = []; this.warp = null; this.rushUntil = 0; this.shakeAmt = 0; this._animMeshes.clear();
+      this._onKill = null; this.tweens = []; this.warp = null; this.rushUntil = 0; this.shakeAmt = 0; this._animMeshes.clear();
       if (this.cam.lookOff) this.cam.lookOff.set(0, 0, 0); this.cam.rFactor = 1;
       this.active = false;
     }
@@ -53,15 +56,20 @@ export function makeFight(M, mv) {
       this.meshes = {}; this.sync(before); this.highlight({ sel: -1, dests: {}, last: null, check: -1 });
       const a = sqPos(from), b = sqPos(to), dir = b.clone().sub(a).setY(0).normalize();
       let px = -dir.z, pz = dir.x; if (pz < -0.01 || (Math.abs(pz) <= 0.01 && px < 0)) { px = -px; pz = -pz; }
-      const hx = px - dir.x * 0.35, hz = pz - dir.z * 0.35;
+      const hx = px - dir.x * 0.18, hz = pz - dir.z * 0.18;
       const f = this.fc; f.theta = Math.atan2(hx, hz); f.phi = 0.3;
       f.look.copy(a).lerp(b, 0.55).setY(0.5);
       // distancia para caber os dois (largura ~2.3, altura ~1.7)
       const tv = Math.tan(this.FOV * Math.PI / 360), asp = this.W / Math.max(1, this.H);
-      f.dist = Math.max(0.95 / tv, 1.2 / (tv * asp)) + 0.6;
+      f.dist = Math.max(1.0 / tv, 1.3 / (tv * asp)) + 0.9;
       this.cam.rFactor = 1; this.setActive(true);
       const mv2 = { from, to, piece: m.piece, cap, promo: m.promo || 0, flags: m.promo ? E.F_PROMO : 0 };
-      return this.animate(mv2, after, {});
+      // termina logo depois do golpe final (as metades caindo ja contam a historia)
+      return new Promise((res) => {
+        let done = false; const end = () => { if (!done) { done = true; this._onKill = null; res(); } };
+        this._onKill = () => { this._onKill = null; setTimeout(end, 850); };
+        this.animate(mv2, after, {}).then(end);
+      });
     }
   };
 }

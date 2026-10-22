@@ -533,7 +533,7 @@
         if (v.palette !== prefs.palette) v.setPalette(prefs.palette);
         v.resize();
         maxT = setTimeout(finish, 9000);
-        v.fight(m, E).then(function () { setTimeout(finish, 380); });
+        v.fight(m, E).then(finish);
       });
     });
   }
