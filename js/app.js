@@ -23,7 +23,7 @@
   function savePrefs() { store(PREFS, prefs); }
   function saveGame() {
     if (!app.game || app.mode === 'puzzle') return;
-    store(SAVE, { learn: app.learn, mode: app.mode, level: app.level, human: app.human, autoFlip: app.autoFlip, orient: app.orient, moves: app.game.moves.map(E.uci), t: Date.now(), clock: app.clock ? { limit: app.clock.limit, left: app.clock.left } : null });
+    store(SAVE, { jornada: app.jornada, learn: app.learn, mode: app.mode, level: app.level, human: app.human, autoFlip: app.autoFlip, orient: app.orient, moves: app.game.moves.map(E.uci), t: Date.now(), clock: app.clock ? { limit: app.clock.limit, left: app.clock.left } : null });
   }
   function sfx(n) { XSound.play(n); }
   var VIBE = { move: 12, capture: [22, 30, 14], check: [25, 60, 25], mate: [40, 70, 40, 70, 160], illegal: 8, select: 6, tap: 7, draw: [30, 80, 30] };
@@ -93,6 +93,8 @@
   function isHumanTurn() { return app.mode === '2p' || (app.game.pos.turn === app.human && !(app.mode === 'puzzle' && app.pz && app.pz.lock)); }
   function startGame(opts) {
     app.recorded = false; app.t0 = Date.now();
+    app.jornada = opts.jornada != null ? opts.jornada : null; app.sayT = 0;
+    if (app.jornada != null) { var JS = XJourney.STAGES[app.jornada]; opts.mode = 'ai'; opts.level = JS.level; opts.human = JS.human; opts.learn = false; }
     app.learn = !!opts.learn && opts.mode === 'ai'; app.gameId = (app.gameId || 0) + 1; app.coach = { before: null, lastAI: null };
     app.mode = opts.mode; app.level = opts.level || 'medio'; app.human = opts.human || 0; app.autoFlip = !!opts.autoFlip;
     app.game = new E.Game(opts.fen);
@@ -111,6 +113,8 @@
     refreshAll();
     saveGame();
     if (!moves.length) sfx('start');
+    $('bubble').hidden = true;
+    if (app.jornada != null && !moves.length) { var gid0 = app.gameId; setTimeout(function () { if (app.gameId === gid0) say(XJourney.pick(XJourney.STAGES[app.jornada].hello), null, true); }, 1300); }
     puzzleUI();
     var st = app.game.status();
     if (st.over) app.over = st;
@@ -245,16 +249,16 @@
     [0, 8].forEach(function (c) { taken[c].forEach(function (p) { mat[c] += VALS[p & 7]; }); });
     function name(c) {
       if (app.mode === 'puzzle') return c === app.human ? 'Você (' + COLOR_NAME[c] + ')' : 'Desafio ' + app.pz.num + ': mate em ' + app.pz.p.n;
-      if (app.mode === 'ai') return c === app.human ? 'Você (' + COLOR_NAME[c] + ')' : (window.XAvatars ? XAvatars.name(app.level) : 'Computador (' + LEVEL_NAME[app.level] + ')');
+      if (app.mode === 'ai') return c === app.human ? 'Você (' + COLOR_NAME[c] + ')' : (window.XAvatars ? XAvatars.name(app.jornada != null ? XJourney.STAGES[app.jornada].av : app.level) : 'Computador (' + LEVEL_NAME[app.level] + ')');
       return c === 0 ? 'Brancas' : 'Pretas';
     }
     [['plTop', topColor], ['plBot', bottomColor]].forEach(function (a) {
       var el = $(a[0]), c = a[1];
       el.querySelector('.dot').className = 'dot ' + (c ? 'b' : 'w');
       el.querySelector('.name').textContent = name(c);
-      var avk = app.mode === 'ai' ? (c === app.human ? 'you' : app.level) : app.mode === 'puzzle' ? (c === app.human ? 'you' : 'puzzle') : (c ? 'b' : 'w');
+      var avk = app.mode === 'ai' ? (c === app.human ? 'you' : (app.jornada != null ? XJourney.STAGES[app.jornada].av : app.level)) : app.mode === 'puzzle' ? (c === app.human ? 'you' : 'puzzle') : (c ? 'b' : 'w');
       var av = el.querySelector('.av'); if (window.XAvatars && av.dataset.k !== avk) { av.innerHTML = XAvatars.svg(avk); av.dataset.k = avk; }
-      el.querySelector('.sub').textContent = app.mode === 'ai' && c !== app.human ? (app.thinking && g.pos.turn === c ? 'pensando' : 'Computador, ' + COLOR_NAME[c]) : '';
+      el.querySelector('.sub').textContent = app.mode === 'ai' && c !== app.human ? (app.thinking && g.pos.turn === c ? 'pensando' : (app.jornada != null ? 'Jornada, rival ' + (app.jornada + 1) : 'Computador, ' + COLOR_NAME[c])) : '';
       el.classList.toggle('think', app.mode === 'ai' && c !== app.human && !!app.thinking && g.pos.turn === c);
       var list = taken[c].slice().sort(function (x, y) { return (y & 7) - (x & 7); });
       el.querySelector('.caps').innerHTML = list.map(function (p) { return XPieces.svg(p); }).join('');
@@ -385,6 +389,12 @@
     refreshStatus(); refreshPlayers(); refreshButtons(); refreshHist();
     refreshHL();
     saveGame();
+    if (app.jornada != null && !st.over) {
+      var JR = XJourney.STAGES[app.jornada], mine = (m.piece & 8) === app.human;
+      if (mine && st.check) say(XJourney.pick(JR.check), 0.8);
+      else if (m.cap && mine) say(XJourney.pick(JR.hurt), 0.55);
+      else if (m.cap && !mine) say(XJourney.pick(JR.taunt), 0.55);
+    }
     var willAI = !st.over && app.mode === 'ai' && app.game.pos.turn !== app.human;
     if (willAI) requestAI();
     return app.v.animate(m, app.game.pos.board, opts || {}).then(function () {
@@ -412,6 +422,11 @@
     var loserKing = st.reason === 'mate' ? g.pos.kings[(st.winner ^ 8) >> 3] : -1;
     if (st.reason === 'mate' || st.reason === 'time') { sfx(app.mode === 'ai' && st.winner !== app.human ? 'lose' : 'mate'); buzz('mate'); }
     else { sfx('draw'); buzz('draw'); }
+    if (app.jornada != null) {
+      var JG = XJourney.STAGES[app.jornada];
+      if (st.winner === app.human) XJourney.win(app.jornada);
+      setTimeout(function () { say(st.winner === app.human ? JG.lose : st.winner === -1 ? 'Empate! Quase...' : JG.win, null, true); }, 900);
+    }
     var sub = statusText(st).replace('Xeque-mate! ', '').replace('Tempo esgotado! ', '').replace(/^Empate (por |pela |: )?/, '');
     var big = st.reason === 'mate' ? 'XEQUE-MATE' : st.reason === 'time' ? 'TEMPO!' : 'EMPATE';
     setTimeout(function () { if (app.over === st) banner(big, sub.charAt(0).toUpperCase() + sub.slice(1)); }, st.reason === 'mate' ? 700 : 200);
@@ -422,10 +437,27 @@
       var title = st.reason === 'mate' ? 'Xeque-mate!' : st.reason === 'time' ? 'Tempo esgotado!' : 'Empate!';
       var text = statusText(st).replace('Xeque-mate! ', '').replace('Tempo esgotado! ', '');
       if (st.reason === 'mate' || (st.reason === 'time' && app.mode !== 'ai')) text = app.mode === 'ai' ? (st.winner === app.human ? 'Parabéns, você venceu o computador!' : 'O computador venceu desta vez. Tente de novo!') : text + '!';
+      if (app.jornada != null) {
+        var ji = app.jornada, won = st.winner === app.human, last = ji >= XJourney.STAGES.length - 1;
+        var jt = won ? (last ? 'Você completou a Jornada! É o novo campeão.' : 'Rival vencido! O próximo rival foi liberado.') : (st.winner === -1 ? 'Empate. Para avançar, é preciso vencer.' : 'Não foi dessa vez. Tente de novo!');
+        var jb = [{ t: 'Mapa', fn: function () { showScreen('jornada'); } }];
+        if (won && !last) jb.push({ t: 'Próximo rival', pri: true, fn: function () { startGame({ jornada: ji + 1 }); } });
+        else jb.push({ t: won ? 'Jogar de novo' : 'Tentar de novo', pri: true, fn: function () { startGame({ jornada: ji }); } });
+        modal(title, jt, jb, resultExtra(st));
+        return;
+      }
       modal(title, text, [{ t: 'Ver tabuleiro' }, { t: app.mode === 'ai' ? 'Jogar de novo' : 'Novo jogo', pri: true, fn: function () { newSame(); } }], resultExtra(st));
     }, st.reason === 'mate' ? 3300 : 2000);
   }
 
+  // balao de fala do rival (Jornada)
+  function say(text, prob, force) {
+    if (!text || (prob != null && Math.random() > prob)) return;
+    var now = Date.now(); if (!force && now - (app.sayT || 0) < 5000) return; app.sayT = now;
+    var b = $('bubble'); b.textContent = text; b.hidden = false; b.classList.remove('go'); void b.offsetWidth; b.classList.add('go');
+    clearTimeout(say.t); say.t = setTimeout(function () { b.hidden = true; }, 3600);
+  }
+  app.say = say;
   // Tela de resultado: emblema, numeros da partida e placar no nivel
   var ICONS = {
     win: '<svg viewBox="0 0 64 64"><path d="M18 8h28v14a14 14 0 0 1-28 0z"/><path d="M18 12H9v4a10 10 0 0 0 10 10M46 12h9v4a10 10 0 0 1-10 10"/><path d="M32 36v10M22 56h20M25 56l2-10h10l2 10"/></svg>',
@@ -469,6 +501,10 @@
     app.thinking = true; refreshPlayers();
     var id = ++app.aiReq, fen = app.game.pos.fen(), t0 = Date.now();
     app.aiStart = t0;
+    if (app.jornada != null) {
+      var om = XJourney.openingMove(app.jornada, app.game, E);
+      if (om) { setTimeout(function () { onAI({ id: id, move: E.uci(om) }); }, 650); return; }
+    }
     var w = getWorker();
     if (w) w.postMessage({ id: id, start: app.game.startFen, moves: app.game.moves.map(E.uci), level: app.level });
     else setTimeout(function () {
@@ -661,6 +697,8 @@
     if (s !== 'game' && window.XSound && XSound.setTension) XSound.setTension(0);
     [].forEach.call(document.querySelectorAll('.screen'), function (el) { el.classList.toggle('show', el.id === s); });
     if (s === 'puzzles') buildPuzzleList();
+    if (s === 'jornada') XJourney.render($('jnList'), function (i) { sfx('click'); startGame({ jornada: i }); });
+    if (s === 'menu' && window.XJourney) $('bJornadaP').textContent = XJourney.load().done + '/' + XJourney.STAGES.length;
     if (s === 'achv') XStats.render($('achList'), pzProg, (window.XPuzzles || []).length);
     if (s === 'menu') { var cn = XStats.count(); $('tAchvN').textContent = cn.got + '/' + cn.total; }
     if (s === 'guide') { if (app.stopGuide) app.stopGuide(); app.stopGuide = XLearn.buildGuide($('guideList')); }
@@ -690,7 +728,7 @@
     var s = load(SAVE), b = $('bContinue');
     if (s && s.moves && s.moves.length) {
       b.hidden = false;
-      $('contInfo').textContent = (s.mode === 'ai' ? 'Contra o computador (' + (LEVEL_NAME[s.level] || '') + (s.learn ? ', aprendendo' : '') + ')' : '2 jogadores') + ', ' + Math.ceil(s.moves.length / 2) + ' lances';
+      $('contInfo').textContent = (s.jornada != null && window.XJourney ? 'Jornada contra ' + XAvatars.name(XJourney.STAGES[s.jornada].av) : s.mode === 'ai' ? 'Contra o computador (' + (LEVEL_NAME[s.level] || '') + (s.learn ? ', aprendendo' : '') + ')' : '2 jogadores') + ', ' + Math.ceil(s.moves.length / 2) + ' lances';
     } else b.hidden = true;
   }
   function segInit(id, val, onChange) {
@@ -739,6 +777,7 @@
     document.addEventListener('contextmenu', function (e) { if (e.target.closest('#board2d,#c3d')) e.preventDefault(); });
 
     $('bVsAI').onclick = function () { sfx('click'); showPanel('pAI'); };
+    $('bJornada').onclick = function () { sfx('click'); showScreen('jornada'); };
     $('bTwo').onclick = function () { sfx('click'); showPanel('pTwo'); };
     $('tSettings').onclick = function () { sfx('click'); showPanel('pSettings'); };
     $('tGuide').onclick = function () { sfx('click'); showScreen('guide'); };
@@ -749,7 +788,7 @@
     [].forEach.call(document.querySelectorAll('[data-back]'), function (b) { b.onclick = function () { sfx('click'); showPanel('pMain'); }; });
     $('bContinue').onclick = function () {
       var s = load(SAVE); if (!s) return;
-      startGame({ learn: s.learn, mode: s.mode, level: s.level, human: s.human, autoFlip: s.autoFlip, orient: s.orient, moves: s.moves, clock: s.clock });
+      startGame({ jornada: s.jornada, learn: s.learn, mode: s.mode, level: s.level, human: s.human, autoFlip: s.autoFlip, orient: s.orient, moves: s.moves, clock: s.clock });
     };
     segInit('segLevel', prefs.level, function (v) { prefs.level = v; savePrefs(); aiHint(v); }); aiHint(prefs.level);
     segInit('segColor', prefs.color, function (v) { prefs.color = v; savePrefs(); });
