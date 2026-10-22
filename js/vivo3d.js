@@ -5,6 +5,7 @@ export function makeVivo(M) {
   const { sqPos, ease, easeOut, now, rnd, glowCanvas, noiseCanvas, ctex, normalFrom } = H;
   const E = window.XEngine;
   const VV = { alta: 1.12, media: 0.9, baixa: 0.62 };
+  const easeIn = (t) => t * t * t;
   const snd = (n) => { if (window.XSound) window.XSound.play(n); };
 
   // ---------- geometria ----------
@@ -66,14 +67,14 @@ export function makeVivo(M) {
       P(sph(0.15), 0, 0.72, 0, 1, 0, 0, 0, 1, 0.7, 0.9), P(sph(0.085), 0, 0.86, -0.01, 1.02),
       P(cyl(0, 0.115, 0.24, 12), 0, 0.97, 0, 0.9), P(box(0.02, 0.1, 0.13), 0, 1.0, -0.06, 0.7),
       P(cyl(0.05, 0.07, 0.24, 8), -0.14, 0.62, -0.06, 0.92, -0.9), P(sph(0.045, 8, 6), -0.1, 0.56, -0.16, 1)]),
-      weapon: { geo: staff(0.98, 0.055), pivot: new THREE.Vector3(0.19, 0.56, -0.07), rest: -0.08 } };
+      weapon: { geo: staff(0.98, 0.055), pivot: new THREE.Vector3(0.19, 0.56, -0.07), rest: -0.08, tip: 0.6 } };
     // Dama: coroa, capa e cetro
     Pp[E.Q] = { h: 1.16, crownY: 1.02, body: merge([...plinth(),
       P(cyl(0.15, 0.27, 0.52, 16), 0, 0.41, 0, 0.98), P(cyl(0.15, 0.12, 0.2, 12), 0, 0.76, 0, 1),
       P(sph(0.06, 8, 6), -0.13, 0.84, 0, 0.95), P(sph(0.06, 8, 6), 0.13, 0.84, 0, 0.95),
       P(cyl(0.13, 0.1, 0.06, 12), 0, 0.87, 0, 0.82), P(sph(0.085), 0, 0.95, 0, 1.03),
       P(cyl(0.14, 0.31, 0.74, 14), 0, 0.5, 0.13, 0.7, 0, 0, 0, 1, 1, 0.45)]),
-      weapon: { geo: staff(0.62, 0.045), pivot: new THREE.Vector3(0.19, 0.62, -0.08), rest: -0.2 } };
+      weapon: { geo: staff(0.62, 0.045), pivot: new THREE.Vector3(0.19, 0.62, -0.08), rest: -0.2, tip: 0.23 } };
     const qc = [P(cyl(0.088, 0.078, 0.055, 12), 0, 0.028, 0, 1)];
     for (let i = 0; i < 6; i++) { const a = i / 6 * Math.PI * 2; qc.push(P(cyl(0, 0.024, 0.075, 4), Math.sin(a) * 0.08, 0.09, Math.cos(a) * 0.08, 1)); qc.push(P(sph(0.016, 6, 4), Math.sin(a) * 0.08, 0.135, Math.cos(a) * 0.08, 1.1)); }
     Pp[E.Q].crown = merge(qc);
@@ -91,13 +92,32 @@ export function makeVivo(M) {
     const SX = 1.2, SY = 1.1;
     for (const k in Pp) {
       const q = Pp[k]; q.body.scale(SX, SY, SX); q.body.computeBoundingBox(); q.h *= SY;
-      if (q.weapon) { q.weapon.geo.scale(SX, SY, SX); q.weapon.pivot.set(q.weapon.pivot.x * SX, q.weapon.pivot.y * SY, q.weapon.pivot.z * SX); }
+      if (q.weapon) { if (q.weapon.tip) q.weapon.tip *= SY; q.weapon.geo.scale(SX, SY, SX); q.weapon.pivot.set(q.weapon.pivot.x * SX, q.weapon.pivot.y * SY, q.weapon.pivot.z * SX); }
       if (q.crown) { q.crown.scale(SX, SY, SX); q.crownY *= SY; }
     }
     return Pp;
   }
 
   // ---------- texturas ----------
+  // rachaduras no piso (linhas brancas; a cor vem do material)
+  function crackCanvas() {
+    const S = 256, c = document.createElement('canvas'); c.width = c.height = S; const g = c.getContext('2d');
+    const gr = g.createRadialGradient(S / 2, S / 2, 0, S / 2, S / 2, S * 0.2); gr.addColorStop(0, 'rgba(255,255,255,0.8)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = gr; g.fillRect(0, 0, S, S);
+    g.strokeStyle = '#fff'; g.lineCap = 'round'; g.lineJoin = 'round';
+    const branch = (x, y, a, len, w, depth) => {
+      const steps = 5 + (Math.random() * 4 | 0), l = len / steps;
+      for (let i = 0; i < steps; i++) {
+        a += rnd(-0.5, 0.5); const nx = x + Math.cos(a) * l, ny = y + Math.sin(a) * l;
+        g.lineWidth = w; g.beginPath(); g.moveTo(x, y); g.lineTo(nx, ny); g.stroke(); x = nx; y = ny; w *= 0.84;
+        if (depth < 2 && Math.random() < 0.3) branch(x, y, a + rnd(-1.2, 1.2), len * 0.45, w * 0.7, depth + 1);
+      }
+    };
+    const n = 7 + (Math.random() * 5 | 0);
+    for (let i = 0; i < n; i++) branch(S / 2 + rnd(-6, 6), S / 2 + rnd(-6, 6), i / n * Math.PI * 2 + rnd(-0.3, 0.3), rnd(70, 118), rnd(3.2, 5.5), 0);
+    g.lineWidth = 1.8;
+    for (const r of [34, 60]) if (Math.random() < 0.75) { g.beginPath(); const a0 = rnd(0, 6); g.arc(S / 2, S / 2, r + rnd(-5, 5), a0, a0 + rnd(1.5, 3.5)); g.stroke(); }
+    return c;
+  }
   function boardCanvas() {
     const S = 1024, c = document.createElement('canvas'); c.width = c.height = S; const g = c.getContext('2d', { willReadFrequently: true });
     const q = S / 8;
@@ -202,9 +222,9 @@ export function makeVivo(M) {
   class VivoView extends View3D {
     constructor(canvas, app) {
       super(canvas, app);
-      this.isVivo = true; this.ownSounds = true; this.alwaysAmb = true;
+      this.isVivo = true; this.ownSounds = true; this.alwaysAmb = true; this.capFx = app.capFx === 'normal' ? 'normal' : 'brutal';
       const a = []; for (const x of [-4.2, 4.2]) for (const z of [-4.2, 4.2]) { a.push(new THREE.Vector3(x, 0, z)); a.push(new THREE.Vector3(x, 1.45, z)); }
-      this._fitPts = a; this.frameHalf = 4.8; this.frameYs = [0.02, -0.2]; this._fitFrame = null; this._fitKey = null;
+      this._fitPts = a; this.frameHalf = 4.8; this.frameYs = [0.02]; this._fitFrame = null; this._fitKey = null;
       if (this.camView !== 'auto' && !VV[this.camView]) this.camView = 'auto';
     }
 
@@ -269,7 +289,7 @@ export function makeVivo(M) {
       const s = this.scene, low = this.mobile;
       s.background = new THREE.Color(0x07060a);
       s.fog.color.set(0x0c0a09); s.fog.near = 13; s.fog.far = 44;
-      this.renderer.toneMappingExposure = 1.15;
+      this.renderer.toneMappingExposure = 1.15; this._exp0 = 1.15;
       // materiais das estatuas
       const wm = noiseCanvas(256, '#ece6db', 20, { n: 22, col: () => `rgba(120,110,100,${rnd(0.06, 0.16)})` });
       const bm = noiseCanvas(256, '#4a4643', 26, { n: 34, col: () => Math.random() < 0.6 ? `rgba(10,10,10,${rnd(0.15, 0.35)})` : `rgba(160,150,140,${rnd(0.06, 0.14)})` });
@@ -283,7 +303,7 @@ export function makeVivo(M) {
       this.outlineMats = { 0: hull(0x1e150d, 0.012), 8: hull(0x9a8c7c, 0.008) };
       this.goldMat = new THREE.MeshStandardMaterial({ color: 0xe0b04a, metalness: 0.85, roughness: 0.35, envMapIntensity: 1 });
       this.parts = buildParts();
-      this.chunkGeos = [col(new THREE.DodecahedronGeometry(0.11, 0), 0.9), col(new THREE.IcosahedronGeometry(0.09, 0), 1), col(box(0.16, 0.1, 0.13), 0.85), col(new THREE.TetrahedronGeometry(0.12, 0), 0.95)];
+      this.chunkGeos = [col(new THREE.DodecahedronGeometry(0.11, 0), 0.9), col(new THREE.IcosahedronGeometry(0.09, 0), 1), col(box(0.16, 0.1, 0.13), 0.85), col(new THREE.TetrahedronGeometry(0.12, 0), 0.95), col(box(0.2, 0.06, 0.12), 0.88), col(new THREE.OctahedronGeometry(0.1, 0), 0.92)];
       this.debrisGroup = new THREE.Group(); s.add(this.debrisGroup);
       this.debris = []; this.loose = [];
       const grp = new THREE.Group(); s.add(grp); this.envGroup = grp;
@@ -380,11 +400,20 @@ export function makeVivo(M) {
     }
     addBadge(m) { super.addBadge(m); if (m.userData.badge) m.userData.badge.position.y = (m.userData.h || 1) + 0.14; }
 
-    sync(board) { this.clearDebris(); super.sync(board); }
+    // pedregulhos ficam no tabuleiro; somem quando a posicao volta atras (desfazer, nova partida)
+    sync(board) {
+      let n = 0; for (let i = 0; i < 128; i++) if (!(i & 0x88) && board[i]) n++;
+      if (n > Object.keys(this.meshes).length || n >= 32) this.clearDebris();
+      super.sync(board);
+    }
     clearDebris() {
       if (!this.debrisGroup) return;
+      for (const h of this.halves || []) for (const mm of h.mats) mm.dispose();
+      this.halves = [];
       for (const c of [...this.debrisGroup.children]) this.debrisGroup.remove(c);
       this.debris = []; this.loose = [];
+      for (const c of this.cracks || []) { this.scene.remove(c); c.material.dispose(); }
+      this.cracks = [];
     }
 
     // ---------- animacoes ----------
@@ -468,19 +497,44 @@ export function makeVivo(M) {
       if (o.rest) return;
       o.v.y -= 9.8 * dt; o.c.position.addScaledVector(o.v, dt);
       o.c.rotation.x += o.w.x * dt; o.c.rotation.y += o.w.y * dt; o.c.rotation.z += o.w.z * dt;
-      const off = Math.abs(o.c.position.x) > 4.8 || Math.abs(o.c.position.z) > 4.8, fl = (off ? -0.44 : 0.004) + (o.r || 0.03);
-      if (o.c.position.y < fl) {
-        o.c.position.y = fl; o.v.y = -o.v.y * 0.32; o.v.x *= 0.5; o.v.z *= 0.5; o.w.multiplyScalar(0.45);
-        if (Math.abs(o.v.y) < 0.35) { o.rest = true; o.v.set(0, 0, 0); if (o.onRest) o.onRest(); }
+      const p = o.c.position, off = Math.abs(p.x) > 4.8 || Math.abs(p.z) > 4.8, fl = (off ? -0.44 : 0.004) + (o.r || 0.03);
+      if (o.hitP && !off && p.y < 1.7) this.hitStatues(o);
+      if (p.y < fl) {
+        p.y = fl;
+        if (!o.slide) {
+          o.v.y = -o.v.y * 0.32; o.v.x *= 0.5; o.v.z *= 0.5; o.w.multiplyScalar(0.45);
+          if (Math.abs(o.v.y) < 0.35) { o.rest = true; o.v.set(0, 0, 0); if (o.onRest) o.onRest(); }
+        } else if (o.v.y < -0.7) { o.v.y = -o.v.y * o.bnc; o.v.x *= 0.66; o.v.z *= 0.66; o.w.multiplyScalar(0.6); }
+        else {
+          // rola e arrasta ate parar
+          o.v.y = 0; const f = Math.pow(0.012, dt); o.v.x *= f; o.v.z *= f; o.w.multiplyScalar(f);
+          if (o.v.x * o.v.x + o.v.z * o.v.z < 0.015) { o.rest = true; o.v.set(0, 0, 0); }
+        }
       }
     }
+    // pedregulho bate nas estatuas que estao em pe e ricocheteia
+    hitStatues(o) {
+      const ps = this.pScale || 1, R2 = 0.3 * ps, p = o.c.position;
+      for (const m of this.pieceGroup.children) {
+        const dx = p.x - m.position.x, dz = p.z - m.position.z, d2 = dx * dx + dz * dz;
+        if (d2 < R2 * R2 && p.y < (m.userData.h || 1) * ps) {
+          const d = Math.sqrt(d2) || 1e-3, nx = dx / d, nz = dz / d;
+          p.x = m.position.x + nx * R2; p.z = m.position.z + nz * R2;
+          const vn = o.v.x * nx + o.v.z * nz; if (vn < 0) { o.v.x -= 1.6 * vn * nx; o.v.z -= 1.6 * vn * nz; }
+        }
+      }
+    }
+    onWarp(lag) { for (const d of this.debris) d.t0 += lag; }
     onFrame(t, dt) {
       if (!this.hall) return false;
       dt /= (this.slowmo || 1);
       let busy = false;
       // tochas tremulando
-      for (const f of this.flames) { const n = 0.86 + Math.sin(t * 13 + f.ph) * 0.07 + Math.sin(t * 23.7 + f.ph * 2) * 0.05 + (Math.random() - 0.5) * 0.05; f.sp.scale.set(f.s * n, f.s * n * 1.3, 1); f.sp.material.opacity = f.op * (0.85 + n * 0.15); }
-      for (let i = 0; i < this.torchL.length; i++) { const L = this.torchL[i]; L.intensity = L.userData.base * (0.86 + Math.sin(t * 11 + i * 3) * 0.06 + Math.sin(t * 27 + i) * 0.04 + (Math.random() - 0.5) * 0.05); }
+      const still = this.isPreview, fa = still ? 0.45 : 1;
+      for (const f of this.flames) { const n = 0.86 + (Math.sin(t * 13 + f.ph) * 0.07 + Math.sin(t * 23.7 + f.ph * 2) * 0.05 + (Math.random() - 0.5) * 0.05) * fa; f.sp.scale.set(f.s * n, f.s * n * 1.3, 1); f.sp.material.opacity = f.op * (0.85 + n * 0.15); }
+      for (let i = 0; i < this.torchL.length; i++) { const L = this.torchL[i]; L.intensity = L.userData.base * (0.86 + (Math.sin(t * 11 + i * 3) * 0.06 + Math.sin(t * 27 + i) * 0.04 + (Math.random() - 0.5) * 0.05) * fa); }
+      this.embers.visible = !still;
+      if (!still) {
       const ea = this.embers.geometry.attributes.position, nt = this.torchPos.length;
       for (let i = 0; i < this.emberV.length; i++) {
         const tp = this.torchPos[i % nt]; let y = ea.array[i * 3 + 1] + dt * this.emberV[i];
@@ -489,8 +543,9 @@ export function makeVivo(M) {
       }
       ea.needsUpdate = true;
       this.fogL[0].material.map.offset.x += dt * 0.006; this.fogL[1].material.map.offset.y -= dt * 0.004; this.fogL[1].material.map.offset.x -= dt * 0.003;
-      // estatuas respirando
-      for (const k in this.meshes) {
+      }
+      // estatuas respirando (na previa dos ajustes ficam paradas)
+      if (!still) for (const k in this.meshes) {
         const m = this.meshes[k];
         if (this._animMeshes.has(m)) continue;
         const ph = m.userData.ph, b = Math.sin(t * 1.7 + ph);
@@ -501,13 +556,27 @@ export function makeVivo(M) {
         else if (m.position.x !== sqPos(+k).x && +k !== this.selSq) m.position.x = sqPos(+k).x;
       }
       // pedregulhos caindo, quicando e afundando
-      if (this.debris.length || this.loose.length) busy = true;
+      if (this.loose.length) busy = true;
       this.debris = this.debris.filter((d) => {
-        const age = t - d.t0;
-        for (const o of d.chunks) { this.physics(o, dt); if (age > d.life - 0.8) o.c.position.y -= dt * 0.3; }
-        if (age > d.life) { for (const o of d.chunks) this.debrisGroup.remove(o.c); return false; }
+        const age = t - d.t0, sink = age > d.life - 0.8;
+        for (const o of d.chunks) { if (sink) o.rest = true; this.physics(o, dt); if (!o.rest) busy = true; if (sink) { o.c.position.y -= dt * 0.3; busy = true; } }
+        if (age > d.life + (d.long ? 1.6 : 0)) { for (const o of d.chunks) this.debrisGroup.remove(o.c); return false; }
         return true;
       });
+      // metades cortadas: o plano de corte acompanha cada metade
+      if (this.halves && this.halves.length) { busy = true; for (const h of this.halves) { h.m.updateMatrixWorld(true); h.wp.copy(h.lp).applyMatrix4(h.m.matrixWorld); } }
+      // estatuas andando empurram o entulho
+      if (this.debris.length && this._animMeshes.size) {
+        const ps = this.pScale || 1, R2 = 0.34 * ps;
+        for (const m of this._animMeshes) {
+          if (!m.parent || m.parent !== this.pieceGroup) continue;
+          for (const d of this.debris) for (const o of d.chunks) {
+            if (!o.rest || !o.slide) continue;
+            const dx = o.c.position.x - m.position.x, dz = o.c.position.z - m.position.z, d2 = dx * dx + dz * dz;
+            if (d2 < R2 * R2) { const dd = Math.sqrt(d2) || 1e-3; o.rest = false; o.v.set(dx / dd * rnd(1.2, 2.4), rnd(0.6, 1.6), dz / dd * rnd(1.2, 2.4)); o.w.set(rnd(-8, 8), rnd(-8, 8), rnd(-8, 8)); }
+          }
+        }
+      }
       for (const o of this.loose) { this.physics(o, dt); if (o.rest && o.c.rotation.x !== o.goalX) { o.c.rotation.x += (o.goalX - o.c.rotation.x) * Math.min(1, dt * 6); o.c.rotation.z *= 0.9; } }
       this.loose = this.loose.filter((o) => !(o.rest && Math.abs(o.c.rotation.x - o.goalX) < 0.01));
       return busy;
@@ -528,8 +597,14 @@ export function makeVivo(M) {
       const heavy = t === E.R || t === E.Q || t === E.K;
       const walkDur = (d) => Math.min(1.35, 0.3 + d * 0.17);
       let p = this.turn(mesh, head, 0.16);
-      if (t === E.N) p = p.then(() => this.leap(mesh, a, b, capMesh, dir));
-      else if (capMesh) {
+      const brutal = this.brutal && capMesh;
+      if (t === E.N) p = p.then(() => brutal ? this.knightBrutal(mesh, a, b, capMesh, dir) : this.leap(mesh, a, b, capMesh, dir));
+      else if (brutal) {
+        const stop = b.clone().addScaledVector(dir, -0.66), d1 = a.distanceTo(stop);
+        p = p.then(() => d1 > 0.05 ? this.walk(mesh, a, stop, walkDur(d1), heavy) : null)
+          .then(() => this.brutalStrike(mesh, capMesh, dir, t, b, head))
+          .then((atB) => atB ? null : this.walk(mesh, mesh.position.clone().setY(0), b, 0.24, heavy, true));
+      } else if (capMesh) {
         const stop = b.clone().addScaledVector(dir, -0.62), d1 = a.distanceTo(stop);
         p = p.then(() => d1 > 0.05 ? this.walk(mesh, a, stop, walkDur(d1), heavy) : null)
           .then(() => this.strike(mesh, capMesh, dir, t))
@@ -551,9 +626,374 @@ export function makeVivo(M) {
           this.particles.burst(b.clone().setY(0.6), { colors: ['#ffe08a', '#fff4d0', '#ffb84a'], count: 60, up: 2.8, life: 1.3, grav: 3 });
           this.flash(b, 0xffd27a, 4); snd('awaken');
         }
-        super.sync(board);
+        super.sync(board); this._lastMover = this.meshes[m.to];
         if (m.promo) { const nm = this.meshes[m.to]; if (nm) { anim.add(nm); this.tween(0.5, (k) => { const s = 0.2 + (1 - Math.pow(1 - k, 3) * Math.cos(k * 5)) * 0.8; nm.scale.set(s, s, s); }).then(() => { nm.scale.set(1, 1, 1); anim.delete(nm); }); } }
       });
+    }
+
+    // ---------- capturas brutais (estatuas de pedra, sem sangue) ----------
+    get brutal() { return this.capFx !== 'normal'; }
+    qL() { return Math.max(0, Math.min(4, this.level | 0)); }
+    chunkN(big) { let n = [56, 44, 32, 22, 15][this.qL()]; if (this.mobile) n = Math.round(n * 0.75); if (this.isPreview) n = Math.round(n * 0.8); return big ? Math.round(n * 1.4) : n; }
+    rubbleCap() { return (this.mobile ? [150, 115, 85, 60, 45] : [260, 200, 140, 95, 60])[this.qL()]; }
+    pick(t, n) {
+      if (this.forceVar != null) return this.forceVar % n;
+      const lv = this._lastVar || (this._lastVar = {}); let v = Math.random() * n | 0;
+      if (n > 1 && v === lv[t]) v = (v + 1 + (Math.random() * (n - 1) | 0)) % n;
+      lv[t] = v; return v;
+    }
+    detach(v) {
+      this.pieceGroup.remove(v); this._animMeshes.delete(v);
+      for (const k in this.meshes) if (this.meshes[k] === v) delete this.meshes[k];
+      if (v === this.checkKing) this.checkKing = null;
+    }
+    // cria pedregulhos com fisica; fn(i, pos, vel, grande) define onde nascem e para onde voam
+    spawn(side, n, fn, o = {}) {
+      const ps = this.pScale || 1, chunks = [], mat = o.mat || this.mats[side], G = this.chunkGeos;
+      for (let i = 0; i < n; i++) {
+        const big = i < Math.max(2, Math.round(n * 0.12)), c = new THREE.Mesh(G[i % G.length], mat);
+        c.castShadow = this.level < 2 && i < 10;
+        const s = (big ? rnd(1.9, 2.9) : rnd(0.6, 1.55)) * (o.size || 1) * ps;
+        c.scale.set(s, s * rnd(0.55, 1), s * rnd(0.8, 1.2)); c.rotation.set(rnd(0, 6), rnd(0, 6), rnd(0, 6));
+        const v = new THREE.Vector3(); fn(i, c.position, v, big);
+        this.debrisGroup.add(c);
+        chunks.push({ c, v, w: new THREE.Vector3(rnd(-12, 12), rnd(-12, 12), rnd(-12, 12)).multiplyScalar(big ? 0.45 : 1), r: 0.065 * s, bnc: rnd(0.28, 0.46), hitP: true, slide: true });
+      }
+      const t = now();
+      this.debris.push({ chunks, t0: t, life: o.life || (this.speed === 'rapido' ? 9 : 16), long: true });
+      // limite de entulho: os mais antigos afundam no piso
+      let tot = 0; for (const d of this.debris) tot += d.chunks.length;
+      for (const d of this.debris) { if (tot <= this.rubbleCap()) break; if (d !== this.debris[this.debris.length - 1] && d.life > t - d.t0 + 0.8) { d.life = t - d.t0 + 0.8; tot -= d.chunks.length; } }
+      this.dirty = true;
+      return chunks;
+    }
+    // a estatua explode em pedacos: crush (esmagada, espalha rente ao chao), fling (arremessada), blast (magia, para todo lado), burst
+    explode(v, mode, dir, power = 1, o = {}) {
+      const ps = this.pScale || 1, p = v.position.clone(), side = v.userData.piece & 8, h = (v.userData.h || 0.9) * ps * (o.hScale || 1), y0 = Math.max(0, p.y);
+      this.detach(v); if (v.parent) v.parent.remove(v);
+      for (const mm of v.userData.tmpMats || []) mm.dispose();
+      const n = Math.round(this.chunkN(o.big) * (o.frac || 1)), out = new THREE.Vector3();
+      this.spawn(side, n, (i, pos, vel, big) => {
+        const a = Math.random() * Math.PI * 2, r = Math.sqrt(Math.random()) * 0.24 * ps;
+        pos.set(p.x + Math.cos(a) * r, y0 + rnd(0.06, 1) * h, p.z + Math.sin(a) * r);
+        out.set(Math.cos(a), 0, Math.sin(a)); const sp = (big ? 0.55 : 1) * power;
+        if (mode === 'crush') { pos.y = y0 + rnd(0.04, 0.32) * h; vel.set(out.x * rnd(2.4, 5.5) * sp + dir.x * 1.2, rnd(0.6, 2.4) * sp, out.z * rnd(2.4, 5.5) * sp + dir.z * 1.2); }
+        else if (mode === 'fling') vel.set(dir.x * rnd(3, 7) * sp + out.x * rnd(0.5, 2.2), rnd(1.6, 4.2) * sp, dir.z * rnd(3, 7) * sp + out.z * rnd(0.5, 2.2));
+        else if (mode === 'blast') { const up = (pos.y - y0) / h - 0.35; vel.set(out.x * rnd(3.5, 7.5) * sp + dir.x * 1.5, (rnd(2, 5) + up * 3) * sp, out.z * rnd(3.5, 7.5) * sp + dir.z * 1.5); }
+        else vel.set(out.x * rnd(1.5, 3.5) * sp + dir.x * rnd(1, 3) * sp, rnd(2.4, 5.2) * sp, out.z * rnd(1.5, 3.5) * sp + dir.z * rnd(1, 3) * sp);
+      }, o);
+      if (!o.noFx) this.impact(p.clone().setY(0), Object.assign({ power, mid: y0 + h * 0.5 }, o));
+    }
+    // o golpe: faiscas, nuvem de poeira, clarao, tremor, camera lenta, rachadura e o estrondo
+    impact(p, o = {}) {
+      const big = !!o.big, k = this.qL() >= 3 ? 0.55 : 1, mid = p.clone().setY(o.mid || 0.5), ground = p.clone().setY(0.04);
+      this.particles.burst(mid, { colors: o.sparks || ['#ffd27a', '#fff3c4', '#ff8a3a'], count: Math.round((big ? 90 : 60) * k), up: 3.4, speed: 6.5, life: 0.55, grav: 9, size: 0.07 });
+      this.particles.burst(mid, { colors: ['#9a9186', '#c8beb0', '#6d665e'], count: Math.round((big ? 80 : 50) * k), up: 2.6, speed: 4.2, life: 1.1, grav: 8, size: 0.08, normal: true, opacity: 0.95 });
+      this.particles.burst(ground, { colors: ['#b8ae9f', '#8f877c', '#d8cfbf'], count: Math.round((big ? 70 : 46) * k), up: 0.8, speed: 4.8, life: 2.4, grav: 0.25, size: 0.4, normal: true, opacity: 0.42 });
+      this.dust(p, big ? 3.6 : 2.8);
+      this.flash(p, o.color || 0xffb070, big ? 16 : 10);
+      this.flashExp(big ? 1.6 : 1.0);
+      this.shockwave(p, 0xffd7a0); this.tween(0.09, () => { }).then(() => this.shockwave(p, o.color || 0xffb070));
+      if (!o.noCrack) this.addCrack(p, big ? 1.6 : 1.1);
+      this.shake((big ? 0.34 : 0.22) * Math.min(1.4, o.power || 1));
+      if (this.camFx && !this.menu && !this.isPreview && !this.cam.target && !this.tweens.some((tw) => tw.tag === 'cam')) this.punch(p);
+      if (!o.noSlow) this.slowMo(big ? 1.3 : 0.8, big ? 0.12 : 0.16);
+      if (o.sound !== false) snd(big ? 'crash' : 'smash');
+      this.tween(0.34, () => { }).then(() => snd('rubble'));
+    }
+    flashExp(a) {
+      const e0 = this._exp0 || 1.15;
+      this.tween(0.45, (k) => { this.renderer.toneMappingExposure = e0 * (1 + a * Math.pow(1 - k, 2.4)); if (k >= 1) this.renderer.toneMappingExposure = e0; });
+    }
+    addCrack(p, size) {
+      if (!this.crackTex) {
+        this.crackTex = [0, 1, 2].map(() => new THREE.CanvasTexture(crackCanvas()));
+        this.crackGeo = new THREE.PlaneGeometry(1, 1); this.crackGeo.rotateX(-Math.PI / 2);
+      }
+      this.cracks = this.cracks || [];
+      const tex = this.crackTex[Math.random() * 3 | 0], rot = rnd(0, 6.28);
+      const m = new THREE.Mesh(this.crackGeo, new THREE.MeshBasicMaterial({ map: tex, color: 0x120c07, transparent: true, depthWrite: false, opacity: 0, polygonOffset: true, polygonOffsetFactor: -2 }));
+      m.position.set(p.x, 0.0062, p.z); m.rotation.y = rot; m.scale.setScalar(size * (this.pScale || 1)); this.scene.add(m); this.cracks.push(m);
+      const gl = new THREE.Mesh(this.crackGeo, new THREE.MeshBasicMaterial({ map: tex, color: 0xff6a1c, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false, polygonOffset: true, polygonOffsetFactor: -3 }));
+      gl.position.set(p.x, 0.0068, p.z); gl.rotation.y = rot; gl.scale.copy(m.scale); this.scene.add(gl);
+      this.tween(0.1, (k) => { m.material.opacity = 0.92 * k; });
+      this.tween(1.6, (k) => { gl.material.opacity = Math.pow(1 - k, 1.6); }).then(() => { this.scene.remove(gl); gl.material.dispose(); });
+      while (this.cracks.length > 14) { const o = this.cracks.shift(); this.scene.remove(o); o.material.dispose(); }
+    }
+    tremble(v, dur, amp) {
+      const p = v.position.clone(); this._animMeshes.add(v);
+      return this.tween(dur, (k) => { const a = amp * (0.4 + k); v.position.x = p.x + Math.sin(k * 97) * a; v.position.z = p.z + Math.cos(k * 83) * a; }).then(() => { v.position.x = p.x; v.position.z = p.z; });
+    }
+    // a estatua brilha por dentro antes de estourar
+    heat(v, color, dur = 0.3, amt = 1.4) {
+      const mats = v.userData.tmpMats || (v.userData.tmpMats = []);
+      v.traverse((ch) => { if (ch.isMesh && ch.material && ch.material.isMeshStandardMaterial && !mats.includes(ch.material)) { const m = ch.material.clone(); m.emissive = new THREE.Color(color); m.emissiveIntensity = 0; ch.material = m; mats.push(m); } });
+      this.tween(dur, (k) => { for (const m of mats) m.emissiveIntensity = amt * k; });
+      return mats;
+    }
+    // corta a estatua em duas metades (plano em coordenadas do mundo)
+    cutInTwo(v, n, pt) {
+      const ps = this.pScale || 1, side = v.userData.piece & 8;
+      this.detach(v); this.renderer.localClippingEnabled = true;
+      for (const k of ['ol', 'ao', 'badge', 'ring']) if (v.userData[k]) v.userData[k].visible = false;
+      v.scale.setScalar(ps); v.rotation.x = 0; v.rotation.z = 0;
+      const ud = v.userData; v.userData = {}; const b = v.clone(); v.userData = ud; b.userData = { piece: ud.piece, h: ud.h };
+      this.debrisGroup.add(v, b);
+      const out = [];
+      for (const [m, sgn] of [[v, 1], [b, -1]]) {
+        m.updateMatrixWorld(true);
+        const nn = n.clone().multiplyScalar(sgn), wp = new THREE.Plane().setFromNormalAndCoplanarPoint(nn, pt);
+        const lp = wp.clone().applyMatrix4(new THREE.Matrix4().copy(m.matrixWorld).invert()), mats = [];
+        m.traverse((ch) => {
+          if (!ch.isMesh) return;
+          if (ch.material === this.outlineMats[side] || ch.material === this.aoMat) { ch.visible = false; return; }
+          const mm = ch.material.clone(); mm.clippingPlanes = [wp]; mm.clipShadows = true; mm.side = THREE.DoubleSide; ch.material = mm; mats.push(mm);
+        });
+        const hf = { m, sgn, wp, lp, mats, n: nn, q0: m.quaternion.clone(), p: m.position.clone(), axis: new THREE.Vector3(0, 1, 0).cross(nn).normalize() };
+        out.push(hf);
+      }
+      this.halves = (this.halves || []).concat(out);
+      for (const mm of v.userData.tmpMats || []) mm.dispose(); v.userData.tmpMats = null;
+      return out;
+    }
+    // a metade tomba e se quebra no chao
+    breakHalf(hf, power, frac, push, quiet) {
+      const m = hf.m, ps = this.pScale || 1, side = m.userData.piece & 8, h = (m.userData.h || 0.9) * ps;
+      m.updateMatrixWorld(true);
+      const up = new THREE.Vector3(0, 1, 0).applyQuaternion(m.quaternion), base = m.position.clone();
+      this.spawn(side, Math.round(this.chunkN() * frac), (i, pos, vel) => {
+        let tries = 0;
+        do { pos.copy(base).addScaledVector(up, rnd(0.08, 0.95) * h); pos.x += rnd(-0.2, 0.2) * ps; pos.z += rnd(-0.2, 0.2) * ps; } while (hf.wp.distanceToPoint(pos) < 0 && ++tries < 6);
+        pos.y = Math.max(0.06, pos.y);
+        const a = Math.random() * 6.283; vel.set(Math.cos(a) * rnd(0.8, 2.8) * power + (push ? push.x : 0), rnd(1, 3) * power, Math.sin(a) * rnd(0.8, 2.8) * power + (push ? push.z : 0));
+      });
+      const c = base.clone().addScaledVector(up, h * 0.45).setY(0.05);
+      this.particles.burst(c.clone().setY(0.3), { colors: ['#9a9186', '#c8beb0', '#6d665e'], count: 32, up: 2, speed: 3, life: 0.9, grav: 8, size: 0.08, normal: true, opacity: 0.9 });
+      this.dust(c, 2.2); this.shake(0.13); if (!quiet) snd('shatter');
+      if (m.parent) m.parent.remove(m); for (const mm of hf.mats) mm.dispose();
+      this.halves = this.halves.filter((x) => x !== hf);
+    }
+    // metade cai de lado, afastando-se do corte
+    topple(hf, dur, dist, ang, lift) {
+      const q = new THREE.Quaternion(), ps = this.pScale || 1;
+      return this.tween(dur, (k) => {
+        const e = k * k, a = e * ang; q.setFromAxisAngle(hf.axis, a);
+        hf.m.quaternion.copy(hf.q0).premultiply(q);
+        hf.m.position.copy(hf.p).addScaledVector(hf.n, dist * ps * (0.3 * k + 0.7 * e)); hf.m.position.y = hf.p.y + Math.sin(a) * (lift || 0.18) * ps;
+      });
+    }
+    // --- golpes por tipo de peca ---
+    brutalStrike(mesh, victim, dir, t, b, head) {
+      const w = mesh.userData.weapon, rest = mesh.userData.rest || 0, p0 = mesh.position.clone(), ps = this.pScale || 1;
+      const vh = (victim.userData.h || 0.9) * ps, vp = victim.position.clone();
+      const back = (e, x) => { mesh.position.set(p0.x + dir.x * x * e, mesh.position.y, p0.z + dir.z * x * e); };
+      const recover = (from, wFrom, dur = 0.3) => { const rx = mesh.rotation.x, y0 = mesh.position.y, wx = w ? w.rotation.x : 0; return this.tween(dur, (k) => { const e = ease(k); mesh.position.set(from.x + (p0.x - from.x) * e, y0 * (1 - e), from.z + (p0.z - from.z) * e); mesh.rotation.x = rx * (1 - e); if (w) w.rotation.x = wx + (rest - wx) * e; }); };
+      // torre: arremete, pula em cima ou faz o chao tremer
+      if (t === E.R) {
+        const v = this.pick(t, 3);
+        if (v === 0) {
+          snd('windup'); this.tremble(victim, 0.55, 0.012);
+          return this.tween(0.45, (k) => { const e = ease(k); back(e, -0.34); mesh.rotation.x = 0.22 * e; })
+            .then(() => { snd('charge'); return this.tween(0.13, (k) => { const e = easeIn(k); back(1, -0.34 + 0.84 * e); mesh.rotation.x = 0.22 - 0.5 * e; }); })
+            .then(() => { this.explode(victim, 'fling', dir, 2.1); return recover(mesh.position.clone(), 0, 0.35); });
+        }
+        if (v === 1) {
+          snd('windup');
+          return this.tween(0.3, (k) => { const s = 1 - 0.16 * ease(k); mesh.scale.set(1 + (1 - s) * 0.6, s, 1 + (1 - s) * 0.6); })
+            .then(() => { snd('leap'); let hit = false; return this.tween(0.56, (k) => {
+              const e = ease(k); mesh.scale.set(1, 1, 1);
+              mesh.position.set(p0.x + (b.x - p0.x) * e, Math.sin(Math.PI * Math.min(1, k * 1.05)) * 1.5 + (k > 0.9 ? 0 : 0), p0.z + (b.z - p0.z) * e);
+              mesh.rotation.x = -0.3 * Math.sin(Math.PI * k);
+              if (!hit && k > 0.84) { hit = true; victim.scale.set(1.25, 0.4, 1.25); this.explode(victim, 'crush', dir, 1.9); }
+            }); })
+            .then(() => { mesh.position.y = 0; mesh.rotation.x = 0; snd('stompH'); this.dust(b, 1.6); return this.tween(0.22, (k) => { const s = 1 - Math.sin(Math.PI * k) * 0.14; mesh.scale.set(1 + (1 - s) * 0.5, s, 1 + (1 - s) * 0.5); }); })
+            .then(() => { mesh.scale.set(1, 1, 1); return true; });
+        }
+        const stomp = () => this.tween(0.2, (k) => { mesh.position.y = Math.sin(Math.PI / 2 * ease(k)) * 0.42; mesh.rotation.x = 0.12 * k; })
+          .then(() => this.tween(0.07, (k) => { mesh.position.y = 0.42 * (1 - k * k); mesh.rotation.x = 0.12 * (1 - k); }))
+          .then(() => { mesh.position.y = 0; snd('stompH'); snd('crack'); this.shake(0.12); this.shockwave(p0, 0xffd7a0); this.dust(p0, 1.6); this.addCrack(p0.clone().addScaledVector(dir, 0.5), 0.8); });
+        return stomp().then(() => { this.tremble(victim, 0.4, 0.02); return stomp(); })
+          .then(() => { this.heat(victim, 0xff5a1a, 0.22, 1.1); return this.tremble(victim, 0.25, 0.035); })
+          .then(() => { this.explode(victim, 'burst', dir, 1.5); });
+      }
+      // bispo e dama: magia (raio, levitar e explodir, ou golpe no chao)
+      if (t === E.B || t === E.Q) {
+        const qn = t === E.Q, col = qn ? 0xffc65a : 0x7fb8ff, cols = qn ? ['#ffe08a', '#fff4d0', '#ffb84a'] : ['#9fd8ff', '#ffffff', '#6fb0ff'], pw = qn ? 1.25 : 1;
+        const v = this.pick(t, 3), tipY = (this.parts[t].weapon.tip || 0.4);
+        if (v === 0) {
+          const orb = this.orb(col, 0.05); orb.position.set(0, tipY, 0); w.add(orb);
+          snd('windup'); this.tremble(victim, 0.6, 0.012);
+          return this.tween(0.5, (k) => { const e = ease(k); w.rotation.x = rest + 1.25 * e; mesh.rotation.x = 0.14 * e; orb.scale.setScalar(0.1 + e * 0.75 * pw); this.glowLight.color.set(col); this.glowLight.intensity = 4 * e; orb.getWorldPosition(this.glowLight.position); })
+            .then(() => this.tween(0.08, (k) => { w.rotation.x = rest + 1.25 - 2.1 * easeOut(k); mesh.rotation.x = 0.14 - 0.3 * k; }))
+            .then(() => { const from = new THREE.Vector3(); orb.getWorldPosition(from); w.remove(orb); orb.material.dispose(); snd('blast'); return this.bolt(from, vp.clone().setY(vh * 0.55), col, cols, 0.17); })
+            .then(() => { this.explode(victim, 'blast', dir, 1.8 * pw, { color: col, sparks: cols, sound: false }); return recover(mesh.position.clone(), 0, 0.35); });
+        }
+        if (v === 1) {
+          snd('windup'); snd('rumble'); this.heat(victim, col, 0.8, 1.2);
+          let ry = victim.rotation.y;
+          return this.tween(0.8, (k) => {
+            const e = ease(k); w.rotation.x = rest + 1.5 * e; mesh.rotation.x = 0.12 * e;
+            victim.position.y = 1.15 * ps * e; victim.rotation.y = ry + e * 1.4; victim.position.x = vp.x + Math.sin(k * 80) * 0.02 * k; victim.rotation.z = Math.sin(k * 60) * 0.06 * k;
+            this.glowLight.color.set(col); this.glowLight.intensity = 5 * e; this.glowLight.position.set(vp.x, 1.2, vp.z);
+            if (Math.random() < 0.35) this.particles.burst(victim.position.clone().setY(victim.position.y + 0.2), { colors: cols, count: 6, up: 0.6, speed: 1.6, life: 0.5, grav: -1, size: 0.08 });
+          })
+            .then(() => this.tween(0.12, (k) => { const s = 1 - 0.22 * k; victim.scale.set(s, s, s); w.rotation.x = rest + 1.5 - 2.3 * k; }))
+            .then(() => { snd('blast'); this.explode(victim, 'blast', dir, 1.5 * pw, { color: col, sparks: cols, sound: false }); return recover(mesh.position.clone(), 0, 0.4); });
+        }
+        snd('windup'); this.tremble(victim, 0.5, 0.012);
+        return this.tween(0.42, (k) => { const e = ease(k); w.rotation.x = rest + 1.6 * e; mesh.rotation.x = 0.2 * e; mesh.position.y = 0.08 * e; })
+          .then(() => this.tween(0.09, (k) => { const e = easeIn(k); w.rotation.x = rest + 1.6 - 3.0 * e; mesh.rotation.x = 0.2 - 0.42 * e; mesh.position.y = 0.08 * (1 - e); }))
+          .then(() => {
+            const gp = p0.clone().addScaledVector(dir, 0.35); snd('stompH'); snd('crack');
+            this.shockwave(gp, col); this.shockwave(gp, 0xffffff); this.addCrack(gp, 0.9); this.shake(0.12); this.flash(gp, col, 8);
+            this.particles.burst(gp.clone().setY(0.1), { colors: cols, count: 40, up: 1.2, speed: 5, life: 0.5, grav: 2, size: 0.08 });
+            this.heat(victim, col, 0.16, 1.5);
+            return this.tween(0.18, () => { });
+          })
+          .then(() => { snd('blast'); this.explode(victim, 'burst', dir, 1.7 * pw, { color: col, sparks: cols, sound: false }); return recover(mesh.position.clone(), 0, 0.35); });
+      }
+      // peao e rei: espada (corte ao meio, estocada, giro)
+      const king = t === E.K, hv = king ? 1.15 : 1, pw = king ? 1.3 : 1;
+      const v = this.pick(t, 3);
+      if (v === 0) {
+        snd('windup'); this.tremble(victim, 0.5 * hv, 0.012);
+        return this.tween(0.46 * hv, (k) => { const e = ease(k); w.rotation.x = rest + 1.95 * e; mesh.rotation.x = 0.22 * e; mesh.position.y = 0.05 * e; })
+          .then(() => { snd('swing'); return this.tween(0.1, (k) => { const e = easeIn(k); w.rotation.x = rest + 1.95 - 3.7 * e; mesh.rotation.x = 0.22 - 0.52 * e; back(e, 0.2); mesh.position.y = 0.05 * (1 - e); }); })
+          .then(() => {
+            snd('cleave'); snd('smash');
+            const n = new THREE.Vector3(-dir.z, rnd(-0.12, 0.12), dir.x).normalize();
+            const hs = this.cutInTwo(victim, n, vp.clone().setY(vh * 0.5));
+            this.impact(vp, { power: pw, mid: vh * 0.75, sound: false, sparks: ['#ffffff', '#ffe6a8', '#ffb050'] });
+            this.topple(hs[0], 0.62, 0.32, 1.42).then(() => this.breakHalf(hs[0], 1.1 * pw, 0.5, null));
+            this.topple(hs[1], 0.66, 0.32, 1.42).then(() => this.breakHalf(hs[1], 1.1 * pw, 0.5, null, true));
+            return recover(mesh.position.clone(), 0, 0.4);
+          });
+      }
+      if (v === 1) {
+        snd('windup'); this.tremble(victim, 0.42, 0.012);
+        return this.tween(0.4 * hv, (k) => { const e = ease(k); back(e, -0.16); w.rotation.x = rest + 0.55 * e; mesh.rotation.x = 0.16 * e; })
+          .then(() => { snd('swing'); return this.tween(0.085, (k) => { const e = easeIn(k); back(1, -0.16 + 0.5 * e); w.rotation.x = rest + 0.55 - 2.1 * e; mesh.rotation.x = 0.16 - 0.42 * e; }); })
+          .then(() => { snd('crack'); this.heat(victim, 0xff6a2a, 0.14, 1.3); this.shake(0.1); this.particles.burst(vp.clone().setY(vh * 0.5), { colors: ['#ffffff', '#ffd27a'], count: 30, up: 1, speed: 4, life: 0.3, grav: 4, size: 0.06 }); return this.tremble(victim, 0.2, 0.03); })
+          .then(() => { this.explode(victim, 'fling', dir, 1.6 * pw); return recover(mesh.position.clone(), 0, 0.35); });
+      }
+      // giro com a espada: corte na horizontal, a parte de cima voa
+      const h0 = mesh.rotation.y;
+      snd('windup'); this.tremble(victim, 0.36, 0.012);
+      return this.tween(0.34 * hv, (k) => { const e = ease(k); mesh.rotation.y = h0 + 0.7 * e; w.rotation.x = rest - 1.25 * e; mesh.rotation.x = 0.08 * e; })
+        .then(() => { snd('swing'); return this.tween(0.24, (k) => { const e = easeOut(k); mesh.rotation.y = h0 + 0.7 - (Math.PI * 2 + 0.7) * e; back(Math.sin(Math.PI * k), 0.14); }); })
+        .then(() => {
+          snd('cleave'); snd('smash');
+          const n = new THREE.Vector3(0, 1, 0).addScaledVector(dir, rnd(-0.35, 0.35)).normalize(), side = new THREE.Vector3(-dir.z, 0, dir.x).multiplyScalar(Math.random() < 0.5 ? 1 : -1);
+          const hs = this.cutInTwo(victim, n, vp.clone().setY(vh * rnd(0.45, 0.6)));
+          this.impact(vp, { power: pw, mid: vh * 0.55, sound: false, sparks: ['#ffffff', '#ffe6a8', '#ffb050'] });
+          const top = hs[0], bot = hs[1], q = new THREE.Quaternion(), ax = new THREE.Vector3(0, 1, 0).cross(side).normalize(), cutY = vh * 0.52;
+          this.tween(0.7, (k) => {
+            q.setFromAxisAngle(ax, k * 1.7); top.m.quaternion.copy(top.q0).premultiply(q);
+            top.m.position.copy(top.p).addScaledVector(side, 1.1 * ps * k).addScaledVector(dir, 0.45 * k); top.m.position.y = Math.sin(Math.PI * k * 0.8) * 0.4 - cutY * k * k;
+          }).then(() => this.breakHalf(top, 1.2 * pw, 0.5, side));
+          this.tween(0.2, () => { }).then(() => this.breakHalf(bot, 0.9 * pw, 0.45, null, true));
+          mesh.rotation.y = h0;
+          return recover(mesh.position.clone(), 0, 0.35);
+        });
+    }
+    // cavalo: pisoteia, empina e esmaga, ou atravessa com um coice
+    knightBrutal(mesh, a, b, victim, dir) {
+      const v = this.pick(E.N, 3), dist = a.distanceTo(b);
+      const land = (at) => { mesh.position.y = 0; snd('stompH'); this.dust(at, 1.4); this.shake(0.06); return this.tween(0.22, (k) => { const s = 1 - Math.sin(Math.PI * k) * 0.12; mesh.scale.set(1 + (1 - s) * 0.5, s, 1 + (1 - s) * 0.5); mesh.rotation.x = mesh.rotation.x * (1 - k); }).then(() => { mesh.scale.set(1, 1, 1); mesh.rotation.x = 0; }); };
+      const crouch = (d) => this.tween(d, (k) => { const s = 1 - Math.sin(Math.PI / 2 * k) * 0.12; mesh.scale.set(1 + (1 - s) * 0.5, s, 1 + (1 - s) * 0.5); mesh.rotation.x = 0.3 * k; });
+      snd('windup'); this.tremble(victim, 0.5, 0.012);
+      if (v === 0) {
+        let hit = false;
+        return crouch(0.3).then(() => { snd('leap'); return this.tween(0.62 + dist * 0.05, (k) => {
+          const e = ease(k); mesh.scale.set(1, 1, 1);
+          mesh.position.set(a.x + (b.x - a.x) * e, Math.sin(Math.PI * k) * 1.75, a.z + (b.z - a.z) * e); mesh.rotation.x = 0.3 - k * 0.85;
+          if (!hit && k > 0.84) { hit = true; victim.scale.set(1.3, 0.35, 1.3); this.explode(victim, 'crush', dir, 1.8); }
+        }); }).then(() => land(b));
+      }
+      if (v === 1) {
+        const stop = b.clone().addScaledVector(dir, -0.72), d1 = a.distanceTo(stop);
+        return crouch(0.18).then(() => { snd('leap'); return this.tween(0.45 + d1 * 0.04, (k) => { const e = ease(k); mesh.scale.set(1, 1, 1); mesh.position.set(a.x + (stop.x - a.x) * e, Math.sin(Math.PI * k) * 1.0, a.z + (stop.z - a.z) * e); mesh.rotation.x = 0.3 - k * 0.3; }); })
+          .then(() => land(stop))
+          .then(() => { snd('windup'); return this.tween(0.42, (k) => { const e = ease(k); mesh.rotation.x = 0.9 * e; mesh.position.y = 0.14 * e; }); })
+          .then(() => this.tween(0.1, (k) => { const e = easeIn(k); mesh.rotation.x = 0.9 - 1.2 * e; mesh.position.y = 0.14 * (1 - e); mesh.position.x = stop.x + dir.x * 0.28 * e; mesh.position.z = stop.z + dir.z * 0.28 * e; }))
+          .then(() => { snd('stompH'); victim.scale.set(1.2, 0.55, 1.2); this.explode(victim, 'crush', dir, 1.9); return this.tween(0.3, (k) => { mesh.rotation.x = -0.3 * (1 - k); }); })
+          .then(() => { const s0 = mesh.position.clone(); return this.tween(0.3, (k) => { const e = ease(k); mesh.position.set(s0.x + (b.x - s0.x) * e, Math.sin(Math.PI * k) * 0.35, s0.z + (b.z - s0.z) * e); }); })
+          .then(() => land(b));
+      }
+      let hit = false;
+      return crouch(0.26).then(() => { snd('leap'); return this.tween(0.55 + dist * 0.05, (k) => {
+        const e = ease(k); mesh.scale.set(1, 1, 1);
+        mesh.position.set(a.x + (b.x - a.x) * e, Math.sin(Math.PI * k) * 1.05, a.z + (b.z - a.z) * e); mesh.rotation.x = 0.3 - k * 0.7;
+        if (!hit && k > 0.7) { hit = true; this.explode(victim, 'fling', dir, 2.3); }
+      }); }).then(() => land(b));
+    }
+    orb(color, s) {
+      if (!this.orbTex) this.orbTex = new THREE.CanvasTexture(glowCanvas('rgba(255,255,255,1)', 'rgba(255,255,255,0)'));
+      const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: this.orbTex, color, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false }));
+      sp.scale.setScalar(s); return sp;
+    }
+    bolt(from, to, color, cols, dur) {
+      const sp = this.orb(color, 0.9), core = this.orb(0xffffff, 0.35); this.scene.add(sp, core);
+      this.glowLight.color.set(color);
+      return this.tween(dur, (k) => {
+        sp.position.lerpVectors(from, to, k * k); sp.position.y += Math.sin(Math.PI * k) * 0.2; core.position.copy(sp.position);
+        this.glowLight.position.copy(sp.position); this.glowLight.intensity = 7;
+        if (Math.random() < 0.7) this.particles.burst(sp.position, { colors: cols, count: 5, up: 0.3, speed: 0.6, life: 0.35, grav: 0, size: 0.09 });
+      }).then(() => { this.scene.remove(sp, core); sp.material.dispose(); core.material.dispose(); });
+    }
+    // xeque-mate brutal: o atacante destroi a coroa e o rei explode, em camera lenta
+    execute(result) {
+      const king = this.meshes[result.kingSq]; if (!king) return;
+      for (const k in this.meshes) { const bd = this.meshes[k].userData.badge; if (bd) bd.visible = false; }
+      const ps = this.pScale || 1, kp = sqPos(result.kingSq), anim = this._animMeshes, kh = (king.userData.h || 1.3) * ps; anim.add(king);
+      const att = this._lastMover && this._lastMover.parent === this.pieceGroup && this._lastMover !== king ? this._lastMover : null;
+      const at = att ? att.userData.piece & 7 : 0, magic = at === E.B || at === E.Q;
+      const col = at === E.B ? 0x7fb8ff : at === E.Q ? 0xffc65a : 0xff7a3a, cols = at === E.B ? ['#9fd8ff', '#ffffff', '#6fb0ff'] : ['#ffe08a', '#fff4d0', '#ff9a3a'];
+      snd('rumble');
+      // camera de cinema: baixa, perto do rei, girando devagar (um toque pula)
+      const look = new THREE.Vector3(0, 0.15, 0), mid = att ? kp.clone().lerp(att.position, 0.3).setY(0.55) : kp.clone().setY(0.55);
+      const d0 = (this._fitR || 20) * this.cam.rFactor, th0 = this.cam.theta, p0 = this.cam.phi;
+      this.cam.target = look.clone(); this.cam.dist = d0;
+      // camera de lado: atacante e rei lado a lado na tela, ninguem tampa a execucao
+      let th1 = th0 + 0.95;
+      if (att) {
+        const d = kp.clone().sub(att.position).setY(0); if (d.lengthSq() < 1e-4) d.set(1, 0, 0); d.normalize();
+        const cx = Math.sin(th0), cz = Math.cos(th0); let px = -d.z, pz = d.x; if (px * cx + pz * cz < 0) { px = -px; pz = -pz; }
+        const g = Math.atan2(px, pz); th1 = th0 + (((g - th0) % (Math.PI * 2) + Math.PI * 3) % (Math.PI * 2) - Math.PI);
+        mid.copy(kp).lerp(att.position, 0.45).setY(0.6);
+      }
+      this.tween(5.2, (k) => { const e = ease(Math.min(1, k * 1.5)); this.cam.target.lerpVectors(look, mid, e); this.cam.dist = d0 + (6.4 - d0) * e; this.cam.phi = p0 + (0.34 - p0) * e; this.cam.theta = th0 + (th1 - th0) * e + 0.3 * ease(k); }, 0.1, 'cam');
+      let p = this.tremble(king, 0.8, 0.02);
+      let wx = 0;
+      if (att) {
+        anim.add(att);
+        const ap = att.position.clone(), d = kp.clone().sub(ap).setY(0).normalize(), w = att.userData.weapon, rest = att.userData.rest || 0;
+        p = Promise.all([p, this.turn(att, Math.atan2(-d.x, -d.z), 0.3)]).then(() => { snd('windup'); return this.tween(0.5, (k) => { const e = ease(k); att.position.y = 0.06 * e; att.rotation.x = 0.22 * e; if (w) w.rotation.x = rest + 1.5 * e; }); })
+          .then(() => { wx = 1; return this.tween(0.08, (k) => { att.rotation.x = 0.22 - 0.4 * k; if (w) w.rotation.x = rest + 1.5 - 2.4 * k; }); });
+      }
+      const crownPos = () => { const c = king.userData.crown, wp = new THREE.Vector3(); if (c) { king.updateMatrixWorld(true); c.getWorldPosition(wp); } else wp.copy(kp).setY(kh); if (wp.y < 0.5) wp.y = kh; return wp; };
+      p.then(() => {
+        const from = att ? att.position.clone().setY((att.userData.h || 1) * ps * 0.8) : kp.clone().setY(6);
+        snd(magic ? 'blast' : 'cleave');
+        return this.bolt(from, crownPos(), col, cols, 0.22);
+      }).then(() => {
+        // a coroa vira estilhacos de ouro
+        const c = king.userData.crown, cp = crownPos();
+        if (c) { king.remove(c); king.userData.crown = null; }
+        this.spawn(0, Math.max(8, Math.round(this.chunkN() * 0.4)), (i, pos, vel) => { pos.set(cp.x + rnd(-0.1, 0.1), cp.y + rnd(-0.05, 0.1), cp.z + rnd(-0.1, 0.1)); const a = Math.random() * 6.283; vel.set(Math.cos(a) * rnd(1.5, 4), rnd(2, 5), Math.sin(a) * rnd(1.5, 4)); }, { mat: this.goldMat, size: 0.42 });
+        this.particles.burst(cp, { colors: ['#ffe08a', '#fff4d0', '#ffb84a'], count: 70, up: 3, speed: 5, life: 0.8, grav: 6, size: 0.07 });
+        this.flash(cp, 0xffd27a, 12); this.flashExp(1.2); this.shake(0.16); snd('clink'); snd('crack');
+        this.slowMo(1.7, 0.1);
+        this.heat(king, 0xff4a12, 1.0, 1.6); this.addCrack(kp, 1.3);
+        return this.tremble(king, 1.0, 0.04);
+      }).then(() => this.tween(0.14, (k) => { king.scale.set(1 + 0.08 * k, 1 - 0.1 * k, 1 + 0.08 * k); }))
+        .then(() => {
+          this.explode(king, 'blast', new THREE.Vector3(), 2.0, { big: true, color: 0xff8a3a, sparks: ['#ffd27a', '#ff8a3a', '#fff3c4'] });
+          this.tween(0.16, () => { }).then(() => { this.shockwave(kp, 0xff9a4a); this.addCrack(kp, 2.0); this.dust(kp, 4); });
+          this.glowLight.color.set(0xffaa55); this.glowLight.position.set(kp.x, 1.5, kp.z);
+          this.tween(2.4, (k) => { this.glowLight.intensity = Math.sin(Math.PI * k) * 6; });
+          if (att && wx) { const r0 = att.rotation.x, w = att.userData.weapon, wr = w ? w.rotation.x : 0, rest = att.userData.rest || 0, y0 = att.position.y; this.tween(0.5, (k) => { const e = ease(k); att.rotation.x = r0 * (1 - e); att.position.y = y0 * (1 - e); if (w) w.rotation.x = wr + (rest - wr) * e; }); }
+        });
     }
 
     celebrate(result) {
@@ -561,6 +1001,7 @@ export function makeVivo(M) {
         this.particles.burst(new THREE.Vector3(0, 0.5, 0), { colors: ['#d8ccb4', '#fff2d0', '#c8b8ff'], count: 80, up: 3, speed: 3, life: 1.6, grav: 3 });
         return;
       }
+      if (this.brutal) { this.execute(result); return this.speed === 'rapido' ? 4300 : 6900; }
       const king = this.meshes[result.kingSq]; if (!king) return;
       for (const k in this.meshes) { const bd = this.meshes[k].userData.badge; if (bd) bd.visible = false; }
       const kp = sqPos(result.kingSq), anim = this._animMeshes; anim.add(king);
@@ -624,7 +1065,7 @@ export function makeVivo(M) {
       const need = (phi) => { let n = 0; for (const th of [0, Math.PI]) { const f = this.fitBoard(big, phi, th, look); n = Math.max(n, f.h / 1.92 * big.height); } return n; };
       this._availH = H2;
       if (VV[this.camView]) return Math.ceil(need(VV[this.camView]));
-      const base = W / Math.max(1, H2) < 0.8 ? 0.76 : 0.66, maxPhi = 0.82;
+      const tall = W / Math.max(1, H2) < 0.8, base = tall ? 0.76 : 0.66, maxPhi = tall ? 1.25 : 1.0;
       let phi = base;
       if (need(base) < H2) {
         if (need(maxPhi) <= H2) phi = maxPhi;

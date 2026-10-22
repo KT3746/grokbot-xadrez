@@ -791,6 +791,7 @@ export class View3D {
       const k = Math.min(1, (t - tw.t0) / tw.dur); tw.dur = Math.max(0.01, tw.dur * 0.2); tw.t0 = t - k * tw.dur;
     }
     if (any) { this.rushUntil = t + 2.5; this.dirty = true; }
+    this.warp = null;
     return any;
   }
   // cancela animacoes de camera em andamento (ex.: cinema do xeque-mate) antes de uma nova
@@ -1241,9 +1242,19 @@ export class View3D {
     requestAnimationFrame(this.loop);
     // hold: o painel de ajustes esta aberto por cima, o jogo nao desenha
     if (!this.active || this.hold) return;
-    const t = now(), dt = Math.min(0.05, this.fps.last ? t - this.fps.last : 0.016);
+    const t = now(), rdt = Math.min(0.05, this.fps.last ? t - this.fps.last : 0.016);
     this.fps.last = t;
     let busy = false;
+    // camera lenta (impacto): o tempo do jogo anda mais devagar por um instante
+    const ts = this.warpScale(t);
+    if (ts < 1) {
+      const lag = rdt * (1 - ts);
+      for (const tw of this.tweens) tw.t0 += lag;
+      for (const sp of this.particles.list) sp.t0 += lag;
+      if (this.onWarp) this.onWarp(lag);
+      busy = true;
+    }
+    const dt = rdt * ts;
     if (this.tweens.length) {
       busy = true;
       // tweens criados durante outro tween (ex.: captura) entram na lista nova e nao se perdem
@@ -1258,24 +1269,24 @@ export class View3D {
       this.tweens = kept.concat(this.tweens);
     }
     if (this.particles.update(dt / (this.slowmo || 1))) busy = true;
-    if (this.shakeAmt > 0.001) { this.shakeAmt *= Math.pow(0.0005, dt); busy = true; } else this.shakeAmt = 0;
+    if (this.shakeAmt > 0.001) { this.shakeAmt *= Math.pow(0.0005, rdt); busy = true; } else this.shakeAmt = 0;
     if (this.menu) { this.cam.theta += dt * 0.12; busy = true; }
     // peca selecionada sobe um pouco
     this._liftMoving = false;
     for (const k in this.meshes) {
-      const m = this.meshes[k], goal = (+k === this.selSq) ? 0.24 + Math.sin(t * 4) * 0.025 : 0;
+      const m = this.meshes[k], goal = (+k === this.selSq) ? 0.24 + (this.isPreview ? 0 : Math.sin(t * 4) * 0.025) : 0;
       const d = goal - m.position.y;
       if (Math.abs(d) > 0.002 && !this.isTweening(m)) { m.position.y += d * Math.min(1, dt * 14); busy = true; this._liftMoving = true; }
     }
     if (this.checkMesh.visible) { const s = 0.85 + Math.sin(t * 5) * 0.15; this.checkMesh.scale.set(s, 1, s); this.checkMesh.material.opacity = 0.65 + Math.sin(t * 5) * 0.3; busy = true;
       if (this.checkKing) this.checkKing.material.emissiveIntensity = 0.12 + (Math.sin(t * 5) * 0.5 + 0.5) * 0.35; }
-    if (this.selSq >= 0) { const s = 1 + Math.sin(t * 6) * 0.08; this.dotMat.opacity = 0.7 + Math.sin(t * 6) * 0.15; for (const k in this.marks) this.marks[k].dot.scale.set(s, 1, s); busy = true; }
+    if (this.selSq >= 0 && !this.isPreview) { const s = 1 + Math.sin(t * 6) * 0.08; this.dotMat.opacity = 0.7 + Math.sin(t * 6) * 0.15; for (const k in this.marks) this.marks[k].dot.scale.set(s, 1, s); busy = true; }
     for (const k in this.meshes) { const m = this.meshes[k], ao = m.userData.ao; if (ao) { ao.position.y = 0.007 - m.position.y; const sc = 1 + m.position.y * 0.8; ao.scale.set(sc, 1, sc); } const rg = m.userData.ring; if (rg) rg.position.y = 0.011 - m.position.y; }
     if (this.onFrame && this.onFrame(t, dt)) busy = true;
-    const amb = (!!this.motes && this.level < 3) || !!this.alwaysAmb;
+    const amb = this.noAmb ? !!this.alwaysAmb : ((!!this.motes && this.level < 3) || !!this.alwaysAmb);
     if (this.motes) {
-      this.motes.visible = amb;
-      if (amb) {
+      this.motes.visible = amb && !this.noAmb;
+      if (this.motes.visible) {
         const a = this.motes.geometry.attributes.position, ph = this.motes.userData.ph;
         for (let i = 0; i < ph.length; i++) {
           let y = a.array[i * 3 + 1] + dt * (0.05 + (i % 5) * 0.012);
@@ -1298,8 +1309,8 @@ export class View3D {
     this.placeCamera();
     this.draw();
     // ajuste automatico de qualidade
-    if (dt > 0 && dt < 0.5) {
-      this.fps.frames++; this.fps.time += dt;
+    if (rdt > 0 && rdt < 0.5) {
+      this.fps.frames++; this.fps.time += rdt;
       if (this.fps.time > 1.5) {
         const fps = this.fps.frames / this.fps.time;
         this.fps.frames = 0; this.fps.time = 0;
@@ -1309,6 +1320,18 @@ export class View3D {
     }
   }
   isTweening(m) { return this._animMeshes.has(m); }
+  // camera lenta: escala s durante parte do tempo e volta suave ao normal (um toque cancela)
+  slowMo(dur, s) {
+    if (this.speed === 'rapido') { dur *= 0.5; s = Math.max(s, 0.4); }
+    if (this.rushUntil && now() < this.rushUntil) return;
+    this.warp = { t0: now(), dur, s };
+  }
+  warpScale(t) {
+    const w = this.warp; if (!w) return 1;
+    const k = (t - w.t0) / w.dur;
+    if (k >= 1 || k < 0) { this.warp = null; return 1; }
+    return k < 0.5 ? w.s : w.s + (1 - w.s) * ease((k - 0.5) / 0.5);
+  }
   // solta a GPU de vez (usado pela previa dos ajustes)
   dispose() {
     this.dead = true; this.active = false; this.tweens = [];
@@ -1324,14 +1347,12 @@ export class View3D {
   }
 }
 
-// Previa dos ajustes: o mesmo visual num quadro pequeno, com a camera balancando devagar
+// Previa dos ajustes: o mesmo visual num quadro, parado (so muda quando uma opcao muda; da para girar arrastando)
 export function makePreview(Base) {
   return class PreviewView extends Base {
     constructor(canvas, app) {
       super(canvas, app);
-      this.isPreview = true; this.alwaysAmb = true; this.lockQ = true; this.userT = -9; this._t0 = now();
-      const touch = () => { this.userT = now(); };
-      canvas.addEventListener('pointerdown', touch); canvas.addEventListener('pointermove', (e) => { if (e.buttons) touch(); });
+      this.isPreview = true; this.noAmb = true; this.alwaysAmb = !!this.isVivo; this.lockQ = true;
       this.resize(); this.cam.phi = this.defaultPhi(); this.cam.theta = this.thetaFor(0);
     }
     resize() {
@@ -1345,21 +1366,13 @@ export function makePreview(Base) {
       if (this.cam && this.tweens) this.fitLayout(this.stage.width, this.stage.height);
       this.dirty = true;
     }
-    applyQuality() { super.applyQuality(); this.alwaysAmb = true; }
+    // so as tochas do Xadrez Vivo tremulam de leve; nada mais se mexe sozinho
+    applyQuality() { super.applyQuality(); this.alwaysAmb = !!this.isVivo; }
     // metade dos quadros (30 por segundo) basta para a previa
     loop(t) {
       if (this.dead) return;
       if ((this._half = !this._half)) { requestAnimationFrame(this.loop); return; }
       super.loop(t);
-    }
-    onFrame(t, dt) {
-      const busy = super.onFrame ? super.onFrame(t, dt) : false;
-      // balanco lento da camera (para quando a pessoa gira com o dedo ou o mouse)
-      if (!this.cam.target && t - this.userT > 2.2 && !this.tweens.some((tw) => tw.tag === 'cam')) {
-        const goal = this.thetaFor(0) + Math.sin((t - this._t0) * 0.3) * 0.42;
-        this.cam.theta += (goal - this.cam.theta) * Math.min(1, dt * 1.6);
-      }
-      return busy;
     }
   };
 }

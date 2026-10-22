@@ -120,6 +120,15 @@
     rumble: function (t) { rumble(t, 1.3, 0.35); },
     clink: function (t) { bell(t, 1567.98, 0.08, 0.6, 0.6); bell(t + 0.05, 2093, 0.05, 0.5, 0.6); },
     awaken: function (t) { rumble(t, 2.2, 0.4); thump(t + 0.2, 55, 28, 0.4, 0.8); [146.83, 220, 293.66].forEach(function (f, i) { bell(t + 0.3 + i * 0.2, f, 0.08, 2.4, 0.9); }); },
+    // ===== Xadrez Vivo brutal =====
+    crack: function (t) { knock(t, 3200, 0.5, 0.04); knock(t + 0.012, 1700, 0.4, 0.06); knock(t + 0.03, 900, 0.3, 0.09); thump(t, 220, 80, 0.35, 0.08); },
+    smash: function (t) { FX.crack(t); thump(t, 110, 28, 1.0, 0.45); thump(t, 62, 24, 0.8, 0.7); boom(t, 0.9, 0.9); for (var i = 0; i < 14; i++) knock(t + Math.random() * 0.45, 400 + Math.random() * 2800, 0.1 + Math.random() * 0.18, 0.04 + Math.random() * 0.07); rumble(t, 1.2, 0.45); },
+    crash: function (t) { FX.crack(t); thump(t, 90, 20, 1.1, 0.9); thump(t + 0.02, 48, 18, 0.9, 1.3); boom(t, 1.1, 1.6); for (var i = 0; i < 22; i++) knock(t + Math.random() * 1.1, 300 + Math.random() * 2600, 0.1 + Math.random() * 0.2, 0.05 + Math.random() * 0.08); rumble(t, 2.4, 0.6); },
+    rubble: function (t) { for (var i = 0; i < 18; i++) { var d = Math.pow(Math.random(), 1.6) * 1.4; knock(t + d, 250 + Math.random() * 1500, (0.05 + Math.random() * 0.1) * (1 - d / 1.6), 0.04 + Math.random() * 0.06); } rumble(t, 1.0, 0.18); },
+    cleave: function (t) { FX.whoosh(t); bell(t + 0.08, 1320, 0.09, 0.7, 0.7); bell(t + 0.08, 1975, 0.05, 0.5, 0.7); knock(t + 0.08, 4200, 0.35, 0.05); },
+    windup: function (t) { var src = ctx.createBufferSource(); src.buffer = noiseBuf; var bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.Q.value = 0.9; bp.frequency.setValueAtTime(160, t); bp.frequency.exponentialRampToValueAtTime(700, t + 0.45); var g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.22, t + 0.35); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.55); src.connect(bp); bp.connect(g); g.connect(sfx); src.start(t, 0, 0.6); thump(t, 50, 70, 0.25, 0.5); },
+    blast: function (t) { var src = ctx.createBufferSource(); src.buffer = noiseBuf; var bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.Q.value = 1.4; bp.frequency.setValueAtTime(300, t); bp.frequency.exponentialRampToValueAtTime(3800, t + 0.3); var g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.3, t + 0.25); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.4); src.connect(bp); bp.connect(g); g.connect(sfx); src.start(t, 0, 0.45); [392, 587.33, 783.99].forEach(function (f, i) { bell(t + 0.28 + i * 0.01, f, 0.08, 1.6, 0.9); }); FX.smash(t + 0.3); },
+    charge: function (t) { for (var i = 0; i < 6; i++) { thump(t + i * 0.09, 80, 34, 0.45, 0.14); knock(t + i * 0.09, 220, 0.14, 0.06); } },
     whoosh: function (t) {
       var src = ctx.createBufferSource(); src.buffer = noiseBuf;
       var bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.Q.value = 0.8;
@@ -130,6 +139,13 @@
   };
 
   // ronco grave de pedra arrastando
+  function boom(t, vol, dur) {
+    var src = ctx.createBufferSource(); src.buffer = noiseBuf;
+    var lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.setValueAtTime(900, t); lp.frequency.exponentialRampToValueAtTime(90, t + dur * 0.6);
+    var g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.006); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    src.connect(lp); lp.connect(g); g.connect(sfx); var s2 = ctx.createGain(); s2.gain.value = 0.35; g.connect(s2); s2.connect(verbIn);
+    src.loop = true; src.start(t, Math.random() * 0.3); src.stop(t + dur + 0.1);
+  }
   function rumble(t, dur, vol) {
     var src = ctx.createBufferSource(); src.buffer = noiseBuf; src.loop = true;
     var lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 220; lp.Q.value = 0.7;
@@ -138,7 +154,7 @@
     src.start(t); src.stop(t + dur + 0.1);
   }
   // a musica abaixa um pouco quando um som importante toca (mixagem)
-  var DUCK = { shatter: 0.5, crumble: 0.25, awaken: 0.5, capture: 0.5, check: 0.4, mate: 0.15, lose: 0.2, draw: 0.35, promote: 0.4, castle: 0.7, start: 0.6 };
+  var DUCK = { smash: 0.3, crash: 0.15, blast: 0.3, shatter: 0.5, crumble: 0.25, awaken: 0.5, capture: 0.5, check: 0.4, mate: 0.15, lose: 0.2, draw: 0.35, promote: 0.4, castle: 0.7, start: 0.6 };
   var duckG = null;
   function duck(amt, hold) {
     if (!duckG || !musOn) return;
@@ -149,7 +165,7 @@
   function play(name) {
     if (!ctx || !(sfxOn || force) || !FX[name]) return;
     if (ctx.state === 'suspended') ctx.resume();
-    if (DUCK[name] != null) duck(DUCK[name], name === 'mate' || name === 'lose' ? 2.6 : 0.25);
+    if (DUCK[name] != null) duck(DUCK[name], name === 'mate' || name === 'lose' ? 2.6 : name === 'crash' ? 1.2 : 0.25);
     try { FX[name](ctx.currentTime + 0.01); } catch (e) { }
   }
 
