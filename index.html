@@ -9,7 +9,7 @@
 <meta name="description" content="XADREZÃO: xadrez bonito para jogar no celular, contra o computador ou com um amigo.">
 <title>XADREZÃO</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%231d2740'/%3E%3Cpath fill='%23f5c84c' d='M46.5 8h7v6h6v7h-6v7h-7v-7h-6v-7h6zM28 42c0-9 10-12 19-8l3 3 3-3c9-4 19-1 19 8 0 10-8 18-10 24H38c-2-6-10-14-10-24zM36 68h28l2 8H34zM26 80h48v10H26z'/%3E%3C/svg%3E">
-<link rel="stylesheet" href="css/style.css?v=202610212120">
+<link rel="stylesheet" href="css/style.css?v=202610212126">
 </head>
 <body>
 <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
@@ -47,6 +47,8 @@
       <div class="seg" id="segView"><button data-v="3d">Visual 3D</button><button data-v="2d">Visual 2D</button></div>
       <label>Cor do tabuleiro</label>
       <div class="seg" id="segTheme" aria-label="Cor do tabuleiro"><button data-v="classico">Clássico</button><button data-v="madeira">Madeira</button><button data-v="azul">Azul</button></div>
+      <label>Barra de vantagem</label>
+      <div class="seg" id="segEval"><button data-v="learn">No Aprender</button><button data-v="on">Sempre</button><button data-v="off">Nunca</button></div>
       <label>Visual 2D</label>
       <div class="seg" id="segP2"><button data-v="premium">Premium</button><button data-v="simples">Simples</button></div>
       <div id="set3d">
@@ -131,10 +133,11 @@
     </div>
   </header>
   <div id="gSpace"></div>
-  <div class="player" id="plTop"><span class="dot"></span><span class="name"></span><span class="caps"></span><span class="adv"></span><span class="clk"></span><button id="camBtn" class="camBtn" aria-label="Trocar a vista da câmera"><svg viewBox="0 0 24 24"><path d="M2 12s3.6-6 10-6 10 6 10 6-3.6 6-10 6S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg><span id="camBtnL">Vista: Alta</span></button></div>
+  <div class="player" id="plTop"><span class="dot"></span><span class="av"></span><span class="nm"><span class="name"></span><small class="sub"></small></span><span class="caps"></span><span class="adv"></span><span class="clk"></span><button id="camBtn" class="camBtn" aria-label="Trocar a vista da câmera"><svg viewBox="0 0 24 24"><path d="M2 12s3.6-6 10-6 10 6 10 6-3.6 6-10 6S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg><span id="camBtnL">Vista: Alta</span></button></div>
   <div id="hist"></div>
+  <div id="evalBar" hidden><i></i><span></span></div>
   <div id="stage"><div id="b2frame"></div><div id="board2d"></div><div id="loading" hidden>Carregando 3D...</div></div>
-  <div class="player" id="plBot"><span class="dot"></span><span class="name"></span><span class="caps"></span><span class="adv"></span><span class="clk"></span></div>
+  <div class="player" id="plBot"><span class="dot"></span><span class="av"></span><span class="nm"><span class="name"></span><small class="sub"></small></span><span class="caps"></span><span class="adv"></span><span class="clk"></span></div>
   <div id="status">Vez das brancas</div>
   <div id="coach" hidden><div class="cav"><svg viewBox="0 0 24 24"><path d="M2 8l10-5 10 5-10 5z"/><path d="M6 10.5V16c3 2.5 9 2.5 12 0v-5.5"/></svg></div><p id="coachText"></p><button id="coachWhy" hidden>Por quê?</button></div>
   <nav class="controls">
@@ -167,14 +170,15 @@
 <div id="achPop" hidden><div class="ai"></div><div class="at"><em>Conquista desbloqueada!</em><b></b><small></small></div></div>
 <div id="banner" hidden><b></b><span></span></div>
 
-<script>window.XV = '202610212120';</script>
-<script src="js/engine.js?v=202610212120"></script>
-<script src="js/pieces.js?v=202610212120"></script>
-<script src="js/sound.js?v=202610212120"></script>
-<script src="js/view2d.js?v=202610212120"></script>
-<script src="js/stats.js?v=202610212120"></script>
-<script src="js/puzzles.js?v=202610212120"></script>
-<script src="js/learn.js?v=202610212120"></script>
-<script src="js/app.js?v=202610212120"></script>
+<script>window.XV = '202610212126';</script>
+<script src="js/engine.js?v=202610212126"></script>
+<script src="js/pieces.js?v=202610212126"></script>
+<script src="js/avatars.js?v=202610212126"></script>
+<script src="js/sound.js?v=202610212126"></script>
+<script src="js/view2d.js?v=202610212126"></script>
+<script src="js/stats.js?v=202610212126"></script>
+<script src="js/puzzles.js?v=202610212126"></script>
+<script src="js/learn.js?v=202610212126"></script>
+<script src="js/app.js?v=202610212126"></script>
 </body>
 </html>

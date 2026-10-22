@@ -9,7 +9,7 @@
 
   var PHONE = Math.min(screen.width, screen.height) < 700;
   var prefs = load(PREFS) || {};
-  prefs = { style: prefs.style || 'classico', env: prefs.env || 'sala', theme: prefs.theme || 'classico', clock: prefs.clock || '0', view: prefs.view || '3d', sound: prefs.sound !== false, music: prefs.music !== false, vibe: prefs.vibe !== false, learn: !!prefs.learn, level: prefs.level || 'medio', color: prefs.color || 'w', flip: prefs.flip !== false, cam: prefs.cam2 || 'auto', aid: !!prefs.aid2, camFx: prefs.camFx !== false, p2: prefs.p2 || 'premium' };
+  prefs = { style: prefs.style || 'classico', env: prefs.env || 'sala', theme: prefs.theme || 'classico', clock: prefs.clock || '0', view: prefs.view || '3d', sound: prefs.sound !== false, music: prefs.music !== false, vibe: prefs.vibe !== false, learn: !!prefs.learn, level: prefs.level || 'medio', color: prefs.color || 'w', flip: prefs.flip !== false, cam: prefs.cam2 || 'auto', aid: !!prefs.aid2, camFx: prefs.camFx !== false, p2: prefs.p2 || 'premium', evalbar: prefs.evalbar || 'learn' };
 
   var app = {
     game: null, mode: 'ai', level: 'medio', human: 0, autoFlip: true, orient: 0,
@@ -197,6 +197,33 @@
     if (app.hintText && !st.over) { el.textContent = app.hintText; el.className = 'hint'; return; }
     el.textContent = statusText(st);
     el.className = st.over ? 'over' : (st.check ? 'check' : '');    musicMood(st);
+    updateEval(st);
+  }
+  // barra de vantagem (pontos do motor, do lado das brancas)
+  function evalOn() { return app.game && (app.mode === 'ai' || app.mode === '2p') && (prefs.evalbar === 'on' || (prefs.evalbar === 'learn' && app.learn)); }
+  function setEval(cpWhite) {
+    var bar = $('evalBar'); if (!bar || bar.hidden) return;
+    var cp = Math.max(-2000, Math.min(2000, cpWhite)), f = 1 / (1 + Math.exp(-cp / 260));
+    if (Math.abs(cpWhite) > 20000) f = cpWhite > 0 ? 1 : 0;
+    var pct = app.orient === 0 ? f : 1 - f;
+    bar.querySelector('i').style.width = (pct * 100).toFixed(1) + '%';
+    bar.classList.toggle('flip', app.orient !== 0);
+    var pawns = Math.abs(cpWhite) > 20000 ? 'Mate' : (Math.abs(cp) / 100).toFixed(1);
+    bar.querySelector('span').textContent = Math.abs(cp) < 25 ? 'Igual' : (cpWhite > 0 ? 'Brancas +' : 'Pretas +') + pawns;
+  }
+  var evalKey = '';
+  function updateEval(st) {
+    var bar = $('evalBar'), on = evalOn();
+    if (bar.hidden === on) { bar.hidden = !on; queueLayout(); if (on) { bar.querySelector('i').style.width = '50%'; evalKey = ''; } }
+    if (!on || st.over) return;
+    if (app.mode === 'ai' && app.game.pos.turn !== app.human) return;
+    var key = app.gameId + ':' + app.game.moves.length;
+    if (key === evalKey) return; evalKey = key;
+    var turn = app.game.pos.turn, gid = app.gameId, n = app.game.moves.length;
+    analyseAsync(app.game.startFen, app.game.moves.map(E.uci), 280, function (r) {
+      if (gid !== app.gameId || n !== app.game.moves.length || r.score == null) return;
+      setEval(turn === 0 ? r.score : -r.score);
+    });
   }
   // musica adaptativa: mais tensa em xeque, com o relogio no fim ou no final da partida
   function musicMood(st) {
@@ -218,17 +245,21 @@
     [0, 8].forEach(function (c) { taken[c].forEach(function (p) { mat[c] += VALS[p & 7]; }); });
     function name(c) {
       if (app.mode === 'puzzle') return c === app.human ? 'Você (' + COLOR_NAME[c] + ')' : 'Desafio ' + app.pz.num + ': mate em ' + app.pz.p.n;
-      if (app.mode === 'ai') return c === app.human ? 'Você (' + COLOR_NAME[c] + ')' : 'Computador (' + LEVEL_NAME[app.level] + ')';
+      if (app.mode === 'ai') return c === app.human ? 'Você (' + COLOR_NAME[c] + ')' : (window.XAvatars ? XAvatars.name(app.level) : 'Computador (' + LEVEL_NAME[app.level] + ')');
       return c === 0 ? 'Brancas' : 'Pretas';
     }
     [['plTop', topColor], ['plBot', bottomColor]].forEach(function (a) {
       var el = $(a[0]), c = a[1];
       el.querySelector('.dot').className = 'dot ' + (c ? 'b' : 'w');
       el.querySelector('.name').textContent = name(c);
+      var avk = app.mode === 'ai' ? (c === app.human ? 'you' : app.level) : app.mode === 'puzzle' ? (c === app.human ? 'you' : 'puzzle') : (c ? 'b' : 'w');
+      var av = el.querySelector('.av'); if (window.XAvatars && av.dataset.k !== avk) { av.innerHTML = XAvatars.svg(avk); av.dataset.k = avk; }
+      el.querySelector('.sub').textContent = app.mode === 'ai' && c !== app.human ? (app.thinking && g.pos.turn === c ? 'pensando' : 'Computador, ' + COLOR_NAME[c]) : '';
+      el.classList.toggle('think', app.mode === 'ai' && c !== app.human && !!app.thinking && g.pos.turn === c);
       var list = taken[c].slice().sort(function (x, y) { return (y & 7) - (x & 7); });
       el.querySelector('.caps').innerHTML = list.map(function (p) { return XPieces.svg(p); }).join('');
       var adv = mat[c] - mat[c ^ 8];
-      el.querySelector('.adv').textContent = adv > 0 ? '+' + adv : '';
+      var ae = el.querySelector('.adv'); ae.textContent = adv > 0 ? '+' + adv : ''; ae.classList.toggle('on', adv > 0);
       el.classList.toggle('turn', !app.over && g.pos.turn === c);
     });
   }
@@ -435,7 +466,7 @@
     return worker;
   }
   function requestAI() {
-    app.thinking = true;
+    app.thinking = true; refreshPlayers();
     var id = ++app.aiReq, fen = app.game.pos.fen(), t0 = Date.now();
     app.aiStart = t0;
     var w = getWorker();
@@ -460,6 +491,7 @@
     if (d.id !== app.aiReq) return;
     app.thinking = false;
     var ms = app.game.legal(), m = null;
+    if (d.score != null && app.level !== 'iniciante' && app.level !== 'facil') setEval(app.game.pos.turn === 0 ? d.score : -d.score);
     for (var i = 0; i < ms.length; i++) if (E.uci(ms[i]) === d.move) m = ms[i];
     if (!m) m = E.think(app.game.pos, 'facil');
     if (m && app.learn) app.coach.pendingAI = { fenBefore: app.game.pos.fen(), move: E.uci(m), score: d.score, book: d.book };
@@ -732,6 +764,7 @@
       if (app.view3d) app.view3d.setTheme(v);
     });
     segInit('segStyle', prefs.style, function (v) { prefs.style = v; savePrefs(); app.pieceStyle = v; if (app.view3d) app.view3d.setStyle(v); });
+    segInit('segEval', prefs.evalbar, function (v) { prefs.evalbar = v; savePrefs(); if (app.game) { evalKey = ''; refreshStatus(); } });
     segInit('segP2', prefs.p2, function (v) { prefs.p2 = v; savePrefs(); document.body.classList.toggle('p2-prem', v === 'premium'); });
     segInit('segCamFx', prefs.camFx ? '1' : '0', function (v) { prefs.camFx = v === '1'; savePrefs(); app.camFx = prefs.camFx; if (app.view3d) app.view3d.camFx = prefs.camFx; });
     segInit('segAid', prefs.aid ? '1' : '0', function (v) { prefs.aid = v === '1'; prefs.aid2 = prefs.aid; savePrefs(); if (app.view3d) app.view3d.setAid(prefs.aid); });

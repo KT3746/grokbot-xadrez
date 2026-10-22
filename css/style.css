@@ -391,3 +391,37 @@ body.p2-prem .b2-sq.ring .mk { background: radial-gradient(circle, transparent 0
   background: linear-gradient(90deg, rgba(255, 220, 120, 0), rgba(255, 220, 120, .55) 70%, rgba(255, 240, 190, .85)); filter: blur(1.5px); animation: trail .75s ease-out forwards; }
 @keyframes trail { 0% { opacity: 0; clip-path: inset(0 100% 0 0); } 25% { opacity: 1; clip-path: inset(0 0 0 0); } 100% { opacity: 0; clip-path: inset(0 0 0 60%); } }
 body.p2-prem .b2-pc .pcs { padding: 4%; }
+
+/* ===== Cartoes dos jogadores com avatar ===== */
+.player { height: 48px; gap: 9px; }
+.player .dot { display: none; }
+.player .av { width: 38px; height: 38px; flex: none; border-radius: 50%; box-shadow: 0 0 0 2px rgba(255, 255, 255, .25), 0 3px 8px rgba(0, 0, 0, .45); position: relative; transition: box-shadow .3s, transform .3s; }
+.player .av svg { width: 100%; height: 100%; display: block; }
+.player.turn .av { box-shadow: 0 0 0 2.5px var(--gold), 0 0 14px rgba(245, 200, 76, .65); transform: scale(1.05); }
+.player .nm { display: flex; flex-direction: column; min-width: 0; line-height: 1.1; }
+.player .nm .name { overflow: hidden; text-overflow: ellipsis; }
+.player .sub { font-size: 11.5px; color: var(--mute); font-weight: 600; white-space: nowrap; }
+.player .sub:empty { display: none; }
+.player.think .sub::after { content: ""; display: inline-block; width: 1.2em; text-align: left; animation: dots 1.2s steps(4) infinite; }
+@keyframes dots { 0% { content: ""; } 25% { content: "."; } 50% { content: ".."; } 75% { content: "..."; } }
+.player.think .av::after { content: ""; position: absolute; inset: -4px; border-radius: 50%; border: 2.5px solid transparent; border-top-color: var(--gold); border-right-color: rgba(245, 200, 76, .4); animation: spin .9s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.player .adv { display: none; }
+.player .adv.on { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 13px; font-weight: 900; color: #0f2a17; background: linear-gradient(180deg, #9ff0b5, #4fc373); box-shadow: 0 2px 6px rgba(0, 0, 0, .35); animation: pop .35s cubic-bezier(.2, 1.4, .4, 1); }
+@media (max-width: 699px) and (min-height: 860px) { .player { height: 52px; } .player .av { width: 42px; height: 42px; } }
+
+/* ===== Barra de vantagem ===== */
+#evalBar { position: relative; height: 14px; margin: 2px 12px 4px; border-radius: 7px; background: #1a1512; overflow: hidden; box-shadow: inset 0 1px 3px rgba(0, 0, 0, .6), 0 0 0 1px rgba(255, 255, 255, .1); }
+#evalBar[hidden] { display: none; }
+#evalBar i { position: absolute; left: 0; top: 0; bottom: 0; width: 50%; background: linear-gradient(180deg, #ffffff, #e6dcc6); transition: width .8s cubic-bezier(.2, .8, .3, 1); }
+#evalBar.flip i { background: linear-gradient(180deg, #4a3b33, #1e1714); }
+#evalBar.flip { background: #efe6d2; }
+#evalBar span { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 10.5px; font-weight: 900; letter-spacing: .03em; color: #fff; mix-blend-mode: difference; }
+#evalBar::after { content: ""; position: absolute; left: 50%; top: 0; bottom: 0; width: 1px; background: rgba(245, 200, 76, .7); }
+
+/* ===== Barra de botoes ===== */
+.controls { position: relative; }
+.controls::before { content: ""; position: absolute; inset: 0 4px 4px; border-radius: 20px; background: linear-gradient(180deg, rgba(255, 255, 255, .05), rgba(0, 0, 0, .25)); border: 1px solid rgba(255, 255, 255, .06); pointer-events: none; }
+.controls button { position: relative; box-shadow: 0 4px 10px rgba(0, 0, 0, .3), inset 0 1px 0 rgba(255, 255, 255, .12); }
+.controls button svg { filter: drop-shadow(0 1px 2px rgba(0, 0, 0, .4)); }
+#cHint svg { stroke: #ffd96b; } #cNew svg { stroke: #9ff0b5; } #cView svg { stroke: #9fd8ff; }
