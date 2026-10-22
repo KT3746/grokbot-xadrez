@@ -10,7 +10,7 @@
   var PHONE = Math.min(screen.width, screen.height) < 700;
   var prefs = load(PREFS) || {};
   prefs = { style: prefs.style || 'classico', env: prefs.env || 'sala', theme: prefs.theme || 'classico', clock: prefs.clock || '0', view: prefs.view || '3d', sound: prefs.sound !== false, music: prefs.music !== false, vibe: prefs.vibe !== false, learn: !!prefs.learn, level: prefs.level || 'medio', color: prefs.color || 'w', flip: prefs.flip !== false, cam: prefs.cam2 || 'auto', aid: !!prefs.aid2, camFx: prefs.camFx !== false, p2: prefs.p2 || 'premium', evalbar: prefs.evalbar || 'learn',
-    palette: prefs.palette || 'classico', psize: prefs.psize || 'n', outline: prefs.outline !== false, speed: prefs.speed || 'normal', capFx: prefs.capFx === 'normal' ? 'normal' : 'brutal', last3: prefs.last3 || (prefs.view === 'vivo' ? 'vivo' : '3d') };
+    palette: prefs.palette || 'classico', psize: prefs.psize || 'n', outline: prefs.outline !== false, speed: prefs.speed || 'normal', capFx: prefs.capFx === 'normal' ? 'normal' : 'brutal', fight: prefs.fight !== false, fight3: !!prefs.fight3, last3: prefs.last3 || (prefs.view === 'vivo' ? 'vivo' : '3d') };
   var PSIZE = { p: 0.9, n: 1, g: 1.12 };
 
   var app = {
@@ -158,6 +158,7 @@
     refreshAll();
     saveGame();
     if (!moves.length) sfx('start');
+    fightPreload();
     $('bubble').hidden = true;
     if (app.jornada != null && !moves.length) { var gid0 = app.gameId; setTimeout(function () { if (app.gameId === gid0) say(XJourney.pick(XJourney.STAGES[app.jornada].hello), null, true); }, 1300); }
     puzzleUI();
@@ -450,7 +451,9 @@
     }
     var willAI = !st.over && app.mode === 'ai' && app.game.pos.turn !== app.human;
     if (willAI) requestAI();
-    return app.v.animate(m, app.game.pos.board, opts || {}).then(function () {
+    var run = function () { return app.v.animate(m, app.game.pos.board, opts || {}); };
+    var pre = fightWanted(m) ? playFight(m) : null;
+    return (pre ? pre.then(run) : run()).then(function () {
       app.busy = false;
       moveSound(m, st);
       refreshHL();
@@ -461,6 +464,80 @@
       if (app.learn && !app.thinking && app.game.pos.turn === app.human) coachBefore();
     });
   }
+  // ===== Lutas 3D nas capturas (2D e 3D simples) =====
+  // a arena (Three.js + Xadrez Vivo) so carrega quando precisa; um renderizador para todas as lutas
+  var FT = { inst: null, load: null, el: null, done: null };
+  var PNAME = { 1: ['Peão', 0], 2: ['Cavalo', 0], 3: ['Bispo', 0], 4: ['Torre', 1], 5: ['Dama', 1], 6: ['Rei', 0] };
+  function pieceName(p) { var n = PNAME[p & 7]; return n[0] + ' ' + ((p & 8) ? (n[1] ? 'preta' : 'preto') : (n[1] ? 'branca' : 'branco')); }
+  function fightWanted(m) {
+    if (!m.cap || !app.has3d || (app.mode !== 'ai' && app.mode !== '2p')) return false;
+    if (app.v === app.view2d) return prefs.fight;
+    if (app.v && app.v === app.view3d && !app.view3d.isVivo) return prefs.fight3;
+    return false;
+  }
+  function fightEl() {
+    if (FT.el) return FT.el;
+    var o = document.createElement('div'); o.id = 'fightOv'; o.hidden = true;
+    o.innerHTML = '<div class="fpanel"><canvas id="fightCv"></canvas><div class="flabel"></div><div class="fload">Preparando a luta...</div><div class="fskip">Toque para pular</div></div>';
+    document.body.appendChild(o);
+    o.addEventListener('pointerdown', function (e) { e.preventDefault(); fightSkip(); });
+    FT.el = o; return o;
+  }
+  function fightLoad() {
+    if (FT.inst) return Promise.resolve(FT.inst);
+    if (FT.load) return FT.load;
+    var el = fightEl();
+    FT.load = Promise.all([import('./view3d.js?v=' + V), import('./vivo3d.js?v=' + V), import('./fight3d.js?v=' + V)]).then(function (a) {
+      var C = a[2].makeFight(a[0], a[1]);
+      var wasHidden = el.hidden; el.hidden = false; el.style.visibility = 'hidden';
+      FT.inst = new C($('fightCv'), { capFx: prefs.capFx, camFx: prefs.camFx, palette: prefs.palette, outlines: prefs.outline, pScale: 1, animSpeed: prefs.speed, camView: 'auto', visionAid: false,
+        sel: -1, dests: {}, onSquare: function () { }, tryMove: function () { return false; }, clearSel: function () { }, hoverKind: function () { return ''; }, stageRect: function () { return { left: 0, top: 0, width: 10, height: 10 }; } });
+      el.style.visibility = ''; el.hidden = wasHidden;
+      return FT.inst;
+    }).catch(function (e) { console.warn(e); FT.load = null; return null; });
+    return FT.load;
+  }
+  // carrega com calma depois que a partida comeca, para a primeira luta nao esperar
+  function fightPreload() {
+    if (!app.has3d || FT.inst || FT.load) return;
+    if (!((prefs.view === '2d' && prefs.fight) || (prefs.view === '3d' && prefs.fight3))) return;
+    setTimeout(function () { if (app.screen === 'game' && !app.busy) fightLoad(); }, 1800);
+  }
+  function fightSkip() {
+    if (!FT.done) return;
+    var d = FT.done; FT.done = null; d();
+  }
+  function playFight(m) {
+    var el = fightEl();
+    return new Promise(function (resolve) {
+      var ended = false, wasPaused = app.paused, t0 = Date.now(), maxT = 0, waitT = 0;
+      app.paused = true; app.fighting = true;
+      el.querySelector('.flabel').innerHTML = '<b class="' + ((m.piece & 8) ? 'dk' : 'lt') + '">' + pieceName(m.piece) + '</b> captura <b class="' + ((m.cap & 8) ? 'dk' : 'lt') + '">' + pieceName(m.cap) + '</b>';
+      el.hidden = false; el.classList.remove('out'); el.classList.add('loading'); void el.offsetWidth; el.classList.add('in');
+      var finish = function () {
+        if (ended) return; ended = true; FT.done = null; clearTimeout(maxT); clearTimeout(waitT);
+        if (FT.inst) FT.inst.stop();
+        el.classList.remove('in'); el.classList.add('out');
+        setTimeout(function () { if (!FT.done) { el.hidden = true; el.classList.remove('out'); } }, 260);
+        app.paused = wasPaused; app.fighting = false; lastTick = 0;
+        resolve();
+      };
+      FT.done = finish;
+      // se a arena demorar para carregar, segue sem luta
+      waitT = setTimeout(function () { if (!FT.inst) finish(); }, 6000);
+      fightLoad().then(function (v) {
+        if (ended) return;
+        if (!v) { finish(); return; }
+        clearTimeout(waitT); el.classList.remove('loading');
+        v.capFx = prefs.capFx; v.camFx = prefs.camFx; v.speed = prefs.speed;
+        if (v.palette !== prefs.palette) v.setPalette(prefs.palette);
+        v.resize();
+        maxT = setTimeout(finish, 9000);
+        v.fight(m, E).then(function () { setTimeout(finish, 380); });
+      });
+    });
+  }
+  app.fight = { load: fightLoad, skip: fightSkip, ft: FT };
   function gameOver(st) {
     app.over = st;
     if (!app.recorded && window.XStats && app.mode !== 'puzzle') {
@@ -993,14 +1070,16 @@
     env: { t: 'Cenário 3D', o: [['sala', 'Sala'], ['jardim', 'Jardim'], ['espaco', 'Espaço']], when: function (g) { return g('view') === '3d'; } },
     cam: { t: 'Vista da câmera', o: [['auto', 'Normal'], ['alta', 'Alta'], ['media', 'Média'], ['baixa', 'Baixa']], when: function (g) { return is3k(g('view')); } },
     speed: { t: 'Velocidade das animações', o: [['normal', 'Normal'], ['rapido', 'Rápido']] },
-    capFx: { t: 'Intensidade das capturas', o: [['brutal', 'Brutal'], ['normal', 'Normal']], when: function (g) { return g('view') === 'vivo'; } },
+    capFx: { t: 'Intensidade das capturas', o: [['brutal', 'Brutal'], ['normal', 'Normal']], when: function (g) { return g('view') === 'vivo' || (g('view') === '2d' && g('fight') === '1') || (g('view') === '3d' && g('fight3') === '1'); } },
+    fight: { t: 'Lutas 3D nas capturas', o: [['1', 'Ligado'], ['0', 'Desligado']], when: function (g) { return g('view') === '2d'; }, need3: true },
+    fight3: { t: 'Lutas 3D nas capturas', o: [['1', 'Ligado'], ['0', 'Desligado']], when: function (g) { return g('view') === '3d'; } },
     camFx: { t: 'Câmera aproxima nas capturas', o: [['1', 'Ligado'], ['0', 'Desligado']], when: function (g) { return is3k(g('view')); } },
     evalbar: { t: 'Barra de vantagem', o: [['learn', 'No Aprender'], ['on', 'Sempre'], ['off', 'Nunca']] },
     sound: { t: 'Sons', o: [['1', 'Ligado'], ['0', 'Desligado']] },
     music: { t: 'Música', o: [['1', 'Ligada'], ['0', 'Desligada']] },
     vibe: { t: 'Vibração', o: [['1', 'Ligada'], ['0', 'Desligada']], when: function () { return !!navigator.vibrate; } }
   };
-  var SGROUPS = [['Visual', ['view', 'style', 'palette', 'psize', 'outline', 'aid']], ['Tabuleiro e cenário', ['theme', 'p2', 'env']], ['Câmera e animação', ['cam', 'speed', 'capFx', 'camFx', 'evalbar']], ['Som', ['sound', 'music', 'vibe']]];
+  var SGROUPS = [['Visual', ['view', 'style', 'palette', 'psize', 'outline', 'aid']], ['Tabuleiro e cenário', ['theme', 'p2', 'env']], ['Câmera e animação', ['cam', 'speed', 'fight', 'fight3', 'capFx', 'camFx', 'evalbar']], ['Som', ['sound', 'music', 'vibe']]];
   function setVal(k) {
     var v = prefs[k];
     if (k === 'style' && prefs.view === 'vivo') return 'vivo';
@@ -1048,6 +1127,8 @@
       case 'cam': prefs.cam = v; prefs.cam2 = v; app.camView = v; savePrefs(); camUI(); each3(function (x) { x.setCamView(v); }); layoutGame(); break;
       case 'speed': prefs.speed = v; app.animSpeed = v; savePrefs(); each3(function (x) { x.speed = v; }); look2d(); break;
       case 'capFx': prefs.capFx = v; app.capFx = v; savePrefs(); each3(function (x) { x.capFx = v; }); break;
+      case 'fight': prefs.fight = on; savePrefs(); if (on) fightPreload(); break;
+      case 'fight3': prefs.fight3 = on; savePrefs(); if (on) fightPreload(); break;
       case 'camFx': prefs.camFx = on; app.camFx = on; savePrefs(); each3(function (x) { x.camFx = on; }); break;
       case 'evalbar': prefs.evalbar = v; savePrefs(); if (app.game) { evalKey = ''; refreshStatus(); } break;
       case 'sound': if (prefs.sound !== on) toggleSound(); break;
@@ -1083,7 +1164,7 @@
   }
   // ===== Ajustes com prévia ao vivo =====
   // Nada muda no jogo até tocar em Aplicar. A prévia desenha um tabuleiro de exemplo com o visual escolhido.
-  var DEF = { view: '3d', style: 'classico', palette: 'classico', psize: 'n', outline: '1', aid: '0', theme: 'classico', p2: 'premium', env: 'sala', cam: 'auto', speed: 'normal', capFx: 'brutal', camFx: '1', evalbar: 'learn', sound: '1', music: '1', vibe: '1' };
+  var DEF = { view: '3d', style: 'classico', palette: 'classico', psize: 'n', outline: '1', aid: '0', theme: 'classico', p2: 'premium', env: 'sala', cam: 'auto', speed: 'normal', capFx: 'brutal', fight: '1', fight3: '0', camFx: '1', evalbar: 'learn', sound: '1', music: '1', vibe: '1' };
   var PV = { open: false, mode: 'game', base: null, d: null, hov: null, inst: {}, cls: {}, kind: null, v2: null, keep: false };
   var PVSAMPLE = (function () {
     var fen = 'r1bq1rk1/ppp2ppp/2np1n2/2b1p3/2B1P3/2NP1N2/PPP2PPP/R1BQ1RK1 w - - 0 7';
@@ -1437,6 +1518,7 @@
     document.addEventListener('keydown', function (e) {
       // Esc com os ajustes abertos: cancela (nada muda)
       if (PV.open && e.key === 'Escape') { e.preventDefault(); closeGameSettings(); return; }
+      if (FT.done && (e.key === 'Escape' || e.key === ' ' || e.key === 'Enter')) { e.preventDefault(); fightSkip(); return; }
       if (app.screen !== 'game' || e.altKey || e.repeat) return;
       if (e.target && /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) return;
       if (e.key === 'Escape') {
