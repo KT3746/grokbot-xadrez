@@ -636,7 +636,7 @@ export function makeVivo(M) {
     qL() { return Math.max(0, Math.min(4, this.level | 0)); }
     chunkN(big) { let n = [56, 44, 32, 22, 15][this.qL()]; if (this.mobile) n = Math.round(n * 0.75); if (this.isPreview) n = Math.round(n * 0.8); return big ? Math.round(n * 1.4) : n; }
     rubbleCap() { return (this.mobile ? [150, 115, 85, 60, 45] : [260, 200, 140, 95, 60])[this.qL()]; }
-    pick(t, n) {
+    pickVar(t, n) {
       if (this.forceVar != null) return this.forceVar % n;
       const lv = this._lastVar || (this._lastVar = {}); let v = Math.random() * n | 0;
       if (n > 1 && v === lv[t]) v = (v + 1 + (Math.random() * (n - 1) | 0)) % n;
@@ -790,7 +790,7 @@ export function makeVivo(M) {
       const recover = (from, wFrom, dur = 0.3) => { const rx = mesh.rotation.x, y0 = mesh.position.y, wx = w ? w.rotation.x : 0; return this.tween(dur, (k) => { const e = ease(k); mesh.position.set(from.x + (p0.x - from.x) * e, y0 * (1 - e), from.z + (p0.z - from.z) * e); mesh.rotation.x = rx * (1 - e); if (w) w.rotation.x = wx + (rest - wx) * e; }); };
       // torre: arremete, pula em cima ou faz o chao tremer
       if (t === E.R) {
-        const v = this.pick(t, 3);
+        const v = this.pickVar(t, 3);
         if (v === 0) {
           snd('windup'); this.tremble(victim, 0.55, 0.012);
           return this.tween(0.45, (k) => { const e = ease(k); back(e, -0.34); mesh.rotation.x = 0.22 * e; })
@@ -819,7 +819,7 @@ export function makeVivo(M) {
       // bispo e dama: magia (raio, levitar e explodir, ou golpe no chao)
       if (t === E.B || t === E.Q) {
         const qn = t === E.Q, col = qn ? 0xffc65a : 0x7fb8ff, cols = qn ? ['#ffe08a', '#fff4d0', '#ffb84a'] : ['#9fd8ff', '#ffffff', '#6fb0ff'], pw = qn ? 1.25 : 1;
-        const v = this.pick(t, 3), tipY = (this.parts[t].weapon.tip || 0.4);
+        const v = this.pickVar(t, 3), tipY = (this.parts[t].weapon.tip || 0.4);
         if (v === 0) {
           const orb = this.orb(col, 0.05); orb.position.set(0, tipY, 0); w.add(orb);
           snd('windup'); this.tremble(victim, 0.6, 0.012);
@@ -854,7 +854,7 @@ export function makeVivo(M) {
       }
       // peao e rei: espada (corte ao meio, estocada, giro)
       const king = t === E.K, hv = king ? 1.15 : 1, pw = king ? 1.3 : 1;
-      const v = this.pick(t, 3);
+      const v = this.pickVar(t, 3);
       if (v === 0) {
         snd('windup'); this.tremble(victim, 0.5 * hv, 0.012);
         return this.tween(0.46 * hv, (k) => { const e = ease(k); w.rotation.x = rest + 1.95 * e; mesh.rotation.x = 0.22 * e; mesh.position.y = 0.05 * e; })
@@ -898,7 +898,7 @@ export function makeVivo(M) {
     }
     // cavalo: pisoteia, empina e esmaga, ou atravessa com um coice
     knightBrutal(mesh, a, b, victim, dir) {
-      const v = this.pick(E.N, 3), dist = a.distanceTo(b);
+      const v = this.pickVar(E.N, 3), dist = a.distanceTo(b);
       const land = (at) => { mesh.position.y = 0; snd('stompH'); this.dust(at, 1.4); this.shake(0.06); return this.tween(0.22, (k) => { const s = 1 - Math.sin(Math.PI * k) * 0.12; mesh.scale.set(1 + (1 - s) * 0.5, s, 1 + (1 - s) * 0.5); mesh.rotation.x = mesh.rotation.x * (1 - k); }).then(() => { mesh.scale.set(1, 1, 1); mesh.rotation.x = 0; }); };
       const crouch = (d) => this.tween(d, (k) => { const s = 1 - Math.sin(Math.PI / 2 * k) * 0.12; mesh.scale.set(1 + (1 - s) * 0.5, s, 1 + (1 - s) * 0.5); mesh.rotation.x = 0.3 * k; });
       snd('windup'); this.tremble(victim, 0.5, 0.012);

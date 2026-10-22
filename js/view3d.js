@@ -1183,8 +1183,21 @@ export class View3D {
   }
 
   bindInput() {
+    // toque/clique curto: escolhe a casa. Arrastar uma peca sua: leva a peca ate a casa.
+    // Arrastar fora das suas pecas: gira a camera. Pequenos tremidos (ate 12px) contam como toque.
     const cv = this.canvas; let st = null;
-    cv.addEventListener('pointerdown', (e) => { if (this.menu) return; if (e.button === 2) { st = null; return; } if (e.button > 0) return; this.setHover(-1, ''); this.skipCam(); this.rushAll(); st = { x: e.clientX, y: e.clientY, id: e.pointerId, moved: false, th: this.cam.theta, ph: this.cam.phi }; try { cv.setPointerCapture(e.pointerId); } catch (er) { } });
+    const TH = 12;
+    const own = (sq) => { const a = this.app; if (sq < 0 || !a.hoverKind) return false; const k = a.hoverKind(sq); return k === 'grab' || (a.sel === sq && !!this.meshes[sq]); };
+    const lift = (m, on) => { if (!m) return; m.position.y = on ? 0.35 : 0; this.dirty = true; };
+    cv.addEventListener('pointerdown', (e) => {
+      if (this.menu) return;
+      if (e.button === 2) { if (st && st.piece) this.dropBack(st); st = null; return; }
+      if (e.button > 0) return;
+      this.setHover(-1, ''); this.skipCam(); this.rushAll();
+      const sq = this.pick(e.clientX, e.clientY);
+      st = { x: e.clientX, y: e.clientY, id: e.pointerId, moved: false, th: this.cam.theta, ph: this.cam.phi, sq, piece: own(sq) && !!this.meshes[sq] };
+      try { cv.setPointerCapture(e.pointerId); } catch (er) { }
+    });
     // mouse parado sobre o tabuleiro: casa destacada e cursor de mao
     let hvT = 0;
     const hover = (x, y) => {
@@ -1196,8 +1209,24 @@ export class View3D {
       if (!st && e.pointerType === 'mouse') { const t = performance.now(); if (t - hvT > 40) { hvT = t; hover(e.clientX, e.clientY); } return; }
       if (!st || e.pointerId !== st.id) return;
       const dx = e.clientX - st.x, dy = e.clientY - st.y;
-      if (!st.moved && dx * dx + dy * dy < 100) return;
-      st.moved = true;
+      if (!st.moved && dx * dx + dy * dy < TH * TH) return;
+      if (!st.moved) {
+        st.moved = true;
+        if (st.piece) {
+          // comeca a arrastar a peca: seleciona (mostra destinos) e levanta
+          if (this.app.sel !== st.sq) this.app.onSquare(st.sq);
+          st.mesh = this.app.sel === st.sq ? this.meshes[st.sq] : null;
+          if (!st.mesh) st.piece = false; else lift(st.mesh, true);
+        }
+      }
+      if (st.piece && st.mesh) {
+        const p = this.pickPoint(e.clientX, e.clientY);
+        if (p) { st.mesh.position.x = Math.max(-4.3, Math.min(4.3, p.x)); st.mesh.position.z = Math.max(-4.3, Math.min(4.3, p.z)); }
+        const to = this.pickFloor(e.clientX, e.clientY), d = this.app.dests || {};
+        this.setHover(to >= 0 && to !== st.sq && d[to] ? to : -1, 'pointer');
+        cv.style.cursor = 'grabbing';
+        this.dirty = true; return;
+      }
       this.cam.theta = st.th - dx * 0.008;
       this.cam.phi = Math.min(1.45, Math.max(0.38, st.ph + dy * 0.005));
       this.dirty = true;
@@ -1205,12 +1234,32 @@ export class View3D {
     const up = (e) => {
       if (!st || e.pointerId !== st.id) return;
       const was = st; st = null;
+      if (was.piece && was.mesh) {
+        this.setHover(-1, '');
+        const to = this.pickFloor(e.clientX, e.clientY);
+        this.dropBack(was);
+        if (to >= 0 && to !== was.sq && this.app.dests && this.app.dests[to]) { this.app.tryMove(was.sq, to); return; }
+        return;
+      }
       if (was.moved) return;
       const sq = this.pick(e.clientX, e.clientY);
       if (sq >= 0) this.app.onSquare(sq);
+      else if (this.app.sel >= 0 && this.app.clearSel) this.app.clearSel();
     };
     cv.addEventListener('pointerup', up);
-    cv.addEventListener('pointercancel', () => { st = null; });
+    cv.addEventListener('pointercancel', () => { if (st && st.mesh) this.dropBack(st); st = null; });
+  }
+  dropBack(s) { const m = s.mesh; if (m && this.meshes[s.sq] === m) { const p = sqPos(s.sq); m.position.set(p.x, 0, p.z); } this.dirty = true; }
+  pickPoint(x, y) {
+    const ndc = new THREE.Vector2(x / this.W * 2 - 1, -(y / this.H) * 2 + 1);
+    const rc = this._rc || (this._rc = new THREE.Raycaster()); rc.setFromCamera(ndc, this.camera);
+    const p = new THREE.Vector3();
+    return rc.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), p) ? p : null;
+  }
+  pickFloor(x, y) {
+    const p = this.pickPoint(x, y); if (!p) return -1;
+    const f = Math.floor(p.x + 4), r = Math.floor(4 - p.z);
+    return f < 0 || f > 7 || r < 0 || r > 7 ? -1 : r * 16 + f;
   }
 
   setHover(sq, kind) {
@@ -1229,12 +1278,18 @@ export class View3D {
     const ndc = new THREE.Vector2(x / this.W * 2 - 1, -(y / this.H) * 2 + 1);
     const rc = this._rc || (this._rc = new THREE.Raycaster()); rc.setFromCamera(ndc, this.camera);
     const hits = rc.intersectObjects(this.pieceGroup.children, false);
-    for (const h of hits) { for (const k in this.meshes) if (this.meshes[k] === h.object) return +k; }
+    let hitSq = -1;
+    for (const h of hits) { for (const k in this.meshes) if (this.meshes[k] === h.object) { hitSq = +k; break; } if (hitSq >= 0) break; }
     const p = new THREE.Vector3();
-    if (!rc.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), p)) return -1;
-    const f = Math.floor(p.x + 4), r = Math.floor(4 - p.z);
-    if (f < 0 || f > 7 || r < 0 || r > 7) return -1;
-    return r * 16 + f;
+    let floorSq = -1;
+    if (rc.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), p)) {
+      const f = Math.floor(p.x + 4), r = Math.floor(4 - p.z);
+      if (f >= 0 && f <= 7 && r >= 0 && r <= 7) floorSq = r * 16 + f;
+    }
+    // estatua na frente tampando uma casa de destino: vale a casa de destino
+    const d = this.app && this.app.sel >= 0 ? this.app.dests || {} : null;
+    if (d && hitSq >= 0 && !d[hitSq] && floorSq >= 0 && d[floorSq]) return floorSq;
+    return hitSq >= 0 ? hitSq : floorSq;
   }
 
   loop(tms) {

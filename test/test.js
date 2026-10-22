@@ -141,5 +141,11 @@ console.log('partida medio x facil terminou:', g.status().reason || 'limite', 'a
   check('desafios verificados (' + n1 + ' mate em 1, ' + n2 + ' mate em 2, ' + (Date.now() - t0) + 'ms)', bad, 0);
   check('pelo menos 30 desafios', w.XPuzzles.length >= 30, true);
 })();
+// Xadrez Vivo nao pode sobrescrever sem querer metodos de entrada do View3D (toque/clique)
+(function () {
+  const fs = require('fs'), src = fs.readFileSync(__dirname + '/../js/vivo3d.js', 'utf8');
+  const bad = ['pick', 'pickFloor', 'pickPoint', 'bindInput', 'setHover', 'dropBack'].filter((n) => new RegExp('^\\s+' + n + '\\s*\\(', 'm').test(src));
+  check('Vivo nao sobrescreve metodos de toque', bad.join(',') || 'nenhum', 'nenhum');
+})();
 console.log(fail ? fail + ' FALHAS' : 'TODOS OS TESTES PASSARAM');
 process.exit(fail ? 1 : 0);
