@@ -295,7 +295,7 @@
     if (capStreak >= 2) {
       var title = kind === 'bomb' ? 'FOGO NO BURACO!' : capStreak >= 4 ? 'MASSACRE!' : capStreak === 3 ? 'EMBALADO!' : 'COMBO!';
       var sub = capStreak + ' capturas seguidas';
-      setTimeout(function () { if (app.screen === 'game') banner(title, sub); }, kind === 'bomb' ? 900 : (app.fighting ? 400 : 180));
+      setTimeout(function () { if (app.screen === 'game') { banner(title, sub); clearTimeout(banner.t); banner.t = setTimeout(function () { $('banner').hidden = true; }, 3200); } }, kind === 'bomb' ? 900 : (app.fighting ? 2200 : 180));
     }
   }
   function musicMood(st) {

@@ -841,7 +841,7 @@ export function makeVivo(M) {
     brutalStrike(mesh, victim, dir, t, b, head) {
       const V = (n) => this.pickVar(t, n);
       // finishers raros do exercito (fora da bomba)
-      if (this.army && this.forceBomb == null && (this.forceFin || Math.random() < 0.14)) {
+      if (this.army && !this.forceBomb && (this.forceFin || Math.random() < 0.14)) {
         const fins = this.army.name === 'esparta' ? ['phalanx', 'dual'] : this.army.name === 'cem' ? ['barrage', 'dual'] : ['dual'];
         const fin = this.forceFin || fins[V(fins.length)];
         this.forceFin = null;
