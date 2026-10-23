@@ -1372,6 +1372,17 @@ export function makeVivo(M) {
     }
     // cavalo: pisoteia, empina e esmaga, ou atravessa com um coice
     knightBrutal(mesh, a, b, victim, dir) {
+      // finishers do exercito tambem no salto do cavalo
+      if (this.army && !this.forceBomb && (this.forceFin || Math.random() < 0.14)) {
+        const fins = this.army.name === 'esparta' ? ['phalanx', 'dual'] : this.army.name === 'cem' ? ['barrage', 'dual'] : ['dual'];
+        const fin = this.forceFin || fins[this.pickVar(E.N, fins.length)];
+        this.forceFin = null;
+        let p = null;
+        if (fin === 'barrage') p = this.finBarrage(mesh, victim, dir);
+        else if (fin === 'phalanx') p = this.finPhalanx(mesh, victim, dir);
+        else if (fin === 'dual') p = this.finDual(mesh, victim, dir, E.N);
+        if (p) return p.then(() => { mesh.position.copy(b); mesh.scale.set(1, 1, 1); mesh.rotation.set(0, mesh.rotation.y, 0); snd('stompH'); this.dust(b, 1.2); });
+      }
       const v = this.pickVar(E.N, 3), dist = a.distanceTo(b);
       const land = (at) => { mesh.position.y = 0; snd('stompH'); this.dust(at, 1.4); this.shake(0.06); return this.tween(0.22, (k) => { const s = 1 - Math.sin(Math.PI * k) * 0.12; mesh.scale.set(1 + (1 - s) * 0.5, s, 1 + (1 - s) * 0.5); mesh.rotation.x = mesh.rotation.x * (1 - k); }).then(() => { mesh.scale.set(1, 1, 1); mesh.rotation.x = 0; }); };
       const crouch = (d) => this.tween(d, (k) => { const s = 1 - Math.sin(Math.PI / 2 * k) * 0.12; mesh.scale.set(1 + (1 - s) * 0.5, s, 1 + (1 - s) * 0.5); mesh.rotation.x = 0.3 * k; });
