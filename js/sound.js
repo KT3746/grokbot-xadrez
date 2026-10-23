@@ -244,7 +244,7 @@
   }
 
   // ===== Camada de tensao: batida de coracao grave que cresce com o perigo =====
-  var tension = 0, tTarget = 0, beatT = 0, beatTimer = null, tensG = null, battle = false, bBeat = 0;
+  var endgameMus = false, tension = 0, tTarget = 0, beatT = 0, beatTimer = null, tensG = null, battle = false, bBeat = 0;
   // tambores de guerra: com exercito, a batida vira marcha; em xeque fica rapida, dobrada e com trompa
   function warBeat(t, gap) {
     var lv = 0.35 + tension * 0.65, i = bBeat++;
@@ -469,6 +469,17 @@
     setBattle: function (on) { on = !!on; if (on !== battle) { battle = on; bBeat = 0; if (on) startBeat(); } },
     setAmb: setAmb, swell: swell,
     setTension: function (x) { tTarget = Math.max(0, Math.min(1, x || 0)); },
+    setEndgame: function (on) {
+      on = !!on;
+      if (on === endgameMus) return;
+      endgameMus = on;
+      if (mus && ctx && musOn) {
+        var g = mus.gain, now = ctx.currentTime;
+        g.cancelScheduledValues(now);
+        g.setValueAtTime(Math.max(0.0001, g.value), now);
+        g.linearRampToValueAtTime(on ? 0.32 : 0.8, now + 0.9);
+      }
+    },
     get sfxOn() { return sfxOn; }, get musicOn() { return musOn; }
   };
 })();

@@ -327,6 +327,14 @@
       var sub = capStreak + ' capturas seguidas';
       setTimeout(function () { if (app.screen === 'game') { banner(title, sub); clearTimeout(banner.t); banner.t = setTimeout(function () { $('banner').hidden = true; }, 3200); } }, kind === 'bomb' ? 400 : 180);
     }
+    if (app._lastFin === 'legend') {
+      setTimeout(function () {
+        if (app.screen === 'game') {
+          banner('GOLPE LENDÁRIO!', 'Dama ou rei decidiu o duelo');
+          clearTimeout(banner.t); banner.t = setTimeout(function () { $('banner').hidden = true; }, 3400);
+        }
+      }, 220);
+    }
     if (window.XStats && XStats.onBrutal) {
       XStats.onBrutal({
         cap: true,
@@ -337,22 +345,40 @@
       });
     }
   }
+  function pieceCount() {
+    if (!app.game) return 32;
+    var b = app.game.pos.board, n = 0;
+    for (var sq = 0; sq < 120; sq++) { if (sq & 0x88) { sq += 7; continue; } if (b[sq]) n++; }
+    return n;
+  }
+  function applyEndgameLook(on) {
+    document.body.classList.toggle('endgame', !!on);
+    var b2 = $('board2d'); if (b2) b2.classList.toggle('endgame', !!on);
+    var stg = $('stage'); if (stg) stg.classList.toggle('endgame', !!on);
+    var fov = $('fightOv'); if (fov) fov.classList.toggle('endgame', !!on);
+    if (FT.inst && FT.inst.endgameDark) FT.inst.endgameDark(!!on);
+    each3safe(function (x) { if (x.endgameDark) x.endgameDark(!!on); });
+  }
+  function each3safe(fn) { try { for (var k in app.views3) fn(app.views3[k], k); } catch (e) { } }
   function musicMood(st) {
     if (!window.XSound || !XSound.setTension) return;
     var inGame = app.screen === 'game' && !st.over;
-    if (XSound.setBattle) XSound.setBattle(inGame && !!armyOn());
-    if (XSound.setAmb) XSound.setAmb(inGame && (prefs.view === 'vivo' || !!armyOn()));
+    var n = inGame && app.game ? pieceCount() : 32;
+    var endg = inGame && n <= 8;
+    applyEndgameLook(endg);
+    if (XSound.setBattle) XSound.setBattle(inGame && !!armyOn() && !endg);
+    if (XSound.setAmb) XSound.setAmb(inGame && (prefs.view === 'vivo' || !!armyOn()) && !endg);
+    if (XSound.setEndgame) XSound.setEndgame(endg);
     var t = 0;
     if (inGame && app.game) {
-      var b = app.game.pos.board, n = 0;
-      for (var sq = 0; sq < 120; sq++) { if (sq & 0x88) { sq += 7; continue; } if (b[sq]) n++; }
       if (st.check) t = 1;
+      else if (endg) t = 0.55;
       else if (capStreak >= 3 && Date.now() - capStreakT < 10000) t = 0.7;
       else if (capStreak >= 2 && Date.now() - capStreakT < 10000) t = 0.45;
       else if (app.clock && app.clock.left[app.game.pos.turn] < 30000) t = 0.8;
-      else if (n <= 10) t = 0.35;
+      else if (n <= 12) t = 0.35;
       if (st.check && XSound.swell) XSound.swell(1.35, 0.7);
-    } else { capStreak = 0; }
+    } else { capStreak = 0; applyEndgameLook(false); }
     XSound.setTension(t);
   }
   function refreshPlayers() {

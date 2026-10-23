@@ -672,18 +672,37 @@ export function makeVivo(M) {
         if (rook) {
           delete this.meshes[rf]; this.meshes[rt] = rook; anim.add(rook);
           const ra = sqPos(rf), rb = sqPos(rt), rd = rb.clone().sub(ra).normalize();
-          jobs.push(this.turn(rook, Math.atan2(-rd.x, -rd.z), 0.16).then(() => this.walk(rook, ra, rb, walkDur(ra.distanceTo(rb)), true)).then(() => this.turn(rook, rest, 0.16)));
+          const faceKing = Math.atan2(a.x - ra.x, a.z - ra.z);
+          // "guarde o rei": torre cumprimenta o rei e depois entra
+          jobs.push(this.turn(rook, faceKing, 0.18)
+            .then(() => this.tween(0.22, (k) => { rook.rotation.x = -0.18 * Math.sin(k * Math.PI); }))
+            .then(() => this.turn(rook, Math.atan2(-rd.x, -rd.z), 0.14))
+            .then(() => this.walk(rook, ra, rb, walkDur(ra.distanceTo(rb)), true))
+            .then(() => this.turn(rook, rest, 0.16)));
         }
       }
       return Promise.all(jobs).then(() => {
         anim.clear(); this.rushUntil = 0;
         mesh.rotation.y = rest;
         if (m.promo) {
-          this.particles.burst(b.clone().setY(0.6), { colors: ['#ffe08a', '#fff4d0', '#ffb84a'], count: 60, up: 2.8, life: 1.3, grav: 3 });
-          this.flash(b, 0xffd27a, 4); snd('awaken');
+          const cols = this.army ? this.armySpark().clash : ['#ffe08a', '#fff4d0', '#ffb84a', '#c9a0ff'];
+          this.particles.burst(b.clone().setY(0.6), { colors: cols, count: 70, up: 2.8, life: 1.3, grav: 3 });
+          this.flash(b, 0xffd27a, 5); snd('awaken'); snd('cheer');
         }
         super.sync(board); this._lastMover = this.meshes[m.to];
-        if (m.promo) { const nm = this.meshes[m.to]; if (nm) { anim.add(nm); this.tween(0.5, (k) => { const s = 0.2 + (1 - Math.pow(1 - k, 3) * Math.cos(k * 5)) * 0.8; nm.scale.set(s, s, s); }).then(() => { nm.scale.set(1, 1, 1); anim.delete(nm); }); } }
+        if (m.promo) {
+          const nm = this.meshes[m.to];
+          if (nm) {
+            anim.add(nm);
+            // ajoelha e ergue como nova peca
+            this.tween(0.28, (k) => { const e = ease(k); nm.scale.set(1, Math.max(0.15, 1 - 0.85 * e), 1); nm.position.y = -0.05 * e; })
+              .then(() => this.tween(0.55, (k) => {
+                const e = 1 - Math.pow(1 - k, 3);
+                const bounce = 1 + Math.sin(k * Math.PI) * 0.12;
+                nm.scale.set(bounce * e, bounce * e, bounce * e); nm.position.y = 0;
+              })).then(() => { nm.scale.set(1, 1, 1); anim.delete(nm); });
+          }
+        }
       });
     }
 
@@ -842,15 +861,18 @@ export function makeVivo(M) {
     // --- duelo ate a morte: a vitima apara o primeiro golpe, o segundo mata ---
     brutalStrike(mesh, victim, dir, t, b, head) {
       const V = (n) => this.pickVar(t, n);
-      // finishers raros do exercito (fora da bomba)
-      if (this.army && !this.forceBomb && (this.forceFin || Math.random() < 0.14)) {
-        const fins = this.army.name === 'esparta' ? ['phalanx', 'dual'] : this.army.name === 'cem' ? ['barrage', 'dual'] : ['dual'];
+      // finishers raros; dama/rei tem chance de "lendario"
+      const royal = (t === E.Q || t === E.K);
+      if (!this.forceBomb && (this.forceFin || (royal && Math.random() < 0.28) || (this.army && Math.random() < 0.14))) {
+        let fins = this.army ? (this.army.name === 'esparta' ? ['phalanx', 'dual'] : this.army.name === 'cem' ? ['barrage', 'dual'] : ['dual']) : ['dual'];
+        if (royal) fins = fins.concat(['legend']);
         const fin = this.forceFin || fins[V(fins.length)];
         this.forceFin = null;
         if (typeof window !== 'undefined' && window.XApp) window.XApp._lastFin = fin;
         if (fin === 'barrage') return this.finBarrage(mesh, victim, dir);
         if (fin === 'phalanx') return this.finPhalanx(mesh, victim, dir);
         if (fin === 'dual') return this.finDual(mesh, victim, dir, t);
+        if (fin === 'legend') return this.finLegend(mesh, victim, dir, t);
       }
       let plan;
       if (t === E.P) plan = ['diag', 'decap', 'impale'][V(3)];
@@ -1076,6 +1098,33 @@ export function makeVivo(M) {
         snd('smash'); this.impactFin(0.95); snd('cheer'); this.slowMo(0.5, 0.12); this.finish(mesh, victim, dir, t || E.Q, 'diag');
       }).then(() => { mesh.position.copy(p0); mesh.rotation.set(0, mesh.rotation.y, 0); if (w) w.rotation.set(rest, 0, 0); });
     }
+    // lendario: dama/rei — salto, giro e golpe de coroa
+    finLegend(mesh, victim, dir, t) {
+      const ps = this.pScale || 1, w = mesh.userData.weapon, rest = mesh.userData.rest || 0;
+      const p0 = mesh.position.clone().setY(0), vp = victim.position.clone().setY(0);
+      this._animMeshes.add(victim); this.duelCam(p0.clone().lerp(vp, 0.5), 2.6);
+      snd('horn'); snd('drumsFar');
+      return this.tween(0.35, (k) => {
+        const e = ease(k);
+        mesh.position.y = Math.sin(e * Math.PI) * 0.55 * ps;
+        mesh.rotation.y += 0.18;
+        if (w) w.rotation.x = rest + 1.6 * e;
+      }).then(() => {
+        snd('warcry');
+        return this.tween(0.12, (k) => {
+          const e = easeIn(k);
+          mesh.position.set(p0.x + dir.x * 0.22 * e, Math.sin((1 - e) * Math.PI) * 0.2 * ps, p0.z + dir.z * 0.22 * e);
+          if (w) w.rotation.x = rest + 1.6 - 2.4 * e;
+        });
+      }).then(() => {
+        const cp = vp.clone().setY(0.7 * ps);
+        const cols = this.army ? this.armySpark().clash : ['#ffe08a', '#fff', '#ffb84a', '#c9a0ff'];
+        this.particles.burst(cp, { colors: cols, count: Math.round(90 * this.pMul()), up: 2.4, speed: 7.5, life: 0.7, grav: 6, size: 0.07 });
+        this.flash(cp, 0xffe8a0, 12); this.impactFin(1.05); snd('cheer'); snd('crash');
+        this.slowMo(0.55, 0.14);
+        return this.finish(mesh, victim, dir, t || E.Q, 'spin');
+      }).then(() => { mesh.position.copy(p0); mesh.rotation.x = 0; mesh.rotation.z = 0; if (w) w.rotation.set(rest, 0, 0); });
+    }
     // cores do exercito: faiscas e poeira no choque (sem sangue)
     armySpark() {
       const n = this.army && this.army.name;
@@ -1108,6 +1157,23 @@ export function makeVivo(M) {
         this.rim2.color.set(0x7f8fc0); this.rim2.intensity = 0.5;
         this._exp0 = 1.15; this.renderer.toneMappingExposure = 1.15;
         if (this.scene.fog) { this.scene.fog.color.set(0x0c0a09); }
+      }
+      this.dirty = true;
+    }
+    // final: poucos peoes — arena escurece (tensao)
+    endgameDark(on) {
+      if (!this.renderer) return;
+      const want = !!on;
+      if (this._endDark === want) return;
+      this._endDark = want;
+      const base = this._exp0 || 1.15;
+      if (want) {
+        this.renderer.toneMappingExposure = base * 0.72;
+        if (this.hemi) this.hemi.intensity *= 0.7;
+        if (this.key) this.key.intensity *= 0.75;
+        if (this.scene.fog) { this.scene.fog.near = (this.scene.fog.near || 8) * 0.7; this.scene.fog.far = (this.scene.fog.far || 28) * 0.75; }
+      } else {
+        this.armyLight ? this.armyLight() : (this.renderer.toneMappingExposure = base);
       }
       this.dirty = true;
     }

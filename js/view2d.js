@@ -85,19 +85,41 @@
       setTimeout(function () { if (capEl.parentNode) capEl.parentNode.removeChild(capEl); }, 420);
       setTimeout(function () { self.burst(capSq, ['#ff9a1f', '#ffc63a', '#ff5a2a', '#fff0b0'], 16, 1.15); self.hit(capSq); }, 200);
     }
-    // lances longos andam um pouco mais devagar (movimento mais suave), curtos continuam rapidos
-    var a0 = this.cell(m.from), a1 = this.cell(m.to), dist = Math.hypot(a1.c - a0.c, a1.r - a0.r), dur = Math.round((self.fast ? 125 : 230) * Math.min(1.35, 0.85 + dist * 0.07));
-    moves.forEach(function (mv) {
+    var a0 = this.cell(m.from), a1 = this.cell(m.to), dist = Math.hypot(a1.c - a0.c, a1.r - a0.r);
+    var dur = Math.round((self.fast ? 125 : 230) * Math.min(1.35, 0.85 + dist * 0.07));
+    var castle = !!(m.flags & E.F_CASTLE), promo = !!m.promo;
+    if (castle) dur = Math.round(dur * 1.35);
+    moves.forEach(function (mv, i) {
       var e = self.pieces[mv[1]]; if (!e) return;
+      var delay = (castle && i === 1) ? Math.round(dur * 0.35) : 0;
       e.style.transitionDuration = dur + 'ms';
       if ((self.el.ownerDocument || document).body.classList.contains('p2-prem')) self.trail(mv[0], mv[1]);
-      e.style.transition = 'none'; e.style.transform = self.tf(mv[0]); e.style.zIndex = 5;
+      e.style.transition = 'none'; e.style.transform = self.tf(mv[0]); e.style.zIndex = 5 + i;
       void e.offsetWidth;
-      e.style.transition = ''; e.style.transform = self.tf(mv[1]);
-      e.classList.remove('hop'); void e.offsetWidth; e.classList.add('hop');
-      setTimeout(function () { e.style.zIndex = ''; e.style.transitionDuration = ''; e.classList.add('land'); }, dur);
+      setTimeout(function () {
+        e.style.transition = ''; e.style.transform = self.tf(mv[1]);
+        e.classList.remove('hop'); void e.offsetWidth; e.classList.add('hop');
+        if (castle && i === 1) e.classList.add('b2-guard');
+        setTimeout(function () { e.style.zIndex = ''; e.style.transitionDuration = ''; e.classList.add('land'); e.classList.remove('b2-guard'); }, dur);
+      }, delay);
     });
-    return new Promise(function (res) { setTimeout(res, dur + 10); });
+    var wait = dur + (castle ? Math.round(dur * 0.35) : 0) + 10;
+    if (promo) {
+      var pe = self.pieces[m.to];
+      if (pe) {
+        var promoPiece = m.promo | (m.piece & 8), pawnSvg = XPieces.svg(1 | (m.piece & 8));
+        pe.innerHTML = pawnSvg; // ajoelha como peao
+        pe.classList.add('b2-promo');
+        setTimeout(function () {
+          pe.innerHTML = XPieces.svg(promoPiece);
+          self.burst(m.to, ['#ffe08a', '#fff4d0', '#ffb84a', '#c9a0ff', '#7fe3ff'], 22, 1.5);
+          pe.classList.remove('b2-promo'); pe.classList.add('b2-promo-rise');
+          setTimeout(function () { pe.classList.remove('b2-promo-rise'); }, 700);
+        }, Math.max(120, dur - 20));
+        wait = Math.max(wait, dur + 680);
+      }
+    }
+    return new Promise(function (res) { setTimeout(res, wait); });
   };
   // golpe da captura: anel que se abre na casa e o tabuleiro treme de leve
   View2D.prototype.hit = function (sq) {

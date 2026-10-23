@@ -100,6 +100,10 @@ export function makeFight(M, mv) {
       f.dist = Math.max(1.0 / tv, 0.85 / (tv * asp)) * (this.mobile ? 0.82 : 1) + (this.mobile ? 0.22 : 0.5);
       this.cam.rFactor = 1; this.hold = false; this.setActive(true);
       if (this.armyLight) this.armyLight();
+      if (this.endgameDark && typeof document !== 'undefined' && document.body.classList.contains('endgame')) this.endgameDark(true);
+      // dama/rei: chance de forcar finisher lendario
+      const pt = m.piece & 7;
+      if ((pt === E.Q || pt === E.K) && !this.forceFin && Math.random() < 0.32) this.forceFin = 'legend';
       const mv2 = { from, to, piece: m.piece, cap, promo: m.promo || 0, flags: m.promo ? E.F_PROMO : 0 };
       const atk = this.meshes[from], vic = this.meshes[to];
       // termina logo depois do golpe final (as metades caindo ja contam a historia)
