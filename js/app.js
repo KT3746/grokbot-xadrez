@@ -11,7 +11,9 @@
   var prefs = load(PREFS) || {};
   prefs = { style: prefs.style || 'classico', env: prefs.env || 'sala', theme: prefs.theme || 'classico', clock: prefs.clock || '0', view: prefs.view || '3d', sound: prefs.sound !== false, music: prefs.music !== false, vibe: prefs.vibe !== false, learn: !!prefs.learn, level: prefs.level || 'medio', color: prefs.color || 'w', flip: prefs.flip !== false, cam: prefs.cam2 || 'auto', aid: !!prefs.aid2, camFx: prefs.camFx !== false, p2: prefs.p2 || 'premium', evalbar: prefs.evalbar || 'learn',
     palette: prefs.palette || 'classico', psize: prefs.psize || 'n', outline: prefs.outline !== false, speed: prefs.speed || 'normal', capFx: prefs.capFx === 'normal' ? 'normal' : 'brutal', fight: prefs.fight !== false, fight3: !!prefs.fight3, army: prefs.army === 'cem' || prefs.army === 'esparta' ? prefs.army : 'estatuas', last3: prefs.last3 || (prefs.view === 'vivo' ? 'vivo' : '3d'), tipFight: !!prefs.tipFight, tipArmy: !!prefs.tipArmy,
-    lmArrow: prefs.lmArrow != null ? !!prefs.lmArrow : (typeof matchMedia === 'function' && matchMedia('(pointer:fine) and (min-width:900px)').matches) };
+    lmArrow: prefs.lmArrow != null ? !!prefs.lmArrow : (typeof matchMedia === 'function' && matchMedia('(pointer:fine) and (min-width:900px)').matches),
+    hiContrast: !!prefs.hiContrast,
+    reduceMot: prefs.reduceMot != null ? !!prefs.reduceMot : (typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches) };
   var PSIZE = { p: 0.9, n: 1, g: 1.12 };
 
   var app = {
@@ -474,7 +476,13 @@
     if (app.mode === '2p') return g.moves.length > 0;
     return g.moves.some(function (m) { return (m.piece & 8) === app.human; });
   }
-  function refreshButtons() { $('cUndo').disabled = app.mode === 'puzzle' ? false : !hasHumanMove(); $('cHint').disabled = !!app.over; refreshClocks(); }
+  function refreshButtons() {
+    var lock = !!app.fighting || !!app.busy;
+    $('cUndo').disabled = app.mode === 'puzzle' ? lock : (!hasHumanMove() || lock);
+    $('cHint').disabled = !!app.over || lock;
+    var fl = $('cFlip'); if (fl) fl.disabled = lock;
+    refreshClocks();
+  }
 
   app.clearSel = function () { app.sel = -1; app.dests = {}; if (app.hintMove) { clearHint(); refreshStatus(); } refreshHL(); };
   function select(sq) {
@@ -625,35 +633,52 @@
   }
   function fightSkip() {
     if (!FT.done) return;
-    var d = FT.done; FT.done = null; d();
+    var d = FT.done; FT.done = null;
+    try { if (FT.inst) FT.inst.stop(); } catch (e) { }
+    d();
   }
   function playFight(m) {
     var el = fightEl();
     return new Promise(function (resolve) {
       var ended = false, wasPaused = app.paused, t0 = Date.now(), maxT = 0, waitT = 0;
-      app.paused = true; app.fighting = true;
+      var shortFight = !!prefs.reduceMot;
+      app.paused = true; app.fighting = true; refreshButtons();
       el.querySelector('.flabel').innerHTML = '<b class="' + ((m.piece & 8) ? 'dk' : 'lt') + '">' + pieceName(m.piece) + '</b> captura <b class="' + ((m.cap & 8) ? 'dk' : 'lt') + '">' + pieceName(m.cap) + '</b>';
       el.hidden = false; el.classList.remove('out'); el.classList.add('loading'); void el.offsetWidth; el.classList.add('in');
       var finish = function () {
         if (ended) return; ended = true; FT.done = null; clearTimeout(maxT); clearTimeout(waitT);
-        if (FT.inst) FT.inst.stop();
+        try {
+          if (FT.inst) {
+            FT.inst.stop();
+            if (FT.inst.clearDebris) FT.inst.clearDebris();
+          }
+        } catch (e) { }
         el.classList.remove('in'); el.classList.add('out');
-        setTimeout(function () { if (!FT.done) { el.hidden = true; el.classList.remove('out'); } }, 260);
-        app.paused = wasPaused; app.fighting = false; lastTick = 0;
+        setTimeout(function () { if (!FT.done) { el.hidden = true; el.classList.remove('out'); } }, shortFight ? 80 : 260);
+        app.paused = wasPaused; app.fighting = false; lastTick = 0; refreshButtons();
         resolve();
       };
       FT.done = finish;
-      // se a arena demorar para carregar, segue sem luta
-      waitT = setTimeout(function () { if (!FT.inst) finish(); }, 6000);
+      waitT = setTimeout(function () { if (!FT.inst) finish(); }, shortFight ? 900 : 6000);
       fightLoad().then(function (v) {
         if (ended) return;
         if (!v) { finish(); return; }
         clearTimeout(waitT); el.classList.remove('loading');
-        v.capFx = prefs.capFx; v.camFx = prefs.camFx; v.speed = prefs.speed;
+        v.capFx = prefs.capFx; v.camFx = prefs.camFx; v.speed = shortFight ? 'rapido' : prefs.speed;
+        v._reduceMot = shortFight;
         if (v.palette !== prefs.palette) v.setPalette(prefs.palette);
         v.resize();
-        maxT = setTimeout(finish, 9000);
-        (v.setArmy ? v.setArmy(prefs.army).catch(function (e) { console.warn(e); }) : Promise.resolve()).then(function () { if (!ended) v.fight(m, E).then(finish); });
+        maxT = setTimeout(finish, shortFight ? 700 : 9000);
+        (v.setArmy ? v.setArmy(prefs.army).catch(function (e) { console.warn(e); }) : Promise.resolve()).then(function () {
+          if (ended) return;
+          if (shortFight) {
+            // luta curtissima ~0.6s: standoff off + skip logo apos impacto
+            v.forceBomb = false; v.forceFin = null;
+            var p = v.fight(m, E);
+            setTimeout(function () { if (!ended) fightSkip(); }, 600);
+            p.then(finish);
+          } else v.fight(m, E).then(finish);
+        });
       });
     });
   }
@@ -1054,9 +1079,24 @@
   }
   function modalHtml(title, html, btns) { modal(title, '', btns); $('mText').innerHTML = html; }
 
+  function openComoJoga() {
+    modalHtml('Como joga', [
+      '<ul class="howto">',
+      '<li><b>Toque</b> numa peça e depois na casa de destino (ou arraste).</li>',
+      '<li>Pontos = casas livres; <b>anel</b> = captura.</li>',
+      '<li>Nas capturas pode abrir uma <b>luta 3D</b> — toque para pular.</li>',
+      '<li><b>Desfazer</b> (Z) volta o seu lance; <b>Virar</b> (F) gira o tabuleiro.</li>',
+      '<li>Relógio: “Sem pressa” por padrão; 5 ou 10 min opcional.</li>',
+      '<li>Em Ajustes: Exército, lutas 3D, alto contraste e menos movimento.</li>',
+      '</ul>'
+    ].join(''), [{ t: 'Entendi', pri: true }]);
+  }
+
+
   // ===== Botoes =====
   function undo() {
-    if (app.mode === 'puzzle') { if (!app.busy) startPuzzle(app.pz.idx); return; }
+    if (app.mode === 'puzzle') { if (!app.busy && !app.fighting) startPuzzle(app.pz.idx); return; }
+    if (app.fighting) { fightSkip(); return; }
     if (app.busy || !hasHumanMove()) return;
     app.aiReq++; app.thinking = false; app.pendingAI = null; clearHint();
     var g = app.game;
@@ -1075,8 +1115,8 @@
     startGame({ learn: app.learn, mode: app.mode, level: app.level, human: human, autoFlip: app.autoFlip, clock: app.clock ? { limit: app.clock.limit } : null });
   }
   function flip() {
-    if (!app.game) return;
-    app.orient ^= 8; app.v.setOrient(app.orient, true); refreshPlayers(); sfx('whoosh'); saveGame();
+    if (!app.game || app.fighting || app.busy) return;
+    app.orient ^= 8; app.v.setOrient(app.orient, true); refreshPlayers(); if (app.game) updateEval(getStatus()); sfx('whoosh'); saveGame();
   }
 
   // ===== Janelas =====
@@ -1174,7 +1214,7 @@
   }
   var CAM_NAME = { auto: 'Normal', alta: 'Alta', media: 'Média', baixa: 'Baixa' };
   function camUI() { $('camBtnL').textContent = 'Vista: ' + CAM_NAME[prefs.cam]; }
-  function toggleSound() { prefs.sound = !prefs.sound; savePrefs(); soundUI(); sfx('click'); }
+  function toggleSound() { prefs.sound = !prefs.sound; savePrefs(); look2d(); soundUI(); sfx('click'); }
   var ICON_VIBE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="3" width="8" height="18" rx="2"/>';
   function vibeUI() {
     var on = prefs.vibe, ic = ICON_VIBE + (on ? '<path d="M4 8v8M20 8v8"/>' : '<path d="M3 3l18 18"/>') + '</svg>';
@@ -1205,11 +1245,13 @@
     camFx: { t: 'Câmera aproxima nas capturas', o: [['1', 'Ligado'], ['0', 'Desligado']], when: function (g) { return is3k(g('view')); } },
     evalbar: { t: 'Barra de vantagem', o: [['learn', 'No Aprender'], ['on', 'Sempre'], ['off', 'Nunca']] },
     lmArrow: { t: 'Seta do último lance', o: [['1', 'Ligada'], ['0', 'Desligada']], when: function (g) { return g('view') === '2d'; } },
+    hiContrast: { t: 'Alto contraste (2D)', o: [['1', 'Ligado'], ['0', 'Desligado']], when: function (g) { return g('view') === '2d'; } },
+    reduceMot: { t: 'Menos movimento', o: [['1', 'Ligado'], ['0', 'Desligado']] },
     sound: { t: 'Sons', o: [['1', 'Ligado'], ['0', 'Desligado']] },
     music: { t: 'Música', o: [['1', 'Ligada'], ['0', 'Desligada']] },
     vibe: { t: 'Vibração', o: [['1', 'Ligada'], ['0', 'Desligada']], when: function () { return !!navigator.vibrate; } }
   };
-  var SGROUPS = [['Visual', ['view', 'style', 'army', 'palette', 'psize', 'outline', 'aid']], ['Tabuleiro e cenário', ['theme', 'p2', 'env']], ['Câmera e animação', ['cam', 'speed', 'fight', 'fight3', 'capFx', 'camFx', 'evalbar', 'lmArrow']], ['Som', ['sound', 'music', 'vibe']]];
+  var SGROUPS = [['Visual', ['view', 'style', 'army', 'palette', 'psize', 'outline', 'aid', 'hiContrast']], ['Tabuleiro e cenário', ['theme', 'p2', 'env']], ['Câmera e animação', ['cam', 'speed', 'fight', 'fight3', 'capFx', 'camFx', 'evalbar', 'lmArrow', 'reduceMot']], ['Som', ['sound', 'music', 'vibe']]];
   function setVal(k) {
     var v = prefs[k];
     if (k === 'style' && prefs.view === 'vivo') return 'vivo';
@@ -1221,8 +1263,10 @@
     var b = document.body;
     ['rubi', 'safira', 'jade'].forEach(function (p) { b.classList.toggle('pal-' + p, prefs.palette === p); });
     b.style.setProperty('--psz', PSIZE[prefs.psize] || 1);
-    b.classList.toggle('fast', prefs.speed === 'rapido');
-    if (app.view2d) app.view2d.fast = prefs.speed === 'rapido';
+    b.classList.toggle('fast', prefs.speed === 'rapido' || prefs.reduceMot);
+    b.classList.toggle('hi-contrast', !!prefs.hiContrast);
+    b.classList.toggle('reduce-mot', !!prefs.reduceMot);
+    if (app.view2d) app.view2d.fast = prefs.speed === 'rapido' || prefs.reduceMot;
   }
   function applySetting(k, v) {
     var on = v === '1';
@@ -1263,6 +1307,8 @@
       case 'camFx': prefs.camFx = on; app.camFx = on; savePrefs(); each3(function (x) { x.camFx = on; }); break;
       case 'evalbar': prefs.evalbar = v; savePrefs(); if (app.game) { evalKey = ''; refreshStatus(); } break;
       case 'lmArrow': prefs.lmArrow = on; savePrefs(); if (app.game) refreshHL(); break;
+      case 'hiContrast': prefs.hiContrast = on; savePrefs(); look2d(); break;
+      case 'reduceMot': prefs.reduceMot = on; savePrefs(); look2d(); break;
       case 'sound': if (prefs.sound !== on) toggleSound(); break;
       case 'music': if (prefs.music !== on) toggleMusic(); break;
       case 'vibe': if (prefs.vibe !== on) toggleVibe(); break;
@@ -1296,7 +1342,7 @@
   }
   // ===== Ajustes com prévia ao vivo =====
   // Nada muda no jogo até tocar em Aplicar. A prévia desenha um tabuleiro de exemplo com o visual escolhido.
-  var DEF = { view: '3d', style: 'classico', palette: 'classico', psize: 'n', outline: '1', aid: '0', theme: 'classico', p2: 'premium', env: 'sala', cam: 'auto', speed: 'normal', capFx: 'brutal', army: 'estatuas', fight: '1', fight3: '0', camFx: '1', evalbar: 'learn', lmArrow: '1', sound: '1', music: '1', vibe: '1' };
+  var DEF = { view: '3d', style: 'classico', palette: 'classico', psize: 'n', outline: '1', aid: '0', theme: 'classico', p2: 'premium', env: 'sala', cam: 'auto', speed: 'normal', capFx: 'brutal', army: 'estatuas', fight: '1', fight3: '0', camFx: '1', evalbar: 'learn', lmArrow: '1', hiContrast: '0', reduceMot: '0', sound: '1', music: '1', vibe: '1' };
   var PV = { open: false, mode: 'game', base: null, d: null, hov: null, inst: {}, cls: {}, kind: null, v2: null, keep: false };
   var PVSAMPLE = (function () {
     var fen = 'r1bq1rk1/ppp2ppp/2np1n2/2b1p3/2B1P3/2NP1N2/PPP2PPP/R1BQ1RK1 w - - 0 7';
@@ -1621,6 +1667,8 @@
     $('bTwo').onclick = function () { sfx('click'); showPanel('pTwo'); };
     $('tSettings').onclick = function () { sfx('click'); openGameSettings('menu'); };
     $('tGuide').onclick = function () { sfx('click'); showScreen('guide'); };
+    if ($('bComo')) $('bComo').onclick = function () { sfx('click'); openComoJoga(); };
+    if ($('cComo')) $('cComo').onclick = function () { sfx('click'); openComoJoga(); };
     [].forEach.call(document.querySelectorAll('[data-home]'), function (b) { b.onclick = function () { sfx('click'); showScreen('menu'); }; });
     $('bLearnPlay').onclick = function () { sfx('click'); startGame({ mode: 'ai', learn: true, level: 'iniciante', human: 0 }); };
     $('coachWhy').onclick = coachWhy;

@@ -770,3 +770,17 @@ body.vivo:not(.vwide) #game .top { height: 48px; }
 @keyframes egIn { from { opacity: 0; } to { opacity: 1; } }
 #fightOv.endgame { background: rgba(2, 3, 8, .9); }
 #fightOv.endgame .fpanel { box-shadow: 0 20px 60px rgba(0,0,0,.85), 0 0 0 1px rgba(180, 200, 255, .18), inset 0 0 80px rgba(20, 30, 60, .35); }
+
+/* WAVE8 — acessibilidade */
+body.hi-contrast { --sqL1: #f4f0e4; --sqL2: #e8e0cc; --sqD1: #1f5a44; --sqD2: #164536; }
+body.hi-contrast .b2-sq.dot .mk { background: radial-gradient(circle, #04140c 0 26%, #fff 27% 34%, transparent 36%); }
+body.hi-contrast .b2-sq.ring .mk { background: radial-gradient(circle, transparent 0 48%, #ff2a00 50% 74%, transparent 76%); }
+body.hi-contrast .b2-sq.last::before { background: rgba(255, 220, 0, .55); box-shadow: inset 0 0 0 3px #000; }
+body.hi-contrast .b2-sq.sel::before { background: rgba(0, 180, 255, .45); box-shadow: inset 0 0 0 3px #003; }
+body.hi-contrast .pcs.pc-w g { fill: #fff; stroke: #000; stroke-width: 4; }
+body.hi-contrast .pcs.pc-b g { fill: #111; stroke: #fff; stroke-width: 3.5; }
+body.reduce-mot .b2-trail, body.reduce-mot .b2-burst, body.reduce-mot .hop { animation: none !important; }
+body.reduce-mot .b2-pc { transition-duration: .08s !important; }
+ul.howto { margin: 0; padding-left: 1.1em; text-align: left; line-height: 1.45; }
+ul.howto li { margin: .45em 0; }
+.tiles .tile#bComo { border-color: rgba(245, 200, 76, .35); }

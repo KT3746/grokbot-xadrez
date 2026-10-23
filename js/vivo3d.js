@@ -709,7 +709,7 @@ export function makeVivo(M) {
     // ---------- capturas brutais (estatuas de pedra, sem sangue) ----------
     get brutal() { return this.capFx !== 'normal'; }
     qL() { return Math.max(0, Math.min(4, this.level | 0)); }
-    pMul() { return this.mobile ? 0.55 : (this.isFight ? 0.85 : 1); }
+    pMul() { const b = this.mobile ? 0.55 : (this.isFight ? 0.85 : 1); return this._reduceMot ? b * 0.35 : b; }
     chunkN(big) { let n = [56, 44, 32, 22, 15][this.qL()]; if (this.mobile) n = Math.round(n * 0.75); if (this.isPreview) n = Math.round(n * 0.8); return big ? Math.round(n * 1.4) : n; }
     rubbleCap() { return (this.mobile ? [150, 115, 85, 60, 45] : [260, 200, 140, 95, 60])[this.qL()]; }
     pickVar(t, n) {

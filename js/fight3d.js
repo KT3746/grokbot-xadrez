@@ -72,8 +72,8 @@ export function makeFight(M, mv) {
     stop() {
       this.stopEmbers(); this._onKill = null; this._bombing = false; this.tweens = []; this.warp = null; this.rushUntil = 0; this.shakeAmt = 0; this._animMeshes.clear();
       if (this.cam.lookOff) this.cam.lookOff.set(0, 0, 0); this.cam.rFactor = 1;
-      // o que ficou pela metade (ondas de choque, faiscas) sai da cena
       if (this._base) for (const c of [...this.scene.children]) if (!this._base.has(c) && !(this.cracks || []).includes(c)) this.scene.remove(c);
+      try { if (this.clearDebris) this.clearDebris(); } catch (e) { }
       this.renderer.toneMappingExposure = this._exp0 || 1.15; if (this.glowLight) this.glowLight.intensity = 0;
       this.active = false; this.hold = true;
     }
@@ -116,8 +116,8 @@ export function makeFight(M, mv) {
           if (done) return;
           if (this._onKill) { this._onKill = null; afterKill(); }
         });
-        // standoff antes do embate (pula se ja pediram skip)
-        const stand = (atk && vic && this.standoff) ? this.standoff(atk, vic, dir) : Promise.resolve();
+        // standoff antes do embate (pula se reduce-motion ou skip)
+        const stand = (!this._reduceMot && atk && vic && this.standoff) ? this.standoff(atk, vic, dir) : Promise.resolve();
         stand.then(() => { if (!done) go(); });
       });
     }
