@@ -160,6 +160,10 @@
     potbreak: function (t) { for (var i = 0; i < 10; i++) knock(t + Math.random() * 0.08, 1800 + Math.random() * 3600, 0.15 + Math.random() * 0.15, 0.03 + Math.random() * 0.04); FX.whoosh(t + 0.02); },
     bow: function (t) { var o = ctx.createOscillator(); o.type = 'triangle'; o.frequency.setValueAtTime(240, t); o.frequency.exponentialRampToValueAtTime(150, t + 0.25); var g = ctx.createGain(); env(g, t, 0.22, 0.002, 0.25); o.connect(g); g.connect(sfx); o.start(t); o.stop(t + 0.3); knock(t, 1800, 0.18, 0.03); FX.whoosh(t + 0.02); },
     thunk: function (t) { knock(t, 600, 0.45, 0.06); thump(t, 160, 70, 0.4, 0.12); knock(t + 0.01, 3000, 0.2, 0.03); },
+    // trompas de guerra (metal sintetizado): aviso de xeque, vitoria e derrota do exercito
+    horn: function (t) { brass(t, [50, 57], 0.9, 0.11); brass(t + 0.95, [53, 60], 0.55, 0.09); },
+    fanfare: function (t) { [[0, [55, 62], 0.3], [0.32, [55, 62], 0.16], [0.5, [60, 67], 0.3], [0.84, [64, 71], 1.4]].forEach(function (n) { brass(t + n[0], n[1], n[2], 0.1); }); FX.drum(t + 0.84); FX.warcry(t + 1.1); },
+    lament: function (t) { [[0, [55, 50], 0.8], [0.85, [53, 48], 0.8], [1.7, [50, 45], 1.8]].forEach(function (n) { brass(t + n[0], n[1], n[2], 0.08, 900); }); thump(t + 1.7, 70, 36, 0.5, 0.9); },
     charge: function (t) { for (var i = 0; i < 6; i++) { thump(t + i * 0.09, 80, 34, 0.45, 0.14); knock(t + i * 0.09, 220, 0.14, 0.06); } },
     whoosh: function (t) {
       var src = ctx.createBufferSource(); src.buffer = noiseBuf;
@@ -186,6 +190,13 @@
     out.connect(sfx); var s2 = ctx.createGain(); s2.gain.value = 0.25; out.connect(s2); s2.connect(verbIn);
     o.start(t); vib.start(t); o.stop(t + dur + 0.05); vib.stop(t + dur + 0.05);
   }
+  // metal: duas serras levemente desafinadas por um filtro que abre no ataque (som de trompa)
+  function brass(t, notes, dur, vol, top) {
+    var out = ctx.createGain(); out.gain.setValueAtTime(0.0001, t); out.gain.exponentialRampToValueAtTime(vol, t + 0.06); out.gain.setValueAtTime(vol, t + Math.max(0.07, dur - 0.12)); out.gain.exponentialRampToValueAtTime(0.0001, t + dur + 0.25);
+    var lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.Q.value = 2; lp.frequency.setValueAtTime(300, t); lp.frequency.exponentialRampToValueAtTime(top || 1700, t + 0.09); lp.frequency.exponentialRampToValueAtTime((top || 1700) * 0.55, t + dur);
+    lp.connect(out); out.connect(sfx); var s2 = ctx.createGain(); s2.gain.value = 0.45; out.connect(s2); s2.connect(verbIn);
+    notes.forEach(function (n) { [-7, 7].forEach(function (d) { var o = ctx.createOscillator(); o.type = 'sawtooth'; o.frequency.value = mtof(n); o.detune.setValueAtTime(d - 30, t); o.detune.linearRampToValueAtTime(d, t + 0.08); o.connect(lp); o.start(t); o.stop(t + dur + 0.3); }); });
+  }
   // ronco grave de pedra arrastando
   function boom(t, vol, dur) {
     var src = ctx.createBufferSource(); src.buffer = noiseBuf;
@@ -202,7 +213,7 @@
     src.start(t); src.stop(t + dur + 0.1);
   }
   // a musica abaixa um pouco quando um som importante toca (mixagem)
-  var DUCK = { boom: 0.1, cannon: 0.3, fith: 0.5, warcry: 0.6, smash: 0.3, crash: 0.15, blast: 0.3, shatter: 0.5, crumble: 0.25, awaken: 0.5, capture: 0.5, check: 0.4, mate: 0.15, lose: 0.2, draw: 0.35, promote: 0.4, castle: 0.7, start: 0.6 };
+  var DUCK = { horn: 0.4, fanfare: 0.2, lament: 0.2, boom: 0.1, cannon: 0.3, fith: 0.5, warcry: 0.6, smash: 0.3, crash: 0.15, blast: 0.3, shatter: 0.5, crumble: 0.25, awaken: 0.5, capture: 0.5, check: 0.4, mate: 0.15, lose: 0.2, draw: 0.35, promote: 0.4, castle: 0.7, start: 0.6 };
   var duckG = null;
   function duck(amt, hold) {
     if (!duckG || !musOn) return;
@@ -213,12 +224,25 @@
   function play(name) {
     if (!ctx || !(sfxOn || force) || !FX[name]) return;
     if (ctx.state === 'suspended') ctx.resume();
-    if (DUCK[name] != null) duck(DUCK[name], name === 'mate' || name === 'lose' ? 2.6 : name === 'crash' || name === 'boom' ? 1.4 : 0.25);
+    if (DUCK[name] != null) duck(DUCK[name], name === 'mate' || name === 'lose' || name === 'fanfare' || name === 'lament' ? 2.6 : name === 'crash' || name === 'boom' ? 1.4 : 0.25);
     try { FX[name](ctx.currentTime + 0.01); } catch (e) { }
   }
 
   // ===== Camada de tensao: batida de coracao grave que cresce com o perigo =====
-  var tension = 0, tTarget = 0, beatT = 0, beatTimer = null, tensG = null;
+  var tension = 0, tTarget = 0, beatT = 0, beatTimer = null, tensG = null, battle = false, bBeat = 0;
+  // tambores de guerra: com exercito, a batida vira marcha; em xeque fica rapida, dobrada e com trompa
+  function warBeat(t, gap) {
+    var lv = 0.35 + tension * 0.65, i = bBeat++;
+    thumpT(t, 110, 48, 0.16 * lv, 0.35);
+    if (tension > 0.3 || i % 2 === 0) thumpT(t + gap * 0.5, 150, 70, 0.07 * lv, 0.2);
+    if (tension > 0.7) { thumpT(t + gap * 0.25, 170, 80, 0.06, 0.14); thumpT(t + gap * 0.75, 170, 80, 0.06, 0.14); }
+    if (tension > 0.9 && i % 4 === 0) { var o = ctx.createOscillator(); o.type = 'sawtooth'; o.frequency.value = 73.4; var lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.setValueAtTime(200, t); lp.frequency.exponentialRampToValueAtTime(700, t + 0.1); lp.frequency.exponentialRampToValueAtTime(220, t + gap); var g = ctx.createGain(); env(g, t, 0.05, 0.05, gap * 1.6); o.connect(lp); lp.connect(g); g.connect(tensG); o.start(t); o.stop(t + gap * 1.8); }
+  }
+  function thumpT(t, f0, f1, vol, dur) {
+    var o = ctx.createOscillator(); o.type = 'sine'; o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(f1, t + dur * 0.6);
+    var g = ctx.createGain(); env(g, t, vol, 0.004, dur); o.connect(g); g.connect(tensG); o.start(t); o.stop(t + dur + 0.05);
+    var src = ctx.createBufferSource(); src.buffer = noiseBuf; var bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 900; var ng = ctx.createGain(); env(ng, t, vol * 0.35, 0.002, 0.05); src.connect(bp); bp.connect(ng); ng.connect(tensG); src.start(t, Math.random() * 0.5, 0.08);
+  }
   function heart(t, vol) {
     [[0, 62, 1], [0.2, 54, 0.6]].forEach(function (b) {
       var o = ctx.createOscillator(); o.type = 'sine';
@@ -239,9 +263,10 @@
     beatTimer = setInterval(function () {
       if (!ctx || ctx.state !== 'running') return;
       tension += (tTarget - tension) * 0.25;
-      if (!musOn || tension < 0.05) { beatT = Math.max(beatT, ctx.currentTime + 0.1); return; }
-      var gap = 1.05 - tension * 0.35;
+      if (!musOn || (tension < 0.05 && !battle)) { beatT = Math.max(beatT, ctx.currentTime + 0.1); return; }
+      var gap = battle ? 0.78 - tension * 0.3 : 1.05 - tension * 0.35;
       while (beatT < ctx.currentTime + 0.5) {
+        if (battle) { warBeat(beatT, gap); beatT += gap; continue; }
         heart(beatT, 0.07 + tension * 0.11);
         if (tension > 0.6) { shimmer(beatT + gap / 2, 0.012 * tension); }
         beatT += gap;
@@ -389,6 +414,7 @@
     // 0 = calmo, 1 = perigo maximo (xeque, relogio no fim)
     // 'normal' ou 'vivo' (salao de pedra); troca na proxima frase musical
     setStyle: function (s) { style = s === 'vivo' ? 'vivo' : 'normal'; },
+    setBattle: function (on) { on = !!on; if (on !== battle) { battle = on; bBeat = 0; if (on) startBeat(); } },
     setTension: function (x) { tTarget = Math.max(0, Math.min(1, x || 0)); },
     get sfxOn() { return sfxOn; }, get musicOn() { return musOn; }
   };

@@ -83,18 +83,29 @@
     if (capEl) {
       capEl.style.setProperty('--t', capEl.style.transform); capEl.classList.add('b2-gone'); this.pcLayer.appendChild(capEl);
       setTimeout(function () { if (capEl.parentNode) capEl.parentNode.removeChild(capEl); }, 420);
-      setTimeout(function () { self.burst(capSq, ['#ff9a1f', '#ffc63a', '#ff5a2a', '#fff0b0'], 16, 1.15); }, 200);
+      setTimeout(function () { self.burst(capSq, ['#ff9a1f', '#ffc63a', '#ff5a2a', '#fff0b0'], 16, 1.15); self.hit(capSq); }, 200);
     }
+    // lances longos andam um pouco mais devagar (movimento mais suave), curtos continuam rapidos
+    var a0 = this.cell(m.from), a1 = this.cell(m.to), dist = Math.hypot(a1.c - a0.c, a1.r - a0.r), dur = Math.round((self.fast ? 125 : 230) * Math.min(1.35, 0.85 + dist * 0.07));
     moves.forEach(function (mv) {
       var e = self.pieces[mv[1]]; if (!e) return;
+      e.style.transitionDuration = dur + 'ms';
       if ((self.el.ownerDocument || document).body.classList.contains('p2-prem')) self.trail(mv[0], mv[1]);
       e.style.transition = 'none'; e.style.transform = self.tf(mv[0]); e.style.zIndex = 5;
       void e.offsetWidth;
       e.style.transition = ''; e.style.transform = self.tf(mv[1]);
       e.classList.remove('hop'); void e.offsetWidth; e.classList.add('hop');
-      setTimeout(function () { e.style.zIndex = ''; e.classList.add('land'); }, self.fast ? 125 : 230);
+      setTimeout(function () { e.style.zIndex = ''; e.style.transitionDuration = ''; e.classList.add('land'); }, dur);
     });
-    return new Promise(function (res) { setTimeout(res, self.fast ? 135 : 240); });
+    return new Promise(function (res) { setTimeout(res, dur + 10); });
+  };
+  // golpe da captura: anel que se abre na casa e o tabuleiro treme de leve
+  View2D.prototype.hit = function (sq) {
+    var c = this.squares[sq]; if (!c) return;
+    c.classList.remove('b2-hit'); void c.offsetWidth; c.classList.add('b2-hit');
+    setTimeout(function () { c.classList.remove('b2-hit'); }, 520);
+    var el = this.el; el.classList.remove('b2-jolt'); void el.offsetWidth; el.classList.add('b2-jolt');
+    setTimeout(function () { el.classList.remove('b2-jolt'); }, 260);
   };
   View2D.prototype.highlight = function (h) {
     for (var k in this.squares) {

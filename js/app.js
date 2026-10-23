@@ -275,9 +275,19 @@
       setEval(turn === 0 ? r.score : -r.score);
     });
   }
+  // exercito em campo: so quando ele aparece (Xadrez Vivo ou lutas 3D ligadas)
+  function armyOn() {
+    if (!app.has3d || !prefs.army || prefs.army === 'estatuas') return '';
+    return prefs.view === 'vivo' || (prefs.view === '2d' && prefs.fight) || (prefs.view === '3d' && prefs.fight3) ? prefs.army : '';
+  }
+  var ARMYTXT = {
+    cem: { side: ['Inglaterra', 'França'], win: ['A Inglaterra vence a Guerra dos Cem Anos!', 'A França vence a Guerra dos Cem Anos!'], draw: 'Trégua entre Inglaterra e França.' },
+    esparta: { side: ['Esparta', 'Pérsia'], win: ['Esparta resiste! Vitória dos espartanos.', 'O Império Persa conquista o tabuleiro!'], draw: 'Trégua nas Termópilas.' }
+  };
   // musica adaptativa: mais tensa em xeque, com o relogio no fim ou no final da partida
   function musicMood(st) {
     if (!window.XSound || !XSound.setTension) return;
+    if (XSound.setBattle) XSound.setBattle(app.screen === 'game' && !st.over && !!armyOn());
     var t = 0;
     if (app.screen === 'game' && app.game && !st.over) {
       var b = app.game.pos.board, n = 0;
@@ -423,7 +433,7 @@
   function moveSound(m, st) {
     if (app.v && app.v.ownSounds && !st.check && !m.promo && !(st.over && st.reason === 'mate')) { buzz(m.cap ? 'capture' : 'move'); return; }
     if (st.over && st.reason === 'mate') return;
-    if (st.check) { sfx('check'); buzz('check'); }
+    if (st.check) { sfx('check'); buzz('check'); if (armyOn()) sfx('horn'); }
     else if (m.promo) { sfx('promote'); sfx(m.cap ? 'capture' : 'move'); buzz('capture'); }
     else if (m.flags & E.F_CASTLE) { sfx('castle'); buzz('move'); }
     else if (m.cap) { sfx('capture'); buzz('capture'); }
@@ -559,8 +569,11 @@
     }
     var sub = statusText(st).replace('Xeque-mate! ', '').replace('Tempo esgotado! ', '').replace(/^Empate (por |pela |: )?/, '');
     var big = st.reason === 'mate' ? 'XEQUE-MATE' : st.reason === 'time' ? 'TEMPO!' : 'EMPATE';
+    var AT = armyOn() && ARMYTXT[armyOn()], armyLine = AT ? (st.winner === -1 ? AT.draw : AT.win[st.winner >> 3]) : '';
+    if (AT) sub = armyLine;
     // Vivo brutal: a execucao do rei leva mais tempo; o aviso e o resultado esperam a explosao
     var cm = app.v.celebrate({ reason: st.reason, winner: st.winner, kingSq: loserKing }), cms = typeof cm === 'number' ? cm : 0;
+    if (AT) setTimeout(function () { if (app.over === st) sfx(st.winner === -1 || (app.mode === 'ai' && st.winner !== app.human) ? 'lament' : 'fanfare'); }, st.reason === 'mate' ? (cms ? cms - 1300 : 900) : 300);
     setTimeout(function () { if (app.over === st) banner(big, sub.charAt(0).toUpperCase() + sub.slice(1)); }, st.reason === 'mate' ? (cms ? cms - 1500 : 700) : 200);
     clearTimeout(app.overT);
     app.overT = setTimeout(function () {
@@ -577,6 +590,7 @@
         modal(title, jt, jb, resultExtra(st));
         return;
       }
+      if (AT) { text = armyLine + ' ' + text; }
       modal(title, text, [{ t: 'Rever partida', fn: startReview }, { t: app.mode === 'ai' ? 'Jogar de novo' : 'Novo jogo', pri: true, fn: function () { newSame(); } }], resultExtra(st));
     }, st.reason === 'mate' ? Math.max(3300, cms) : 2000);
   }
@@ -955,7 +969,7 @@
   function modal(title, text, btns, extra) {
     $('mTitle').textContent = title; $('mText').textContent = text;
     var card = $('modal').querySelector('.card');
-    card.className = 'card' + (extra && extra.kind ? ' res ' + extra.kind : '');
+    card.className = 'card' + (extra && extra.kind ? ' res ' + extra.kind : '') + (extra && extra.kind && armyOn() ? ' army-' + armyOn() : '');
     $('mIcon').hidden = !(extra && extra.icon); $('mIcon').innerHTML = extra && extra.icon || '';
     $('mExtra').hidden = !(extra && extra.html); $('mExtra').innerHTML = extra && extra.html || '';
     var row = $('mBtns'); row.innerHTML = '';
