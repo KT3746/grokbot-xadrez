@@ -1556,6 +1556,7 @@
       if (e.target && /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) return;
       if (e.key === 'Escape') {
         e.preventDefault();
+        if (app.fighting) { fightSkip(); return; }
         if (!$('gSet').hidden) closeGameSettings(); else if ($('promo').hidden && $('modal').hidden) openGameSettings();
         return;
       }
