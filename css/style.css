@@ -710,3 +710,29 @@ body.vivo:not(.vwide) #game .top { height: 48px; }
 .b2-jolt { animation: b2jolt .24s ease-out; }
 @keyframes b2jolt { 0% { translate: 0 0; } 25% { translate: 2px 1px; } 50% { translate: -2px -1px; } 75% { translate: 1px 0; } 100% { translate: 0 0; } }
 @media (prefers-reduced-motion: reduce) { .b2-jolt { animation: none; } }
+
+/* ===== Onda 3: HUD limpo no celular (Galaxy 412x915 e similares) ===== */
+@media (max-width: 480px) {
+  .top { height: 46px; padding: 0 6px; }
+  .brand { font-size: 16px; }
+  .ico { height: 44px; min-width: 44px; border-radius: 13px; }
+  .ico span { display: none; } /* so icone no Menu: menos texto */
+  .player { height: 36px; padding: 0 10px; font-size: 14px; gap: 6px; }
+  .player .av { width: 32px; height: 32px; }
+  .player .sub { display: none; } /* menos ruido sob o nome */
+  .player .adv { font-size: 13px; }
+  #hist { min-height: 22px; padding: 1px 10px 2px; font-size: 13px; }
+  #hist:empty { min-height: 0; padding: 0; }
+  #hist:empty::before { content: none; }
+  #status { font-size: 17px; min-height: 30px; padding: 2px 8px; line-height: 24px; }
+  .controls { gap: 7px; padding: 6px 8px calc(8px + var(--safe-b)); }
+  .controls button { min-height: 64px; font-size: 12.5px; border-radius: 15px; gap: 2px; }
+  .controls svg { width: 24px; height: 24px; }
+  #coach { margin: 0 6px 2px; padding: 6px 7px; min-height: 46px; }
+  #toast { bottom: calc(96px + var(--safe-b)); font-size: 14.5px; padding: 10px 14px; max-width: 92vw; }
+}
+@media (max-width: 480px) and (min-height: 860px) {
+  .controls button { min-height: 70px; font-size: 13.5px; }
+  .controls svg { width: 26px; height: 26px; }
+  .player { height: 40px; }
+}

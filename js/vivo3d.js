@@ -689,6 +689,7 @@ export function makeVivo(M) {
     // ---------- capturas brutais (estatuas de pedra, sem sangue) ----------
     get brutal() { return this.capFx !== 'normal'; }
     qL() { return Math.max(0, Math.min(4, this.level | 0)); }
+    pMul() { return this.mobile ? 0.55 : (this.isFight ? 0.85 : 1); }
     chunkN(big) { let n = [56, 44, 32, 22, 15][this.qL()]; if (this.mobile) n = Math.round(n * 0.75); if (this.isPreview) n = Math.round(n * 0.8); return big ? Math.round(n * 1.4) : n; }
     rubbleCap() { return (this.mobile ? [150, 115, 85, 60, 45] : [260, 200, 140, 95, 60])[this.qL()]; }
     pickVar(t, n) {
@@ -894,7 +895,7 @@ export function makeVivo(M) {
           const vh = (victim.userData.h || 0.9) * ps, cp = p0.clone().lerp(vp, 0.55).setY(Math.min(vh, (mesh.userData.h || 0.9) * ps) * 0.72);
           snd('clash'); if (hammer) snd('crunch');
           const spark = this.army ? this.armySpark().clash : ['#ffffff', '#fff1b8', '#ffc24a', '#ff8a2a'];
-          this.particles.burst(cp, { colors: spark, count: Math.round(78 * (this.qL() >= 3 ? 0.55 : 1)), up: 1.7, speed: 8.2, life: 0.45, grav: 9, size: 0.06 });
+          this.particles.burst(cp, { colors: spark, count: Math.round(78 * (this.qL() >= 3 ? 0.55 : 1) * this.pMul()), up: 1.7, speed: 8.2, life: 0.45, grav: 9, size: 0.06 });
           this.flash(cp, 0xfff0c0, 7); this.flashExp(0.5); this.shake(0.12);
           if (this.camFx && !this.menu && !this.isPreview && !this.cam.target && !this.tweens.some((tw) => tw.tag === 'cam')) this.punch(cp);
           const m0 = mesh.position.clone();
@@ -1016,13 +1017,19 @@ export function makeVivo(M) {
       snd('warcry'); snd('drum');
       const side = new THREE.Vector3(-dir.z, 0, dir.x), ghosts = [];
       const mat = new THREE.MeshStandardMaterial({ color: 0xb3201c, roughness: 0.75, transparent: true, opacity: 0.55, vertexColors: false });
+      if (!this._phalanxGeo) this._phalanxGeo = {
+        body: new THREE.CylinderGeometry(0.14, 0.18, 0.7, 6),
+        spear: new THREE.CylinderGeometry(0.025, 0.025, 1.1, 5),
+        shield: new THREE.CircleGeometry(0.28, 10)
+      };
+      const G = this._phalanxGeo;
       const mk = (off) => {
         const g = new THREE.Group();
-        const body = new THREE.Mesh(new THREE.CylinderGeometry(0.14 * ps, 0.18 * ps, 0.7 * ps, 6), mat);
+        const body = new THREE.Mesh(G.body, mat); body.scale.setScalar(ps);
         body.position.y = 0.45 * ps; g.add(body);
-        const spear = new THREE.Mesh(new THREE.CylinderGeometry(0.025 * ps, 0.025 * ps, 1.1 * ps, 5), mat);
+        const spear = new THREE.Mesh(G.spear, mat); spear.scale.setScalar(ps);
         spear.position.set(0.2 * ps, 0.7 * ps, 0); spear.rotation.z = -0.5; g.add(spear);
-        const shield = new THREE.Mesh(new THREE.CircleGeometry(0.28 * ps, 10), mat);
+        const shield = new THREE.Mesh(G.shield, mat); shield.scale.setScalar(ps);
         shield.position.set(-0.2 * ps, 0.5 * ps, 0.12 * ps); g.add(shield);
         g.position.copy(p0).addScaledVector(side, off * ps); this.pieceGroup.add(g); ghosts.push(g); return g;
       };
@@ -1038,7 +1045,7 @@ export function makeVivo(M) {
         }); })
         .then(() => {
           const spark = this.armySpark().clash;
-          this.particles.burst(vp.clone().setY(0.5 * ps), { colors: spark, count: 90, up: 2, speed: 7, life: 0.45, grav: 8, size: 0.06 });
+          this.particles.burst(vp.clone().setY(0.5 * ps), { colors: spark, count: Math.round(90 * this.pMul()), up: 2, speed: 7, life: 0.45, grav: 8, size: 0.06 });
           this.shake(0.35); this.flashExp(1.4); snd('smash'); snd('clash');
           this.explode(victim, 'fling', dir, 2.4, { big: true });
         })
@@ -1059,7 +1066,7 @@ export function makeVivo(M) {
           .then(() => { snd('swing'); return this.tween(0.09, (k) => { const e = easeIn(k); if (w) { w.rotation.x = rest + 1.3 - 2.1 * e; w.rotation.z = sgn * 0.9 * (1 - e); } mesh.rotation.z = sgn * 0.25 * (1 - 2 * e); mesh.position.set(p0.x + dir.x * 0.1 * e, 0, p0.z + dir.z * 0.1 * e); }); })
           .then(() => {
             const cp = p0.clone().lerp(vp, 0.55).setY(0.55 * ps);
-            this.particles.burst(cp, { colors: this.armySpark().clash, count: 40, up: 1.2, speed: 6, life: 0.35, grav: 8, size: 0.05 });
+            this.particles.burst(cp, { colors: this.armySpark().clash, count: Math.round(40 * this.pMul()), up: 1.2, speed: 6, life: 0.35, grav: 8, size: 0.05 });
             snd('clash'); this.shake(0.12); victim.rotation.z = -sgn * 0.2;
           });
       };

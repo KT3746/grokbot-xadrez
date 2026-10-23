@@ -8,7 +8,7 @@ export function makeFight(M, mv) {
       super(canvas, app);
       this.isFight = true; this.noAmb = true; this.alwaysAmb = false;
       this.fc = { look: new THREE.Vector3(0, 0.5, 0), theta: 0, phi: 0.3, dist: 4 };
-      this.active = false; this._base = new Set(this.scene.children);
+      this.active = false; this.hold = true; this._base = new Set(this.scene.children);
     }
     // a arena so assiste: o toque e tratado pela camada por cima (pular)
     bindInput() { }
@@ -22,17 +22,19 @@ export function makeFight(M, mv) {
     }
     fitLayout() { return 0; }
     setActive(on) {
-      this.active = on;
+      this.active = !!on;
       if (on) { this.resize(); this.dirty = true; this.startEmbers(); }
-      else this.stopEmbers();
+      else { this.stopEmbers(); this.dirty = false; }
     }
-    // brasas e poeira leves so na luta (poucas, para o celular nao sofrer)
+    // brasas e poeira leves so na luta (geo reusada; poucas no celular)
     startEmbers() {
       if (this._embers || this.qL() >= 4) return;
-      const n = this.mobile ? 10 : 18, g = new THREE.Group();
+      const n = this.mobile ? 6 : 14, g = new THREE.Group();
       const cols = [0xffa040, 0xff6a1a, 0xffd27a, 0xc8b8a0];
+      if (!this._emberGeo) this._emberGeo = new THREE.SphereGeometry(0.04, 5, 5);
       for (let i = 0; i < n; i++) {
-        const m = new THREE.Mesh(new THREE.SphereGeometry(0.025 + Math.random() * 0.03, 5, 5), new THREE.MeshBasicMaterial({ color: cols[i % cols.length], transparent: true, opacity: 0.55 + Math.random() * 0.35 }));
+        const m = new THREE.Mesh(this._emberGeo, new THREE.MeshBasicMaterial({ color: cols[i % cols.length], transparent: true, opacity: 0.55 + Math.random() * 0.35 }));
+        m.scale.setScalar(0.6 + Math.random() * 0.7);
         m.position.set((Math.random() - 0.5) * 5, 0.2 + Math.random() * 2.2, (Math.random() - 0.5) * 5);
         m.userData.v = new THREE.Vector3((Math.random() - 0.5) * 0.15, 0.15 + Math.random() * 0.25, (Math.random() - 0.5) * 0.15);
         g.add(m);
@@ -41,7 +43,7 @@ export function makeFight(M, mv) {
     }
     stopEmbers() {
       if (!this._embers) return;
-      this.scene.remove(this._embers); this._embers.traverse((c) => { if (c.geometry) c.geometry.dispose(); if (c.material) c.material.dispose(); });
+      this.scene.remove(this._embers); this._embers.traverse((c) => { if (c.material) c.material.dispose(); });
       this._embers = null;
     }
     // camera baixa e perto, de lado para a luta
@@ -73,7 +75,7 @@ export function makeFight(M, mv) {
       // o que ficou pela metade (ondas de choque, faiscas) sai da cena
       if (this._base) for (const c of [...this.scene.children]) if (!this._base.has(c) && !(this.cracks || []).includes(c)) this.scene.remove(c);
       this.renderer.toneMappingExposure = this._exp0 || 1.15; if (this.glowLight) this.glowLight.intensity = 0;
-      this.active = false;
+      this.active = false; this.hold = true;
     }
     // monta a luta perto do centro: atacante ao lado da vitima, na mesma direcao do lance de verdade
     fight(m, E) {
@@ -96,7 +98,7 @@ export function makeFight(M, mv) {
       // distancia para caber os dois; no celular chega mais perto
       const tv = Math.tan(this.FOV * Math.PI / 360), asp = this.W / Math.max(1, this.H);
       f.dist = Math.max(1.0 / tv, 0.85 / (tv * asp)) * (this.mobile ? 0.82 : 1) + (this.mobile ? 0.22 : 0.5);
-      this.cam.rFactor = 1; this.setActive(true); this.startEmbers();
+      this.cam.rFactor = 1; this.hold = false; this.setActive(true);
       const mv2 = { from, to, piece: m.piece, cap, promo: m.promo || 0, flags: m.promo ? E.F_PROMO : 0 };
       // termina logo depois do golpe final (as metades caindo ja contam a historia)
       return new Promise((res) => {

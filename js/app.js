@@ -10,7 +10,7 @@
   var PHONE = Math.min(screen.width, screen.height) < 700;
   var prefs = load(PREFS) || {};
   prefs = { style: prefs.style || 'classico', env: prefs.env || 'sala', theme: prefs.theme || 'classico', clock: prefs.clock || '0', view: prefs.view || '3d', sound: prefs.sound !== false, music: prefs.music !== false, vibe: prefs.vibe !== false, learn: !!prefs.learn, level: prefs.level || 'medio', color: prefs.color || 'w', flip: prefs.flip !== false, cam: prefs.cam2 || 'auto', aid: !!prefs.aid2, camFx: prefs.camFx !== false, p2: prefs.p2 || 'premium', evalbar: prefs.evalbar || 'learn',
-    palette: prefs.palette || 'classico', psize: prefs.psize || 'n', outline: prefs.outline !== false, speed: prefs.speed || 'normal', capFx: prefs.capFx === 'normal' ? 'normal' : 'brutal', fight: prefs.fight !== false, fight3: !!prefs.fight3, army: prefs.army === 'cem' || prefs.army === 'esparta' ? prefs.army : 'estatuas', last3: prefs.last3 || (prefs.view === 'vivo' ? 'vivo' : '3d') };
+    palette: prefs.palette || 'classico', psize: prefs.psize || 'n', outline: prefs.outline !== false, speed: prefs.speed || 'normal', capFx: prefs.capFx === 'normal' ? 'normal' : 'brutal', fight: prefs.fight !== false, fight3: !!prefs.fight3, army: prefs.army === 'cem' || prefs.army === 'esparta' ? prefs.army : 'estatuas', last3: prefs.last3 || (prefs.view === 'vivo' ? 'vivo' : '3d'), tipFight: !!prefs.tipFight, tipArmy: !!prefs.tipArmy };
   var PSIZE = { p: 0.9, n: 1, g: 1.12 };
 
   var app = {
@@ -160,6 +160,7 @@
     saveGame();
     if (!moves.length) sfx('start');
     fightPreload();
+    maybeFightTips();
     $('bubble').hidden = true;
     if (app.jornada != null && !moves.length) { var gid0 = app.gameId; setTimeout(function () { if (app.gameId === gid0) say(XJourney.pick(XJourney.STAGES[app.jornada].hello), null, true); }, 1300); }
     puzzleUI();
@@ -523,6 +524,7 @@
       var wasHidden = el.hidden; el.hidden = false; el.style.visibility = 'hidden';
       FT.inst = new C($('fightCv'), { army: prefs.army, capFx: prefs.capFx, camFx: prefs.camFx, palette: prefs.palette, outlines: prefs.outline, pScale: 1, animSpeed: prefs.speed, camView: 'auto', visionAid: false,
         sel: -1, dests: {}, onSquare: function () { }, tryMove: function () { return false; }, clearSel: function () { }, hoverKind: function () { return ''; }, stageRect: function () { return { left: 0, top: 0, width: 10, height: 10 }; } });
+      if (FT.inst.setActive) FT.inst.setActive(false); FT.inst.hold = true;
       el.style.visibility = ''; el.hidden = wasHidden;
       return FT.inst;
     }).catch(function (e) { console.warn(e); FT.load = null; return null; });
@@ -533,6 +535,27 @@
     if (!app.has3d || FT.inst || FT.load) return;
     if (!((prefs.view === '2d' && prefs.fight) || (prefs.view === '3d' && prefs.fight3))) return;
     setTimeout(function () { if (app.screen === 'game' && !app.busy) fightLoad(); }, 1800);
+  }
+  // dica unica: Lutas 3D e Exercito (so uma vez cada)
+  function maybeFightTips() {
+    if (!app.has3d || app.screen !== 'game') return;
+    var fightOn = (prefs.view === '2d' && prefs.fight) || (prefs.view === '3d' && prefs.fight3) || prefs.view === 'vivo';
+    if (!fightOn) return;
+    if (!prefs.tipFight) {
+      prefs.tipFight = true; savePrefs();
+      setTimeout(function () {
+        if (app.screen !== 'game') return;
+        toast('Nas capturas aparece uma luta 3D. Toque para pular.');
+      }, 900);
+      return;
+    }
+    if (!prefs.tipArmy && prefs.army === 'estatuas') {
+      prefs.tipArmy = true; savePrefs();
+      setTimeout(function () {
+        if (app.screen !== 'game') return;
+        toast('Em Ajustes, escolha o Exército: Estátuas, Cem Anos ou Espartanos.');
+      }, 1100);
+    } else if (!prefs.tipArmy) { prefs.tipArmy = true; savePrefs(); }
   }
   function fightSkip() {
     if (!FT.done) return;
