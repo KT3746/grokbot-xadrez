@@ -38,7 +38,7 @@ export function makeFight(M, mv) {
     shatter(...a) { if (this._onKill) this._onKill(); return super.shatter(...a); }
     // para tudo na hora (pular)
     stop() {
-      this._onKill = null; this.tweens = []; this.warp = null; this.rushUntil = 0; this.shakeAmt = 0; this._animMeshes.clear();
+      this._onKill = null; this._bombing = false; this.tweens = []; this.warp = null; this.rushUntil = 0; this.shakeAmt = 0; this._animMeshes.clear();
       if (this.cam.lookOff) this.cam.lookOff.set(0, 0, 0); this.cam.rFactor = 1;
       // o que ficou pela metade (ondas de choque, faiscas) sai da cena
       if (this._base) for (const c of [...this.scene.children]) if (!this._base.has(c) && !(this.cracks || []).includes(c)) this.scene.remove(c);
@@ -70,7 +70,7 @@ export function makeFight(M, mv) {
       // termina logo depois do golpe final (as metades caindo ja contam a historia)
       return new Promise((res) => {
         let done = false; const end = () => { if (!done) { done = true; this._onKill = null; res(); } };
-        this._onKill = () => { this._onKill = null; setTimeout(end, 850); };
+        this._onKill = () => { this._onKill = null; setTimeout(end, this._bombing ? 1050 : 850); };
         this.animate(mv2, after, {}).then(end);
       });
     }

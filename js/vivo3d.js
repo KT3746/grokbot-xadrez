@@ -708,7 +708,7 @@ export function makeVivo(M) {
       for (let i = 0; i < n; i++) {
         const big = i < Math.max(2, Math.round(n * 0.12)), c = new THREE.Mesh(G[i % G.length], mat);
         c.castShadow = this.level < 2 && i < 10;
-        const s = (big ? rnd(1.9, 2.9) : rnd(0.6, 1.55)) * (o.size || 1) * ps;
+        const s = (big ? rnd(1.9, 2.9) : rnd(0.6, 1.55)) * (o.size || 1) * ps * (this.army && !o.mat ? 0.68 : 1);
         c.scale.set(s, s * rnd(0.55, 1), s * rnd(0.8, 1.2)); c.rotation.set(rnd(0, 6), rnd(0, 6), rnd(0, 6));
         const v = new THREE.Vector3(); fn(i, c.position, v, big);
         this.debrisGroup.add(c);
@@ -842,7 +842,7 @@ export function makeVivo(M) {
       const V = (n) => this.pickVar(t, n);
       let plan;
       if (t === E.P) plan = ['diag', 'decap', 'impale'][V(3)];
-      else if (t === E.B) plan = mesh.userData.archer ? ['diag', 'arrow', 'impale', 'arrow'][V(4)] : ['diag', 'decap', 'impale', 'old0'][V(4)];
+      else if (t === E.B) plan = mesh.userData.archer ? ['arrow', 'diag', 'arrow', 'impale'][V(4)] : ['diag', 'decap', 'impale', 'old0'][V(4)];
       else if (t === E.Q) plan = ['diag', 'decap', 'spin', 'old0'][V(4)];
       else if (t === E.K) plan = ['diag', 'decap', 'spin'][V(3)];
       else if (t === E.R) plan = ['smash', 'sweep', 'old1'][V(3)];
@@ -1032,6 +1032,7 @@ export function makeVivo(M) {
     }
     // atacante grita, joga (ou dispara) e a vitima vai pelos ares
     bombKill(mesh, victim, dir, t) {
+      this._bombing = true; setTimeout(() => { this._bombing = false; }, 4000);
       const P = this.projMeshes(), kind = this.army ? this.army.proj : 'bomba', ps = this.pScale || 1;
       const w = mesh.userData.weapon, rest = mesh.userData.rest || 0, p0 = mesh.position.clone().setY(0), vp = victim.position.clone().setY(0);
       const anim = this._animMeshes; anim.add(victim);
