@@ -840,6 +840,15 @@ export function makeVivo(M) {
     // --- duelo ate a morte: a vitima apara o primeiro golpe, o segundo mata ---
     brutalStrike(mesh, victim, dir, t, b, head) {
       const V = (n) => this.pickVar(t, n);
+      // finishers raros do exercito (fora da bomba)
+      if (this.army && this.forceBomb == null && (this.forceFin || Math.random() < 0.14)) {
+        const fins = this.army.name === 'esparta' ? ['phalanx', 'dual'] : this.army.name === 'cem' ? ['barrage', 'dual'] : ['dual'];
+        const fin = this.forceFin || fins[V(fins.length)];
+        this.forceFin = null;
+        if (fin === 'barrage') return this.finBarrage(mesh, victim, dir);
+        if (fin === 'phalanx') return this.finPhalanx(mesh, victim, dir);
+        if (fin === 'dual') return this.finDual(mesh, victim, dir, t);
+      }
       let plan;
       if (t === E.P) plan = ['diag', 'decap', 'impale'][V(3)];
       else if (t === E.B) plan = mesh.userData.archer ? ['arrow', 'diag', 'arrow', 'impale'][V(4)] : ['diag', 'decap', 'impale', 'old0'][V(4)];
@@ -973,6 +982,84 @@ export function makeVivo(M) {
         });
     }
     // ---------- fogo no buraco: explosivos ----------
+    // ===== Finishers raros (exercito) =====
+    finBarrage(mesh, victim, dir) {
+      const P = this.projMeshes(), ps = this.pScale || 1, p0 = mesh.position.clone().setY(0), vp = victim.position.clone().setY(0);
+      this._animMeshes.add(victim); this.duelCam(p0.clone().lerp(vp, 0.5), 2.4);
+      snd('fith'); snd('warcry');
+      const side = new THREE.Vector3(-dir.z, 0, dir.x), guns = [];
+      for (let i = 0; i < 3; i++) {
+        const cn = P.cannon(), cp = p0.clone().addScaledVector(side, (i - 1) * 0.55 * ps).addScaledVector(dir, -0.15);
+        cn.position.copy(cp); cn.rotation.y = Math.atan2(-dir.x, -dir.z); cn.scale.setScalar(0.01); this.scene.add(cn); guns.push(cn);
+      }
+      return this.tween(0.28, (k) => { const s = easeOut(k) * ps; guns.forEach((cn) => cn.scale.setScalar(Math.max(0.01, s))); })
+        .then(() => {
+          let chain = Promise.resolve();
+          guns.forEach((cn, i) => {
+            chain = chain.then(() => this.tween(0.1, () => {})).then(() => {
+              snd('cannon'); cn.updateMatrixWorld(true);
+              const mz = cn.localToWorld(cn.userData.muzzle.clone());
+              this.particles.burst(mz, { colors: ['#fff2b0', '#ffb040'], count: 28, up: 0.5, speed: 3, life: 0.25, grav: 1, size: 0.1 });
+              const bl = P.ball(); bl.scale.setScalar(ps * 0.9); this.scene.add(bl);
+              const at = vp.clone().addScaledVector(dir, -0.1).setY((victim.userData.h || 0.9) * ps * (0.4 + i * 0.12));
+              return this.tween(0.18, (k) => { bl.position.lerpVectors(mz, at, k); }).then(() => { this.scene.remove(bl); this.shake(0.18); this.flash(at, 0xffa040, 8); });
+            });
+          });
+          return chain;
+        })
+        .then(() => { this.blastFx(vp, 1.15); snd('boom'); this.explode(victim, 'blast', dir, 2.6, { big: true, noSlow: true, noFx: true }); })
+        .then(() => this.tween(0.22, (k) => { guns.forEach((cn) => cn.scale.setScalar(Math.max(0.01, (1 - k) * ps))); }).then(() => guns.forEach((cn) => this.scene.remove(cn))));
+    }
+    finPhalanx(mesh, victim, dir) {
+      const ps = this.pScale || 1, p0 = mesh.position.clone().setY(0), vp = victim.position.clone().setY(0);
+      this._animMeshes.add(victim); this.duelCam(p0.clone().lerp(vp, 0.55), 2.2);
+      snd('warcry'); snd('drum');
+      const side = new THREE.Vector3(-dir.z, 0, dir.x), ghosts = [];
+      const mk = (off) => {
+        const g = mesh.clone(true); g.traverse((c) => { if (c.isMesh) { c.castShadow = false; c.material = c.material.clone(); c.material.transparent = true; c.material.opacity = 0.55; } });
+        g.position.copy(p0).addScaledVector(side, off * ps); g.position.y = 0; this.pieceGroup.add(g); ghosts.push(g); return g;
+      };
+      const g1 = mk(-0.7), g2 = mk(0.7);
+      const w = mesh.userData.weapon, rest = mesh.userData.rest || 0;
+      snd('windup');
+      return this.tween(0.35, (k) => { const e = ease(k); [mesh, g1, g2].forEach((m) => { m.rotation.x = 0.15 * e; }); if (w) w.rotation.x = rest + 1.4 * e; })
+        .then(() => { snd('swing'); return this.tween(0.14, (k) => {
+          const e = easeIn(k);
+          [mesh, g1, g2].forEach((m, i) => { m.position.copy(p0).addScaledVector(side, (i - 1) * 0.7 * ps).addScaledVector(dir, 0.55 * e); m.rotation.x = 0.15 - 0.35 * e; });
+          if (w) w.rotation.x = rest + 1.4 - 2.2 * e;
+        }); })
+        .then(() => {
+          const spark = this.armySpark().clash;
+          this.particles.burst(vp.clone().setY(0.5 * ps), { colors: spark, count: 90, up: 2, speed: 7, life: 0.45, grav: 8, size: 0.06 });
+          this.shake(0.35); this.flashExp(1.4); snd('smash'); snd('clash');
+          this.explode(victim, 'fling', dir, 2.4, { big: true });
+        })
+        .then(() => this.tween(0.25, (k) => {
+          const e = ease(k);
+          ghosts.forEach((g) => { g.traverse((c) => { if (c.isMesh && c.material) c.material.opacity = 0.55 * (1 - e); }); });
+          mesh.position.copy(p0); mesh.rotation.x = 0; if (w) w.rotation.x = rest;
+        }).then(() => { ghosts.forEach((g) => this.pieceGroup.remove(g)); }));
+    }
+    finDual(mesh, victim, dir, t) {
+      // duas espadas: golpe esquerdo e direito
+      const ps = this.pScale || 1, w = mesh.userData.weapon, rest = mesh.userData.rest || 0;
+      const p0 = mesh.position.clone().setY(0), vp = victim.position.clone().setY(0);
+      this._animMeshes.add(victim); this.duelCam(p0.clone().lerp(vp, 0.55), 2.3);
+      snd('warcry');
+      const slash = (sgn) => {
+        snd('windup');
+        return this.tween(0.22, (k) => { const e = ease(k); if (w) { w.rotation.x = rest + 1.3 * e; w.rotation.z = sgn * 0.9 * e; } mesh.rotation.z = sgn * 0.25 * e; })
+          .then(() => { snd('swing'); return this.tween(0.09, (k) => { const e = easeIn(k); if (w) { w.rotation.x = rest + 1.3 - 2.1 * e; w.rotation.z = sgn * 0.9 * (1 - e); } mesh.rotation.z = sgn * 0.25 * (1 - 2 * e); mesh.position.set(p0.x + dir.x * 0.1 * e, 0, p0.z + dir.z * 0.1 * e); }); })
+          .then(() => {
+            const cp = p0.clone().lerp(vp, 0.55).setY(0.55 * ps);
+            this.particles.burst(cp, { colors: this.armySpark().clash, count: 40, up: 1.2, speed: 6, life: 0.35, grav: 8, size: 0.05 });
+            snd('clash'); this.shake(0.12); victim.rotation.z = -sgn * 0.2;
+          });
+      };
+      return slash(1).then(() => slash(-1)).then(() => {
+        snd('smash'); this.slowMo(0.5, 0.12); this.finish(mesh, victim, dir, t || E.Q, 'diag');
+      }).then(() => { mesh.position.copy(p0); mesh.rotation.set(0, mesh.rotation.y, 0); if (w) w.rotation.set(rest, 0, 0); });
+    }
     // cores do exercito: faiscas e poeira no choque (sem sangue)
     armySpark() {
       const n = this.army && this.army.name;
@@ -1045,6 +1132,7 @@ export function makeVivo(M) {
     // atacante grita, joga (ou dispara) e a vitima vai pelos ares
     bombKill(mesh, victim, dir, t) {
       this._bombing = true; setTimeout(() => { this._bombing = false; }, 4000);
+      if (typeof window !== 'undefined' && window.XApp) window.XApp._lastBomb = true;
       const P = this.projMeshes(), kind = this.army ? this.army.proj : 'bomba', ps = this.pScale || 1;
       const w = mesh.userData.weapon, rest = mesh.userData.rest || 0, p0 = mesh.position.clone().setY(0), vp = victim.position.clone().setY(0);
       const anim = this._animMeshes; anim.add(victim);
@@ -1391,12 +1479,41 @@ export function makeVivo(M) {
         });
     }
 
+    // vitoria do exercito: estandarte cai (Cem) ou lanças no ar (Esparta) ou coroa ja quebrada
+    armyTriumph(result) {
+      const kp = result.kingSq != null ? sqPos(result.kingSq) : new THREE.Vector3(), n = this.army && this.army.name;
+      setTimeout(() => {
+        if (n === 'cem') {
+          // estandarte: haste cai e a bandeira some em poeira vermelha/azul
+          const geo = new THREE.CylinderGeometry(0.03, 0.04, 1.6, 6), mat = new THREE.MeshStandardMaterial({ color: 0x5a4030, roughness: 0.7 });
+          const pole = new THREE.Mesh(geo, mat); pole.position.set(kp.x + 0.8, 0.8, kp.z); this.scene.add(pole);
+          const flag = new THREE.Mesh(new THREE.PlaneGeometry(0.7, 0.45), new THREE.MeshBasicMaterial({ color: result.winner === 0 ? 0xc8102e : 0x1f3c9e, side: THREE.DoubleSide }));
+          flag.position.set(0.35, 0.55, 0); pole.add(flag);
+          snd('whoosh');
+          this.tween(1.1, (k) => { const e = easeIn(k); pole.rotation.z = e * 1.35; pole.position.y = 0.8 - 0.55 * e; })
+            .then(() => { this.dust(pole.position, 2); this.particles.burst(pole.position, { colors: ['#c8102e', '#1f3c9e', '#e6b422', '#f4efe4'], count: 50, up: 1.5, speed: 3, life: 1.2, grav: 4, size: 0.08 }); this.scene.remove(pole); mat.dispose(); });
+        } else if (n === 'esparta') {
+          snd('warcry'); snd('drum');
+          const raisers = [];
+          for (const k in this.meshes) {
+            const m = this.meshes[k]; if (!m || (m.userData.piece & 8) !== result.winner) continue;
+            raisers.push(m); if (raisers.length >= 8) break;
+          }
+          raisers.forEach((m, i) => {
+            const w = m.userData.weapon, rest = m.userData.rest || 0;
+            this.tween(0.45, (k) => { const e = ease(k); m.rotation.x = -0.25 * e; if (w) w.rotation.x = rest - 1.1 * e; m.position.y = 0.08 * e; }, 0.15 + i * 0.05)
+              .then(() => this.tween(0.8, () => {})).then(() => this.tween(0.35, (k) => { const e = ease(k); m.rotation.x = -0.25 * (1 - e); if (w) w.rotation.x = rest - 1.1 * (1 - e); m.position.y = 0.08 * (1 - e); }));
+          });
+          this.particles.burst(kp.clone().setY(1.2), { colors: ['#b3201c', '#d8a63a', '#ffffff', '#5b2a86'], count: 60, up: 3, speed: 2.5, life: 1.5, grav: 3, size: 0.08 });
+        }
+      }, 2200);
+    }
     celebrate(result) {
       if (result.reason !== 'mate') {
         this.particles.burst(new THREE.Vector3(0, 0.5, 0), { colors: ['#d8ccb4', '#fff2d0', '#c8b8ff'], count: 80, up: 3, speed: 3, life: 1.6, grav: 3 });
         return;
       }
-      if (this.brutal) { this.execute(result); return this.speed === 'rapido' ? 4300 : 6900; }
+      if (this.brutal) { this.execute(result); if (this.army) this.armyTriumph(result); return this.speed === 'rapido' ? 4800 : 7400; }
       const king = this.meshes[result.kingSq]; if (!king) return;
       for (const k in this.meshes) { const bd = this.meshes[k].userData.badge; if (bd) bd.visible = false; }
       const kp = sqPos(result.kingSq), anim = this._animMeshes; anim.add(king);

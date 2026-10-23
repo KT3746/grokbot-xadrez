@@ -286,11 +286,17 @@
   };
   // musica adaptativa: mais tensa em xeque, com o relogio no fim ou no final da partida
   var capStreak = 0, capStreakT = 0;
-  function noteCapture() {
+  function noteCapture(kind) {
     var now = Date.now();
     if (now - capStreakT < 14000) capStreak++; else capStreak = 1;
     capStreakT = now;
     if (window.XSound && XSound.swell && capStreak >= 2) XSound.swell(1.15 + Math.min(0.35, capStreak * 0.08), 0.55);
+    // faixas de combo (so 2D/jogando, sem atrapalhar a luta)
+    if (capStreak >= 2) {
+      var title = kind === 'bomb' ? 'FOGO NO BURACO!' : capStreak >= 4 ? 'MASSACRE!' : capStreak === 3 ? 'EMBALADO!' : 'COMBO!';
+      var sub = capStreak + ' capturas seguidas';
+      setTimeout(function () { if (app.screen === 'game') banner(title, sub); }, kind === 'bomb' ? 900 : (app.fighting ? 400 : 180));
+    }
   }
   function musicMood(st) {
     if (!window.XSound || !XSound.setTension) return;
@@ -474,7 +480,7 @@
     var willAI = !st.over && app.mode === 'ai' && app.game.pos.turn !== app.human;
     if (willAI) requestAI();
     var run = function () { return app.v.animate(m, app.game.pos.board, opts || {}); };
-    if (m.cap) noteCapture();
+    if (m.cap) noteCapture(app._lastBomb ? 'bomb' : ''); app._lastBomb = false;
     var pre = fightWanted(m) ? playFight(m) : null;
     return (pre ? pre.then(run) : run()).then(function () {
       app.busy = false;
