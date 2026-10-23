@@ -101,9 +101,16 @@ export function makeFight(M, mv) {
       this.cam.rFactor = 1; this.hold = false; this.setActive(true);
       if (this.armyLight) this.armyLight();
       if (this.endgameDark && typeof document !== 'undefined' && document.body.classList.contains('endgame')) this.endgameDark(true);
-      // dama/rei: chance de forcar finisher lendario
+      // dama/rei/bispo/peao/cavalo: ampliam com hadouken/gancho (mantem lendario)
       const pt = m.piece & 7;
-      if ((pt === E.Q || pt === E.K) && !this.forceFin && Math.random() < 0.32) this.forceFin = 'legend';
+      if (!this.forceFin) {
+        const r = Math.random();
+        if ((pt === E.Q || pt === E.B) && r < 0.38) this.forceFin = r < 0.14 ? 'hadoDouble' : (r < 0.26 ? 'hadoCharge' : 'hadouken');
+        else if (pt === E.K && r < 0.40) this.forceFin = r < 0.12 ? 'legend' : (r < 0.26 ? 'hadouken' : (r < 0.34 ? 'hookFire' : 'hook'));
+        else if (pt === E.P && r < 0.36) this.forceFin = r < 0.18 ? 'hadouken' : (r < 0.28 ? 'hookFire' : 'hook');
+        else if (pt === E.N && r < 0.34) this.forceFin = r < 0.18 ? 'hookFire' : (r < 0.26 ? 'hook' : 'hadouken');
+        else if ((pt === E.Q || pt === E.K) && r < 0.32) this.forceFin = 'legend';
+      }
       const mv2 = { from, to, piece: m.piece, cap, promo: m.promo || 0, flags: m.promo ? E.F_PROMO : 0 };
       const atk = this.meshes[from], vic = this.meshes[to];
       // termina logo depois do golpe final (as metades caindo ja contam a historia)
@@ -116,8 +123,8 @@ export function makeFight(M, mv) {
           if (done) return;
           if (this._onKill) { this._onKill = null; afterKill(); }
         });
-        // standoff antes do embate (pula se reduce-motion ou skip)
-        const stand = (!this._reduceMot && atk && vic && this.standoff) ? this.standoff(atk, vic, dir) : Promise.resolve();
+        // standoff antes do embate (pula se reduce-motion, forceFin de teste, ou skip)
+        const stand = (!this._reduceMot && !this.forceFin && atk && vic && this.standoff) ? this.standoff(atk, vic, dir) : Promise.resolve();
         stand.then(() => { if (!done) go(); });
       });
     }

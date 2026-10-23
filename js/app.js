@@ -337,6 +337,27 @@
         }
       }, 220);
     }
+    if (app._lastFin === 'hadouken' || app._lastFin === 'hadoCharge' || app._lastFin === 'hadoDouble') {
+      (function (fin) {
+        setTimeout(function () {
+          if (app.screen === 'game') {
+            var sub = fin === 'hadoDouble' ? 'Rajada dupla de ki' : fin === 'hadoCharge' ? 'Carga máxima' : 'Bola de energia';
+            banner('Hadouken!', sub);
+            clearTimeout(banner.t); banner.t = setTimeout(function () { $('banner').hidden = true; }, 3200);
+          }
+        }, 200);
+      })(app._lastFin);
+    }
+    if (app._lastFin === 'hook' || app._lastFin === 'hookFire') {
+      (function (fin) {
+        setTimeout(function () {
+          if (app.screen === 'game') {
+            banner(fin === 'hookFire' ? 'Gancho flamejante!' : 'Gancho!', 'Uppercut que lança e estilhaça');
+            clearTimeout(banner.t); banner.t = setTimeout(function () { $('banner').hidden = true; }, 3200);
+          }
+        }, 200);
+      })(app._lastFin);
+    }
     if (window.XStats && XStats.onBrutal) {
       XStats.onBrutal({
         cap: true,

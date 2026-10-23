@@ -180,6 +180,51 @@
       thump(t, 90, 40, 0.22, 0.35); knock(t + 0.05, 800, 0.08, 0.2);
       for (var j = 0; j < 5; j++) knock(t + 0.1 + Math.random() * 0.5, 400 + Math.random() * 900, 0.04, 0.05);
     },
+    // ki: carga (zumbido), grito curto "Ha!", disparo, impacto
+    hadoCharge: function (t) {
+      var o = ctx.createOscillator(); o.type = 'sawtooth';
+      o.frequency.setValueAtTime(90, t); o.frequency.exponentialRampToValueAtTime(220, t + 0.55);
+      var bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.Q.value = 4;
+      bp.frequency.setValueAtTime(280, t); bp.frequency.exponentialRampToValueAtTime(900, t + 0.55);
+      var g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.14, t + 0.35); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.7);
+      o.connect(bp); bp.connect(g); g.connect(sfx);
+      var s2 = ctx.createGain(); s2.gain.value = 0.25; g.connect(s2); s2.connect(verbIn);
+      o.start(t); o.stop(t + 0.75);
+      var ns = ctx.createBufferSource(); ns.buffer = noiseBuf;
+      var nf = ctx.createBiquadFilter(); nf.type = 'lowpass'; nf.frequency.value = 600;
+      var ng = ctx.createGain(); ng.gain.setValueAtTime(0.0001, t); ng.gain.exponentialRampToValueAtTime(0.08, t + 0.4); ng.gain.exponentialRampToValueAtTime(0.0001, t + 0.65);
+      ns.connect(nf); nf.connect(ng); ng.connect(sfx); ns.start(t, 0, 0.7);
+    },
+    hadoHa: function (t) {
+      voice(t, 0.22, [[700, 1200], [900, 1400]], 160, 0.11, 'h', 1.1);
+      voice(t + 0.05, 0.18, [[650, 1050], [800, 1250]], 140, 0.08, '', 0.9);
+      FX.whoosh(t + 0.02);
+    },
+    hadoFire: function (t) {
+      FX.whoosh(t);
+      var src = ctx.createBufferSource(); src.buffer = noiseBuf;
+      var bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.Q.value = 1.1;
+      bp.frequency.setValueAtTime(500, t); bp.frequency.exponentialRampToValueAtTime(3200, t + 0.28);
+      var g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.26, t + 0.06); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.35);
+      src.connect(bp); bp.connect(g); g.connect(sfx); src.start(t, 0, 0.4);
+      thump(t, 100, 40, 0.2, 0.25);
+    },
+    hadoBoom: function (t) {
+      boom(t, 1.05, 1.1); FX.crack(t); thump(t, 70, 22, 1.0, 0.7);
+      for (var i = 0; i < 12; i++) knock(t + Math.random() * 0.35, 500 + Math.random() * 2400, 0.08 + Math.random() * 0.12, 0.04 + Math.random() * 0.06);
+      rumble(t, 0.9, 0.4);
+    },
+    // gancho flamejante: crouch + subida + impacto aereo
+    hookWhoosh: function (t) {
+      FX.whoosh(t); FX.whoosh(t + 0.08);
+      var o = ctx.createOscillator(); o.type = 'triangle';
+      o.frequency.setValueAtTime(180, t); o.frequency.exponentialRampToValueAtTime(520, t + 0.28);
+      var g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.12, t + 0.05); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.35);
+      o.connect(g); g.connect(sfx); o.start(t); o.stop(t + 0.4);
+    },
+    hookHit: function (t) {
+      FX.smash(t); boom(t, 0.85, 0.7); bell(t + 0.02, 880, 0.06, 0.5, 0.6);
+    },
     whoosh: function (t) {
       var src = ctx.createBufferSource(); src.buffer = noiseBuf;
       var bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.Q.value = 0.8;
@@ -228,7 +273,7 @@
     src.start(t); src.stop(t + dur + 0.1);
   }
   // a musica abaixa um pouco quando um som importante toca (mixagem)
-  var DUCK = { horn: 0.4, fanfare: 0.2, lament: 0.2, boom: 0.1, cannon: 0.3, fith: 0.5, warcry: 0.6, smash: 0.3, crash: 0.15, blast: 0.3, shatter: 0.5, crumble: 0.25, awaken: 0.5, capture: 0.5, check: 0.4, mate: 0.15, lose: 0.2, draw: 0.35, promote: 0.4, castle: 0.7, start: 0.6 };
+  var DUCK = { horn: 0.4, fanfare: 0.2, lament: 0.2, boom: 0.1, cannon: 0.3, fith: 0.5, warcry: 0.6, smash: 0.3, crash: 0.15, blast: 0.3, shatter: 0.5, crumble: 0.25, awaken: 0.5, capture: 0.5, check: 0.4, mate: 0.15, lose: 0.2, draw: 0.35, promote: 0.4, castle: 0.7, start: 0.6, hadoBoom: 0.2, hadoFire: 0.45, hadoHa: 0.55, hookHit: 0.25 };
   var duckG = null;
   function duck(amt, hold) {
     if (!duckG || !musOn) return;

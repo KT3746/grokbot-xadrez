@@ -650,7 +650,8 @@ export function makeVivo(M) {
       const walkDur = (d) => Math.min(1.35, 0.3 + d * 0.17);
       let p = this.turn(mesh, head, 0.16);
       const brutal = this.brutal && capMesh;
-      if (brutal && this.wantBomb()) {
+      // forceFin (Hadouken/gancho/lendario) tem prioridade sobre bomba
+      if (brutal && !this.forceFin && this.wantBomb()) {
         // "fogo no buraco!": bomba, tiro de canhao ou pote de fogo, de onde esta
         p = p.then(() => this.bombKill(mesh, capMesh, dir, t))
           .then(() => t === E.N ? this.leap(mesh, a, b, null, dir) : this.walk(mesh, a, b, walkDur(dist), heavy));
@@ -861,11 +862,21 @@ export function makeVivo(M) {
     // --- duelo ate a morte: a vitima apara o primeiro golpe, o segundo mata ---
     brutalStrike(mesh, victim, dir, t, b, head) {
       const V = (n) => this.pickVar(t, n);
-      // finishers raros; dama/rei tem chance de "lendario"
       const royal = (t === E.Q || t === E.K);
-      if (!this.forceBomb && (this.forceFin || (royal && Math.random() < 0.28) || (this.army && Math.random() < 0.14))) {
-        let fins = this.army ? (this.army.name === 'esparta' ? ['phalanx', 'dual'] : this.army.name === 'cem' ? ['barrage', 'dual'] : ['dual']) : ['dual'];
-        if (royal) fins = fins.concat(['legend']);
+      // finishers especiais (exercito + ki + gancho) — ampliam o set, nao substituem
+      if (!this.forceBomb && (this.forceFin || Math.random() < (royal ? 0.42 : 0.28) || (this.army && Math.random() < 0.12))) {
+        let fins = [];
+        if (this.army) {
+          if (this.army.name === 'esparta') fins = fins.concat(['phalanx', 'dual']);
+          else if (this.army.name === 'cem') fins = fins.concat(['barrage', 'dual']);
+          else fins = fins.concat(['dual']);
+        }
+        // Hadouken comum em peao/bispo/dama/rei; gancho em peao/rei; lendario em dama/rei
+        if (t === E.P || t === E.B || t === E.Q || t === E.K) fins = fins.concat(['hadouken', 'hadouken', 'hadoCharge']);
+        if (t === E.Q || t === E.B) fins = fins.concat(['hadoDouble']);
+        if (t === E.P || t === E.K || t === E.N) fins = fins.concat(['hook', 'hookFire']);
+        if (royal) fins = fins.concat(['legend', 'hadouken']);
+        if (!fins.length) fins = ['hadouken', 'hook'];
         const fin = this.forceFin || fins[V(fins.length)];
         this.forceFin = null;
         if (typeof window !== 'undefined' && window.XApp) window.XApp._lastFin = fin;
@@ -873,13 +884,22 @@ export function makeVivo(M) {
         if (fin === 'phalanx') return this.finPhalanx(mesh, victim, dir);
         if (fin === 'dual') return this.finDual(mesh, victim, dir, t);
         if (fin === 'legend') return this.finLegend(mesh, victim, dir, t);
+        if (fin === 'hadouken') return this.finHadouken(mesh, victim, dir, t, 0);
+        if (fin === 'hadoCharge') return this.finHadouken(mesh, victim, dir, t, 1);
+        if (fin === 'hadoDouble') return this.finHadouken(mesh, victim, dir, t, 2);
+        if (fin === 'hook' || fin === 'hookFire') return this.finHook(mesh, victim, dir, t, fin === 'hookFire');
       }
       let plan;
-      if (t === E.P) plan = ['diag', 'decap', 'impale'][V(3)];
-      else if (t === E.B) plan = mesh.userData.archer ? ['arrow', 'diag', 'arrow', 'impale'][V(4)] : ['diag', 'decap', 'impale', 'old0'][V(4)];
-      else if (t === E.Q) plan = ['diag', 'decap', 'spin', 'old0'][V(4)];
-      else if (t === E.K) plan = ['diag', 'decap', 'spin'][V(3)];
-      else if (t === E.R) plan = ['smash', 'sweep', 'old1'][V(3)];
+      // set renovado: mistura golpes classicos com ki/gancho via plan tags
+      if (t === E.P) plan = ['diag', 'impale', 'hadouken', 'hook', 'decap'][V(5)];
+      else if (t === E.B) plan = mesh.userData.archer ? ['arrow', 'hadouken', 'diag', 'hadoCharge'][V(4)] : ['hadouken', 'diag', 'impale', 'decap', 'hadoCharge'][V(5)];
+      else if (t === E.Q) plan = ['hadouken', 'spin', 'decap', 'hadoDouble', 'diag'][V(5)];
+      else if (t === E.K) plan = ['hook', 'hadouken', 'spin', 'diag', 'hookFire'][V(5)];
+      else if (t === E.R) plan = ['smash', 'sweep', 'old1', 'hadoCharge'][V(4)];
+      if (plan === 'hadouken') { if (typeof window !== 'undefined' && window.XApp) window.XApp._lastFin = 'hadouken'; return this.finHadouken(mesh, victim, dir, t, 0); }
+      if (plan === 'hadoCharge') { if (typeof window !== 'undefined' && window.XApp) window.XApp._lastFin = 'hadoCharge'; return this.finHadouken(mesh, victim, dir, t, 1); }
+      if (plan === 'hadoDouble') { if (typeof window !== 'undefined' && window.XApp) window.XApp._lastFin = 'hadoDouble'; return this.finHadouken(mesh, victim, dir, t, 2); }
+      if (plan === 'hook' || plan === 'hookFire') { if (typeof window !== 'undefined' && window.XApp) window.XApp._lastFin = plan; return this.finHook(mesh, victim, dir, t, plan === 'hookFire'); }
       if (!plan || !mesh.userData.weapon) return this.brutalOld(mesh, victim, dir, t, b, head);
       if (plan.startsWith('old')) { const fv = this.forceVar; this.forceVar = +plan[3]; const r = this.brutalOld(mesh, victim, dir, t, b, head); this.forceVar = fv; return r; }
       if (plan === 'arrow') return this.arrowKill(mesh, victim, dir);
@@ -1124,6 +1144,148 @@ export function makeVivo(M) {
         this.slowMo(0.55, 0.14);
         return this.finish(mesh, victim, dir, t || E.Q, 'spin');
       }).then(() => { mesh.position.copy(p0); mesh.rotation.x = 0; mesh.rotation.z = 0; if (w) w.rotation.set(rest, 0, 0); });
+    }
+    // cores de ki por exercito/lado (azul/laranja originais, tintados)
+    kiPalette(side) {
+      const n = this.army && this.army.name, dark = !!(side & 8);
+      if (n === 'cem') {
+        return dark
+          ? { hex: 0xffc44a, cols: ['#fff4d0', '#ffd27a', '#e6b422', '#ff8a3a', '#ffffff'], trail: ['#ffe08a', '#ffb84a', '#fff'] }
+          : { hex: 0x4a8cff, cols: ['#d0e8ff', '#7fb8ff', '#1f3c9e', '#a8d0ff', '#ffffff'], trail: ['#9fd8ff', '#6fb0ff', '#fff'] };
+      }
+      if (n === 'esparta') {
+        return dark
+          ? { hex: 0xb060e0, cols: ['#e8d0ff', '#b060e0', '#5b2a86', '#ff9a3a', '#ffffff'], trail: ['#d8a0ff', '#9a50d0', '#fff'] }
+          : { hex: 0xffa040, cols: ['#ffe0b0', '#ffb050', '#d8a63a', '#ff6a1a', '#ffffff'], trail: ['#ffd080', '#ff8a30', '#fff'] };
+      }
+      return dark
+        ? { hex: 0xff7a3a, cols: ['#ffe6a8', '#ff9a3a', '#ff5a1a', '#fff3c4', '#ffffff'], trail: ['#ffb070', '#ff6a20', '#fff'] }
+        : { hex: 0x7ec8ff, cols: ['#e8f4ff', '#9fd8ff', '#5aa8ff', '#ffffff', '#c8e8ff'], trail: ['#b8e0ff', '#70c0ff', '#fff'] };
+    }
+    // Hadouken: carrega ki, grita, dispara bola de energia, explode sem sangue
+    // mode 0=normal, 1=carga longa, 2=duplo
+    finHadouken(mesh, victim, dir, t, mode) {
+      mode = mode | 0;
+      const ps = this.pScale || 1, w = mesh.userData.weapon, rest = mesh.userData.rest || 0;
+      const p0 = mesh.position.clone().setY(0), vp = victim.position.clone().setY(0);
+      const side = mesh.userData.piece & 8, ki = this.kiPalette(side);
+      const vh = (victim.userData.h || 0.9) * ps;
+      this._animMeshes.add(victim); this.duelCam(p0.clone().lerp(vp, 0.45), 2.35);
+      snd('hadoCharge');
+      const hand = p0.clone().addScaledVector(dir, 0.42 * ps).setY(vh * 0.72);
+      let orb = null, core = null;
+      const glowHands = (k) => {
+        const e = ease(k);
+        mesh.rotation.x = -0.12 * e; mesh.rotation.z = 0.08 * e;
+        if (w) { w.rotation.x = rest + 0.9 * e; w.rotation.z = -0.4 * e; }
+        mesh.position.y = 0.04 * Math.sin(e * Math.PI);
+        if (orb) {
+          orb.scale.setScalar((0.45 + 1.1 * e) * (mode === 1 ? 1.35 : 1) * ps);
+          core.scale.setScalar((0.18 + 0.45 * e) * ps);
+          orb.position.copy(hand); core.position.copy(hand);
+          if (this.glowLight) { this.glowLight.color.set(ki.hex); this.glowLight.position.copy(hand); this.glowLight.intensity = 2 + 6 * e; }
+          if (Math.random() < 0.55) this.particles.burst(hand, { colors: ki.trail, count: 4, up: 0.4, speed: 0.8, life: 0.3, grav: -0.2, size: 0.07 });
+        }
+      };
+      orb = this.orb(ki.hex, 0.55); core = this.orb(0xffffff, 0.22); this.scene.add(orb, core);
+      return this.tween(mode === 1 ? 0.65 : 0.48, glowHands).then(() => {
+        snd('hadoHa'); snd('hadoFire');
+        return this.tween(0.1, (k) => {
+          const e = easeIn(k);
+          mesh.rotation.x = -0.12 + 0.35 * e; mesh.position.set(p0.x + dir.x * 0.14 * e, 0, p0.z + dir.z * 0.14 * e);
+          if (w) w.rotation.x = rest + 0.9 - 1.5 * e;
+        });
+      }).then(() => {
+        const from = hand.clone(), to = vp.clone().setY(vh * 0.55);
+        const fly = mode === 1 ? 0.42 : 0.34;
+        const fireOne = (delay) => this.tween(Math.max(0.001, delay || 0), () => { }).then(() => {
+          const sp = this.orb(ki.hex, 1.55 * ps), cr = this.orb(0xffffff, 0.55 * ps); this.scene.add(sp, cr);
+          snd('hadoFire');
+          return this.tween(fly, (k) => {
+            const e = k * k;
+            sp.position.lerpVectors(from, to, e); sp.position.y += Math.sin(Math.PI * k) * 0.12;
+            cr.position.copy(sp.position);
+            sp.scale.setScalar((0.7 + 0.4 * Math.sin(k * Math.PI)) * ps);
+            if (this.glowLight) { this.glowLight.position.copy(sp.position); this.glowLight.intensity = 8; }
+            this.particles.burst(sp.position, { colors: ki.trail, count: 14, up: 0.35, speed: 1.1, life: 0.4, grav: 0, size: 0.12 });
+          }).then(() => { this.scene.remove(sp, cr); sp.material.dispose(); cr.material.dispose(); });
+        });
+        this.scene.remove(orb, core); orb.material.dispose(); core.material.dispose(); orb = core = null;
+        const shots = mode === 2 ? fireOne(0).then(() => fireOne(0.12)) : fireOne(0);
+        return shots.then(() => {
+          snd('hadoBoom'); this.impactFin(1.0); this.slowMo(0.45, 0.12);
+          this.flash(to, ki.hex, 14); this.flashExp(1.4);
+          this.particles.burst(to, { colors: ki.cols, count: Math.round(100 * this.pMul()), up: 2.6, speed: 7.5, life: 0.65, grav: 5, size: 0.08 });
+          this.particles.burst(to.clone().setY(0.08), { colors: this.armySpark().dust, count: Math.round(50 * this.pMul()), up: 0.7, speed: 5, life: 1.6, grav: 0.3, size: 0.35, normal: true, opacity: 0.5 });
+          this.shockwave(vp, ki.hex); this.addCrack(vp, 1.2);
+          this.explode(victim, 'blast', dir, 1.85, { big: true, color: ki.hex, sparks: ki.cols, noSlow: true });
+          snd('cheer');
+        });
+      }).then(() => {
+        if (this.glowLight) this.glowLight.intensity = 0;
+        mesh.position.copy(p0); mesh.rotation.x = 0; mesh.rotation.z = 0;
+        if (w) w.rotation.set(rest, 0, 0);
+      });
+    }
+    // Gancho / gancho flamejante: agacha, sobe, lanca a vitima e ela estilhaça ao cair
+    finHook(mesh, victim, dir, t, flaming) {
+      const ps = this.pScale || 1, w = mesh.userData.weapon, rest = mesh.userData.rest || 0;
+      const p0 = mesh.position.clone().setY(0), vp = victim.position.clone().setY(0);
+      const side = mesh.userData.piece & 8, ki = this.kiPalette(side);
+      const vh = (victim.userData.h || 0.9) * ps;
+      this._animMeshes.add(victim); this.duelCam(p0.clone().lerp(vp, 0.5), 2.4);
+      snd('windup');
+      return this.tween(0.22, (k) => {
+        const e = ease(k), s = 1 - 0.18 * e;
+        mesh.scale.set(1 + (1 - s) * 0.4, s, 1 + (1 - s) * 0.4);
+        mesh.rotation.x = 0.35 * e;
+        if (w) w.rotation.x = rest - 0.6 * e;
+      }).then(() => {
+        snd('hookWhoosh'); if (flaming) snd('hadoFire');
+        return this.tween(0.28, (k) => {
+          const e = easeOut(k);
+          mesh.scale.set(1, 1, 1);
+          mesh.position.set(p0.x + dir.x * 0.25 * e, 1.15 * e * ps, p0.z + dir.z * 0.25 * e);
+          mesh.rotation.x = 0.35 - 1.35 * e;
+          mesh.rotation.z = 0.35 * Math.sin(e * Math.PI);
+          if (w) w.rotation.x = rest - 0.6 + 2.4 * e;
+          {
+            const fist = mesh.position.clone().addScaledVector(dir, 0.28 * ps).setY(mesh.position.y + 0.4 * ps);
+            const cols = flaming ? ki.trail.concat(['#ff4a12', '#ffd27a', '#fff']) : ki.trail;
+            this.particles.burst(fist, { colors: cols, count: flaming ? 12 : 5, up: 1.0, speed: 1.6, life: 0.4, grav: -0.6, size: flaming ? 0.12 : 0.08 });
+            if (flaming && this.glowLight) { this.glowLight.color.set(0xff6a1a); this.glowLight.position.copy(fist); this.glowLight.intensity = 7; }
+          }
+        });
+      }).then(() => {
+        snd('hookHit'); this.impactFin(0.95); this.slowMo(0.5, 0.12);
+        const hit = vp.clone().setY(vh * 0.55);
+        this.flash(hit, flaming ? 0xff6a1a : ki.hex, 10);
+        this.particles.burst(hit, { colors: flaming ? ['#ff4a12', '#ffd27a', '#fff', '#ff8a3a'] : ki.cols, count: Math.round(70 * this.pMul()), up: 2.2, speed: 6, life: 0.45, grav: 4, size: 0.07 });
+        const launch = vp.clone().addScaledVector(dir, 0.2).setY(2.1 * ps);
+        victim.position.copy(vp);
+        return this.tween(0.55, (k) => {
+          const e = easeOut(Math.min(1, k * 1.15));
+          const fall = k > 0.45 ? easeIn((k - 0.45) / 0.55) : 0;
+          victim.position.set(
+            vp.x + (launch.x - vp.x) * e,
+            vp.y + (launch.y - vp.y) * e * (1 - fall) + Math.sin(Math.min(1, k) * Math.PI) * 0.15,
+            vp.z + (launch.z - vp.z) * e
+          );
+          victim.rotation.x = -2.6 * k; victim.rotation.z = 1.8 * k;
+          if (flaming && Math.random() < 0.5) this.particles.burst(victim.position.clone().setY(victim.position.y + 0.2), { colors: ['#ff6a1a', '#ffd27a'], count: 3, up: 0.3, speed: 0.5, life: 0.25, grav: 0, size: 0.08 });
+        }).then(() => {
+          snd('crash'); this.shake(0.22); this.flashExp(1.1);
+          this.explode(victim, 'crush', dir, 2.0, { big: true, noSlow: true, sparks: flaming ? ['#ff4a12', '#ffd27a', '#fff3c4'] : ki.cols });
+          this.dust(vp, 2.2); this.addCrack(vp, 1.4); snd('cheer');
+        });
+      }).then(() => {
+        return this.tween(0.28, (k) => {
+          const e = ease(k);
+          mesh.position.set(p0.x + dir.x * 0.2 * (1 - e), 0.85 * ps * (1 - e), p0.z + dir.z * 0.2 * (1 - e));
+          mesh.rotation.x *= (1 - e); mesh.rotation.z *= (1 - e);
+          if (w) w.rotation.x = rest + (w.rotation.x - rest) * (1 - e);
+        }).then(() => { mesh.position.copy(p0); mesh.rotation.set(0, mesh.rotation.y, 0); mesh.scale.set(1, 1, 1); if (w) w.rotation.set(rest, 0, 0); });
+      });
     }
     // cores do exercito: faiscas e poeira no choque (sem sangue)
     armySpark() {
@@ -1514,9 +1676,14 @@ export function makeVivo(M) {
     }
     // cavalo: pisoteia, empina e esmaga, ou atravessa com um coice
     knightBrutal(mesh, a, b, victim, dir) {
-      // finishers do exercito tambem no salto do cavalo
-      if (this.army && !this.forceBomb && (this.forceFin || Math.random() < 0.14)) {
-        const fins = this.army.name === 'esparta' ? ['phalanx', 'dual'] : this.army.name === 'cem' ? ['barrage', 'dual'] : ['dual'];
+      // finishers do exercito + gancho ascendente / hadouken no salto
+      if (!this.forceBomb && (this.forceFin || Math.random() < 0.32)) {
+        let fins = ['hook', 'hookFire', 'hadouken'];
+        if (this.army) {
+          if (this.army.name === 'esparta') fins = fins.concat(['phalanx', 'dual']);
+          else if (this.army.name === 'cem') fins = fins.concat(['barrage', 'dual']);
+          else fins = fins.concat(['dual']);
+        }
         const fin = this.forceFin || fins[this.pickVar(E.N, fins.length)];
         this.forceFin = null;
         if (typeof window !== 'undefined' && window.XApp) window.XApp._lastFin = fin;
@@ -1524,6 +1691,8 @@ export function makeVivo(M) {
         if (fin === 'barrage') p = this.finBarrage(mesh, victim, dir);
         else if (fin === 'phalanx') p = this.finPhalanx(mesh, victim, dir);
         else if (fin === 'dual') p = this.finDual(mesh, victim, dir, E.N);
+        else if (fin === 'hadouken') p = this.finHadouken(mesh, victim, dir, E.N, 0);
+        else if (fin === 'hook' || fin === 'hookFire') p = this.finHook(mesh, victim, dir, E.N, fin === 'hookFire');
         if (p) return p.then(() => { mesh.position.copy(b); mesh.scale.set(1, 1, 1); mesh.rotation.set(0, mesh.rotation.y, 0); snd('stompH'); this.dust(b, 1.2); });
       }
       const v = this.pickVar(E.N, 3), dist = a.distanceTo(b);
