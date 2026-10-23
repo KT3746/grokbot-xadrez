@@ -869,7 +869,11 @@ export function makeVivo(M) {
       const vy0 = victim.rotation.y, face = Math.atan2(dir.x, dir.z), dy = ((face - vy0) % (Math.PI * 2) + Math.PI * 3) % (Math.PI * 2) - Math.PI;
       const hammer = t === E.R, up = hammer ? 1.7 : 1.5;
       snd('windup'); this.tremble(victim, 0.25, 0.008);
-      if (this.army) { snd(Math.random() < 0.5 ? 'warcry' : 'drum'); this.dust(mesh.position, 1.2); }
+      if (this.army) {
+        snd(Math.random() < 0.5 ? 'warcry' : 'drum'); this.dust(mesh.position, 1.2);
+        const cols = this.armySpark();
+        this.particles.burst(mesh.position.clone().setY(0.15), { colors: cols.dust, count: 28, up: 0.5, speed: 2.2, life: 1.4, grav: -0.15, size: 0.35, normal: true, opacity: 0.5 });
+      }
       return this.tween(0.26, (k) => {
         const e = ease(k);
         victim.rotation.y = vy0 + dy * e; victim.rotation.x = -0.1 * e;
@@ -880,7 +884,8 @@ export function makeVivo(M) {
           // choque das armas: faiscas de metal, clarao curto, tranco
           const vh = (victim.userData.h || 0.9) * ps, cp = p0.clone().lerp(vp, 0.55).setY(Math.min(vh, (mesh.userData.h || 0.9) * ps) * 0.72);
           snd('clash'); if (hammer) snd('crunch');
-          this.particles.burst(cp, { colors: ['#ffffff', '#fff1b8', '#ffc24a', '#ff8a2a'], count: Math.round(70 * (this.qL() >= 3 ? 0.55 : 1)), up: 1.6, speed: 7.5, life: 0.42, grav: 9, size: 0.055 });
+          const spark = this.army ? this.armySpark().clash : ['#ffffff', '#fff1b8', '#ffc24a', '#ff8a2a'];
+          this.particles.burst(cp, { colors: spark, count: Math.round(78 * (this.qL() >= 3 ? 0.55 : 1)), up: 1.7, speed: 8.2, life: 0.45, grav: 9, size: 0.06 });
           this.flash(cp, 0xfff0c0, 7); this.flashExp(0.5); this.shake(0.12);
           if (this.camFx && !this.menu && !this.isPreview && !this.cam.target && !this.tweens.some((tw) => tw.tag === 'cam')) this.punch(cp);
           const m0 = mesh.position.clone();
@@ -968,6 +973,13 @@ export function makeVivo(M) {
         });
     }
     // ---------- fogo no buraco: explosivos ----------
+    // cores do exercito: faiscas e poeira no choque (sem sangue)
+    armySpark() {
+      const n = this.army && this.army.name;
+      if (n === 'cem') return { clash: ['#ffffff', '#ffd27a', '#c8102e', '#1f3c9e', '#e6b422'], dust: ['#8a7a62', '#c4b49a', '#6a5a48', '#d8c8a8'] };
+      if (n === 'esparta') return { clash: ['#ffffff', '#ffd27a', '#b3201c', '#d8a63a', '#5b2a86'], dust: ['#7a6a52', '#c8b090', '#5a4a38', '#e0d0b0'] };
+      return { clash: ['#ffffff', '#fff1b8', '#ffc24a', '#ff8a2a'], dust: ['#9a9186', '#c8beb0', '#6d665e'] };
+    }
     wantBomb() {
       if (this.forceBomb != null) return !!this.forceBomb;
       if (this.forceVar != null) return false;

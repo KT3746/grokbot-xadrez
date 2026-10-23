@@ -122,12 +122,12 @@
     awaken: function (t) { rumble(t, 2.2, 0.4); thump(t + 0.2, 55, 28, 0.4, 0.8); [146.83, 220, 293.66].forEach(function (f, i) { bell(t + 0.3 + i * 0.2, f, 0.08, 2.4, 0.9); }); },
     // ===== Xadrez Vivo brutal =====
     crack: function (t) { knock(t, 3200, 0.5, 0.04); knock(t + 0.012, 1700, 0.4, 0.06); knock(t + 0.03, 900, 0.3, 0.09); thump(t, 220, 80, 0.35, 0.08); },
-    smash: function (t) { FX.crack(t); thump(t, 110, 28, 1.0, 0.45); thump(t, 62, 24, 0.8, 0.7); boom(t, 0.9, 0.9); for (var i = 0; i < 14; i++) knock(t + Math.random() * 0.45, 400 + Math.random() * 2800, 0.1 + Math.random() * 0.18, 0.04 + Math.random() * 0.07); rumble(t, 1.2, 0.45); },
+    smash: function (t) { /* golpe seco e forte */ FX.crack(t); thump(t, 110, 28, 1.25, 0.5); thump(t, 62, 24, 1.0, 0.8); boom(t, 1.15, 1.05); for (var i = 0; i < 14; i++) knock(t + Math.random() * 0.45, 400 + Math.random() * 2800, 0.1 + Math.random() * 0.18, 0.04 + Math.random() * 0.07); rumble(t, 1.2, 0.45); },
     crash: function (t) { FX.crack(t); thump(t, 90, 20, 1.1, 0.9); thump(t + 0.02, 48, 18, 0.9, 1.3); boom(t, 1.1, 1.6); for (var i = 0; i < 22; i++) knock(t + Math.random() * 1.1, 300 + Math.random() * 2600, 0.1 + Math.random() * 0.2, 0.05 + Math.random() * 0.08); rumble(t, 2.4, 0.6); },
     rubble: function (t) { for (var i = 0; i < 18; i++) { var d = Math.pow(Math.random(), 1.6) * 1.4; knock(t + d, 250 + Math.random() * 1500, (0.05 + Math.random() * 0.1) * (1 - d / 1.6), 0.04 + Math.random() * 0.06); } rumble(t, 1.0, 0.18); },
     cleave: function (t) { FX.whoosh(t); bell(t + 0.08, 1320, 0.09, 0.7, 0.7); bell(t + 0.08, 1975, 0.05, 0.5, 0.7); knock(t + 0.08, 4200, 0.35, 0.05); },
     // espadas se chocando: metal agudo e desafinado, com chiado
-    clash: function (t) { [1187, 1733, 2549, 3311].forEach(function (f, i) { bell(t, f * (0.97 + Math.random() * 0.06), 0.11 - i * 0.02, 0.9 - i * 0.12, 0.5); }); knock(t, 5200, 0.4, 0.05); knock(t + 0.004, 2600, 0.3, 0.06); thump(t, 180, 90, 0.25, 0.08); },
+    clash: function (t) { [1187, 1733, 2549, 3311].forEach(function (f, i) { bell(t, f * (0.97 + Math.random() * 0.06), 0.14 - i * 0.02, 1.0 - i * 0.12, 0.55); }); knock(t, 5200, 0.55, 0.05); knock(t + 0.004, 2600, 0.42, 0.06); thump(t, 180, 90, 0.4, 0.1); thump(t, 90, 40, 0.35, 0.18); },
     // pedra triturada
     crunch: function (t) { thump(t, 120, 40, 0.7, 0.2); for (var i = 0; i < 12; i++) knock(t + Math.random() * 0.22, 200 + Math.random() * 1400, 0.12 + Math.random() * 0.16, 0.03 + Math.random() * 0.05); },
     // lamina atravessando pedra
@@ -152,7 +152,7 @@
       for (var i = 0; i < 10; i++) knock(t + Math.random() * 0.7, 2500 + Math.random() * 3000, 0.05 + Math.random() * 0.06, 0.012);
     },
     boom: function (t) {
-      thump(t, 90, 22, 1.3, 1.1); thump(t + 0.01, 48, 18, 1.1, 1.6); boom(t, 1.4, 2.4); knock(t, 2400, 0.6, 0.06); knock(t + 0.01, 700, 0.6, 0.12);
+      thump(t, 90, 22, 1.55, 1.2); thump(t + 0.01, 48, 18, 1.35, 1.7); boom(t, 1.7, 2.6); knock(t, 2400, 0.75, 0.06); knock(t + 0.01, 700, 0.75, 0.12);
       for (var i = 0; i < 26; i++) { var d = 0.2 + Math.pow(Math.random(), 1.4) * 1.5; knock(t + d, 300 + Math.random() * 2600, (0.08 + Math.random() * 0.16) * (1.8 - d) / 1.8, 0.04 + Math.random() * 0.07); }
       rumble(t, 3, 0.7);
     },
@@ -405,16 +405,54 @@
     return true;
   }
 
+
+  // salao quieto entre os lances: ar, eco e um zumbido bem baixo (so com musica ligada)
+  var ambG = null, ambNodes = null, ambOn = false;
+  function startAmb() {
+    if (!ctx || ambNodes || !musOn) return;
+    ambG = ctx.createGain(); ambG.gain.value = 0; ambG.connect(mus);
+    var noise = ctx.createBufferSource(); noise.buffer = noiseBuf; noise.loop = true;
+    var lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 380; lp.Q.value = 0.4;
+    var ng = ctx.createGain(); ng.gain.value = 0.018;
+    noise.connect(lp); lp.connect(ng); ng.connect(ambG);
+    var o = ctx.createOscillator(); o.type = 'sine'; o.frequency.value = 55;
+    var og = ctx.createGain(); og.gain.value = 0.012; o.connect(og); og.connect(ambG);
+    noise.start(); o.start();
+    ambNodes = { noise: noise, o: o, ng: ng, og: og };
+    ambG.gain.linearRampToValueAtTime(1, ctx.currentTime + 2.5);
+  }
+  function stopAmb() {
+    if (!ambG) return;
+    var t = ctx.currentTime, g = ambG;
+    g.gain.cancelScheduledValues(t); g.gain.setValueAtTime(g.gain.value, t); g.gain.linearRampToValueAtTime(0, t + 1.2);
+    setTimeout(function () {
+      if (ambNodes) { try { ambNodes.noise.stop(); ambNodes.o.stop(); } catch (e) {} ambNodes = null; }
+      if (g === ambG) ambG = null;
+    }, 1400);
+  }
+  function setAmb(on) {
+    on = !!on; if (on === ambOn) return; ambOn = on;
+    if (on) startAmb(); else stopAmb();
+  }
+  // inchaco curto da musica (captura em serie ou xeque)
+  function swell(amt, hold) {
+    if (!duckG || !musOn) return;
+    var t = ctx.currentTime, g = duckG.gain, a = Math.max(1, amt || 1.25);
+    g.cancelScheduledValues(t); g.setValueAtTime(Math.max(g.value, 1), t);
+    g.linearRampToValueAtTime(a, t + 0.08); g.setValueAtTime(a, t + (hold || 0.45)); g.linearRampToValueAtTime(1, t + (hold || 0.45) + 0.7);
+  }
+
   window.XSound = {
     unmute: unmute, sample: sample, stopSample: stopSample,
     get sampling() { return smpOld != null; },
     init: init, play: play,
     setSfx: function (on) { sfxOn = on; if (sfx) sfx.gain.value = on ? 1 : 0; },
-    setMusic: function (on) { musOn = on; if (on) startMusic(); else stopMusic(); },
+    setMusic: function (on) { musOn = on; if (on) { startMusic(); if (ambOn) startAmb(); } else { stopMusic(); stopAmb(); } },
     // 0 = calmo, 1 = perigo maximo (xeque, relogio no fim)
     // 'normal' ou 'vivo' (salao de pedra); troca na proxima frase musical
     setStyle: function (s) { style = s === 'vivo' ? 'vivo' : 'normal'; },
     setBattle: function (on) { on = !!on; if (on !== battle) { battle = on; bBeat = 0; if (on) startBeat(); } },
+    setAmb: setAmb, swell: swell,
     setTension: function (x) { tTarget = Math.max(0, Math.min(1, x || 0)); },
     get sfxOn() { return sfxOn; }, get musicOn() { return musOn; }
   };

@@ -285,17 +285,29 @@
     esparta: { side: ['Esparta', 'Pérsia'], win: ['Esparta resiste! Vitória dos espartanos.', 'O Império Persa conquista o tabuleiro!'], draw: 'Trégua nas Termópilas.' }
   };
   // musica adaptativa: mais tensa em xeque, com o relogio no fim ou no final da partida
+  var capStreak = 0, capStreakT = 0;
+  function noteCapture() {
+    var now = Date.now();
+    if (now - capStreakT < 14000) capStreak++; else capStreak = 1;
+    capStreakT = now;
+    if (window.XSound && XSound.swell && capStreak >= 2) XSound.swell(1.15 + Math.min(0.35, capStreak * 0.08), 0.55);
+  }
   function musicMood(st) {
     if (!window.XSound || !XSound.setTension) return;
-    if (XSound.setBattle) XSound.setBattle(app.screen === 'game' && !st.over && !!armyOn());
+    var inGame = app.screen === 'game' && !st.over;
+    if (XSound.setBattle) XSound.setBattle(inGame && !!armyOn());
+    if (XSound.setAmb) XSound.setAmb(inGame && (prefs.view === 'vivo' || !!armyOn()));
     var t = 0;
-    if (app.screen === 'game' && app.game && !st.over) {
+    if (inGame && app.game) {
       var b = app.game.pos.board, n = 0;
       for (var sq = 0; sq < 120; sq++) { if (sq & 0x88) { sq += 7; continue; } if (b[sq]) n++; }
       if (st.check) t = 1;
+      else if (capStreak >= 3 && Date.now() - capStreakT < 10000) t = 0.7;
+      else if (capStreak >= 2 && Date.now() - capStreakT < 10000) t = 0.45;
       else if (app.clock && app.clock.left[app.game.pos.turn] < 30000) t = 0.8;
       else if (n <= 10) t = 0.35;
-    }
+      if (st.check && XSound.swell) XSound.swell(1.35, 0.7);
+    } else { capStreak = 0; }
     XSound.setTension(t);
   }
   function refreshPlayers() {
@@ -462,10 +474,12 @@
     var willAI = !st.over && app.mode === 'ai' && app.game.pos.turn !== app.human;
     if (willAI) requestAI();
     var run = function () { return app.v.animate(m, app.game.pos.board, opts || {}); };
+    if (m.cap) noteCapture();
     var pre = fightWanted(m) ? playFight(m) : null;
     return (pre ? pre.then(run) : run()).then(function () {
       app.busy = false;
       moveSound(m, st);
+      musicMood(st);
       refreshHL();
       if (app.mode === 'puzzle') { puzzleStep(m, st); return; }
       if (st.over) { gameOver(st); return; }

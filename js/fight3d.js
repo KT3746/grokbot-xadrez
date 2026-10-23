@@ -61,10 +61,11 @@ export function makeFight(M, mv) {
       let px = -dir.z, pz = dir.x; if (pz < -0.01 || (Math.abs(pz) <= 0.01 && px < 0)) { px = -px; pz = -pz; }
       const hx = px - dir.x * 0.18, hz = pz - dir.z * 0.18;
       const f = this.fc; f.theta = Math.atan2(hx, hz); f.phi = 0.3;
-      f.look.copy(b).addScaledVector(dir, -0.36).setY(0.46);
-      // distancia para caber os dois (largura ~2.3, altura ~1.7)
+      f.look.copy(b).addScaledVector(dir, -0.36).setY(this.mobile ? 0.52 : 0.46);
+      f.phi = this.mobile ? 0.26 : 0.3;
+      // distancia para caber os dois; no celular chega mais perto
       const tv = Math.tan(this.FOV * Math.PI / 360), asp = this.W / Math.max(1, this.H);
-      f.dist = Math.max(1.0 / tv, 0.85 / (tv * asp)) + 0.5;
+      f.dist = Math.max(1.0 / tv, 0.85 / (tv * asp)) * (this.mobile ? 0.82 : 1) + (this.mobile ? 0.22 : 0.5);
       this.cam.rFactor = 1; this.setActive(true);
       const mv2 = { from, to, piece: m.piece, cap, promo: m.promo || 0, flags: m.promo ? E.F_PROMO : 0 };
       // termina logo depois do golpe final (as metades caindo ja contam a historia)
