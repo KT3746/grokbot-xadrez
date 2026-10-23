@@ -1015,17 +1015,25 @@ export function makeVivo(M) {
       this._animMeshes.add(victim); this.duelCam(p0.clone().lerp(vp, 0.55), 2.2);
       snd('warcry'); snd('drum');
       const side = new THREE.Vector3(-dir.z, 0, dir.x), ghosts = [];
+      const mat = new THREE.MeshStandardMaterial({ color: 0xb3201c, roughness: 0.75, transparent: true, opacity: 0.55, vertexColors: false });
       const mk = (off) => {
-        const g = mesh.clone(true); g.traverse((c) => { if (c.isMesh) { c.castShadow = false; c.material = c.material.clone(); c.material.transparent = true; c.material.opacity = 0.55; } });
-        g.position.copy(p0).addScaledVector(side, off * ps); g.position.y = 0; this.pieceGroup.add(g); ghosts.push(g); return g;
+        const g = new THREE.Group();
+        const body = new THREE.Mesh(new THREE.CylinderGeometry(0.14 * ps, 0.18 * ps, 0.7 * ps, 6), mat);
+        body.position.y = 0.45 * ps; g.add(body);
+        const spear = new THREE.Mesh(new THREE.CylinderGeometry(0.025 * ps, 0.025 * ps, 1.1 * ps, 5), mat);
+        spear.position.set(0.2 * ps, 0.7 * ps, 0); spear.rotation.z = -0.5; g.add(spear);
+        const shield = new THREE.Mesh(new THREE.CircleGeometry(0.28 * ps, 10), mat);
+        shield.position.set(-0.2 * ps, 0.5 * ps, 0.12 * ps); g.add(shield);
+        g.position.copy(p0).addScaledVector(side, off * ps); this.pieceGroup.add(g); ghosts.push(g); return g;
       };
-      const g1 = mk(-0.7), g2 = mk(0.7);
+      const g1 = mk(-0.75), g2 = mk(0.75);
       const w = mesh.userData.weapon, rest = mesh.userData.rest || 0;
       snd('windup');
-      return this.tween(0.35, (k) => { const e = ease(k); [mesh, g1, g2].forEach((m) => { m.rotation.x = 0.15 * e; }); if (w) w.rotation.x = rest + 1.4 * e; })
+      return this.tween(0.35, (k) => { const e = ease(k); mesh.rotation.x = 0.15 * e; [g1, g2].forEach((m) => { m.rotation.x = 0.15 * e; }); if (w) w.rotation.x = rest + 1.4 * e; })
         .then(() => { snd('swing'); return this.tween(0.14, (k) => {
           const e = easeIn(k);
-          [mesh, g1, g2].forEach((m, i) => { m.position.copy(p0).addScaledVector(side, (i - 1) * 0.7 * ps).addScaledVector(dir, 0.55 * e); m.rotation.x = 0.15 - 0.35 * e; });
+          mesh.position.copy(p0).addScaledVector(dir, 0.55 * e); mesh.rotation.x = 0.15 - 0.35 * e;
+          [g1, g2].forEach((m, i) => { m.position.copy(p0).addScaledVector(side, (i ? 0.75 : -0.75) * ps).addScaledVector(dir, 0.55 * e); m.rotation.x = 0.15 - 0.35 * e; });
           if (w) w.rotation.x = rest + 1.4 - 2.2 * e;
         }); })
         .then(() => {
@@ -1035,12 +1043,11 @@ export function makeVivo(M) {
           this.explode(victim, 'fling', dir, 2.4, { big: true });
         })
         .then(() => this.tween(0.25, (k) => {
-          const e = ease(k);
-          ghosts.forEach((g) => { g.traverse((c) => { if (c.isMesh && c.material) c.material.opacity = 0.55 * (1 - e); }); });
+          const e = ease(k); mat.opacity = 0.55 * (1 - e);
           mesh.position.copy(p0); mesh.rotation.x = 0; if (w) w.rotation.x = rest;
-        }).then(() => { ghosts.forEach((g) => this.pieceGroup.remove(g)); }));
+        }).then(() => { ghosts.forEach((g) => this.pieceGroup.remove(g)); mat.dispose(); }));
     }
-    finDual(mesh, victim, dir, t) {
+    finDual    finDual(mesh, victim, dir, t) {
       // duas espadas: golpe esquerdo e direito
       const ps = this.pScale || 1, w = mesh.userData.weapon, rest = mesh.userData.rest || 0;
       const p0 = mesh.position.clone().setY(0), vp = victim.position.clone().setY(0);

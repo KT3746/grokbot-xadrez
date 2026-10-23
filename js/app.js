@@ -136,6 +136,7 @@
   // ===== Partida =====
   function isHumanTurn() { return app.mode === '2p' || (app.game.pos.turn === app.human && !(app.mode === 'puzzle' && app.pz && app.pz.lock)); }
   function startGame(opts) {
+    capStreak = 0; capStreakT = 0;
     endReview();
     app.recorded = false; app.t0 = Date.now();
     app.jornada = opts.jornada != null ? opts.jornada : null; app.sayT = 0;
