@@ -866,7 +866,7 @@ export class View3D {
   dust(pos, amt) {
     this.particles.burst(pos.clone().setY(0.03), { colors: ['#d8ccb4', '#bfb197', '#efe6d4'], count: Math.round(22 * amt), up: 0.5, speed: 1.5 * amt, life: 0.6, grav: 1, size: 0.09, normal: true, opacity: 0.55 });
   }
-  shake(a) { this.shakeAmt = Math.max(this.shakeAmt || 0, a); this.dirty = true; }
+  shake(a) { this.shakeAmt = Math.max(this.shakeAmt || 0, Math.min(0.58, a)); this.dirty = true; }
   flash(pos, color, power) {
     this.glowLight.color.set(color); this.glowLight.position.set(pos.x, 1.2, pos.z);
     this.tween(0.6, (k) => { this.glowLight.intensity = Math.sin(Math.PI * k) * power; });

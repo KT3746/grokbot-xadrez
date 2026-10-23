@@ -165,6 +165,21 @@
     fanfare: function (t) { [[0, [55, 62], 0.3], [0.32, [55, 62], 0.16], [0.5, [60, 67], 0.3], [0.84, [64, 71], 1.4]].forEach(function (n) { brass(t + n[0], n[1], n[2], 0.1); }); FX.drum(t + 0.84); FX.warcry(t + 1.1); },
     lament: function (t) { [[0, [55, 50], 0.8], [0.85, [53, 48], 0.8], [1.7, [50, 45], 1.8]].forEach(function (n) { brass(t + n[0], n[1], n[2], 0.08, 900); }); thump(t + 1.7, 70, 36, 0.5, 0.9); },
     charge: function (t) { for (var i = 0; i < 6; i++) { thump(t + i * 0.09, 80, 34, 0.45, 0.14); knock(t + i * 0.09, 220, 0.14, 0.06); } },
+    // tambores distantes (antes da luta / standoff)
+    drumsFar: function (t) {
+      [[0, 0.55], [0.42, 0.4], [0.84, 0.7], [1.26, 0.35]].forEach(function (h) {
+        thump(t + h[0], 78, 32, 0.28 * h[1], 0.5); knock(t + h[0], 140, 0.1 * h[1], 0.14);
+      });
+    },
+    // torcida sintetica abafada apos um kill (sem voz humana gravada)
+    cheer: function (t) {
+      for (var i = 0; i < 7; i++) {
+        var d = Math.random() * 0.35, f0 = 180 + Math.random() * 90;
+        voice(t + d, 0.35 + Math.random() * 0.2, [[520, 980], [640, 1100]], f0, 0.035 + Math.random() * 0.025, '', 0.7);
+      }
+      thump(t, 90, 40, 0.22, 0.35); knock(t + 0.05, 800, 0.08, 0.2);
+      for (var j = 0; j < 5; j++) knock(t + 0.1 + Math.random() * 0.5, 400 + Math.random() * 900, 0.04, 0.05);
+    },
     whoosh: function (t) {
       var src = ctx.createBufferSource(); src.buffer = noiseBuf;
       var bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.Q.value = 0.8;

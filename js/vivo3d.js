@@ -419,6 +419,7 @@ export function makeVivo(M) {
           this.mats = { 0: A.cloth, 8: A.cloth }; this.outlineMats = A.ol;
         } else { this.mats = this._stone.mats; this.outlineMats = this._stone.ol; }
         this.army = A; this.checkMats = null; this.checkKing = null;
+        this.armyLight();
         // refaz as pecas que estao no tabuleiro
         const keep = {}; for (const k in this.meshes) keep[k] = this.meshes[k].userData.piece;
         for (const c of [...this.pieceGroup.children]) this.pieceGroup.remove(c);
@@ -914,7 +915,7 @@ export function makeVivo(M) {
       const vp = victim.position.clone().setY(0), vh = (victim.userData.h || 0.9) * ps, king = t === E.K, pw = king || t === E.Q ? 1.3 : 1;
       const side = new THREE.Vector3(-dir.z, 0, dir.x), UP = new THREE.Vector3(0, 1, 0), sparks = ['#ffffff', '#ffe6a8', '#ffb050'];
       const recover = (dur = 0.3) => { const from = mesh.position.clone(), rx = mesh.rotation.x, rz = mesh.rotation.z, wx = w.rotation.x, wz = w.rotation.z; return this.tween(dur, (k) => { const e = ease(k); mesh.position.set(from.x + (p0.x - from.x) * e, from.y * (1 - e), from.z + (p0.z - from.z) * e); mesh.rotation.x = rx * (1 - e); mesh.rotation.z = rz * (1 - e); w.rotation.x = wx + (rest - wx) * e; w.rotation.z = wz * (1 - e); }); };
-      const kill = () => { this.slowMo(0.6, 0.14); this.flashExp(1.2); };
+      const kill = () => { this.slowMo(0.55, 0.12); this.impactFin(0.9); if (this.army) snd('cheer'); };
       if (plan === 'diag' || plan === 'decap' || plan === 'spin') {
         const sgn = Math.random() < 0.5 ? 1 : -1, hv = king ? 1.15 : 1;
         // levanta a arma bem alto (inclinada para o corte diagonal) e desce com tudo
@@ -1009,7 +1010,7 @@ export function makeVivo(M) {
           });
           return chain;
         })
-        .then(() => { this.blastFx(vp, 1.15); snd('boom'); this.explode(victim, 'blast', dir, 2.6, { big: true, noSlow: true, noFx: true }); })
+        .then(() => { this.blastFx(vp, 1.15); snd('boom'); this.impactFin(1.1); snd('cheer'); this.explode(victim, 'blast', dir, 2.6, { big: true, noSlow: true, noFx: true }); })
         .then(() => this.tween(0.22, (k) => { guns.forEach((cn) => cn.scale.setScalar(Math.max(0.01, (1 - k) * ps))); }).then(() => guns.forEach((cn) => this.scene.remove(cn))));
     }
     finPhalanx(mesh, victim, dir) {
@@ -1047,7 +1048,7 @@ export function makeVivo(M) {
         .then(() => {
           const spark = this.armySpark().clash;
           this.particles.burst(vp.clone().setY(0.5 * ps), { colors: spark, count: Math.round(90 * this.pMul()), up: 2, speed: 7, life: 0.45, grav: 8, size: 0.06 });
-          this.shake(0.35); this.flashExp(1.4); snd('smash'); snd('clash');
+          this.impactFin(1.05); snd('smash'); snd('clash'); snd('cheer');
           this.explode(victim, 'fling', dir, 2.4, { big: true });
         })
         .then(() => this.tween(0.25, (k) => {
@@ -1072,7 +1073,7 @@ export function makeVivo(M) {
           });
       };
       return slash(1).then(() => slash(-1)).then(() => {
-        snd('smash'); this.slowMo(0.5, 0.12); this.finish(mesh, victim, dir, t || E.Q, 'diag');
+        snd('smash'); this.impactFin(0.95); snd('cheer'); this.slowMo(0.5, 0.12); this.finish(mesh, victim, dir, t || E.Q, 'diag');
       }).then(() => { mesh.position.copy(p0); mesh.rotation.set(0, mesh.rotation.y, 0); if (w) w.rotation.set(rest, 0, 0); });
     }
     // cores do exercito: faiscas e poeira no choque (sem sangue)
@@ -1081,6 +1082,73 @@ export function makeVivo(M) {
       if (n === 'cem') return { clash: ['#ffffff', '#ffd27a', '#c8102e', '#1f3c9e', '#e6b422'], dust: ['#8a7a62', '#c4b49a', '#6a5a48', '#d8c8a8'] };
       if (n === 'esparta') return { clash: ['#ffffff', '#ffd27a', '#b3201c', '#d8a63a', '#5b2a86'], dust: ['#7a6a52', '#c8b090', '#5a4a38', '#e0d0b0'] };
       return { clash: ['#ffffff', '#fff1b8', '#ffc24a', '#ff8a2a'], dust: ['#9a9186', '#c8beb0', '#6d665e'] };
+    }
+    // luz por exercito: tocha medieval, sol do deserto, pedra fria
+    armyLight() {
+      const n = this.army && this.army.name;
+      if (!this.hemi || !this.key || !this.rim) return;
+      if (n === 'cem') {
+        this.hemi.color.set(0xffd4a8); this.hemi.groundColor.set(0x2a1810); this.hemi.intensity = 0.75;
+        this.key.color.set(0xffc080); this.key.intensity = 1.85;
+        this.rim.color.set(0xff8a40); this.rim.intensity = 1.35;
+        this.rim2.color.set(0x4a60a0); this.rim2.intensity = 0.45;
+        this._exp0 = 1.08; this.renderer.toneMappingExposure = 1.08;
+        if (this.scene.fog) { this.scene.fog.color.set(0x1a100c); }
+      } else if (n === 'esparta') {
+        this.hemi.color.set(0xffe2a8); this.hemi.groundColor.set(0x5a3a18); this.hemi.intensity = 1.05;
+        this.key.color.set(0xfff0c8); this.key.intensity = 2.45;
+        this.rim.color.set(0xffd080); this.rim.intensity = 1.2;
+        this.rim2.color.set(0x88a0c8); this.rim2.intensity = 0.35;
+        this._exp0 = 1.22; this.renderer.toneMappingExposure = 1.22;
+        if (this.scene.fog) { this.scene.fog.color.set(0x2a2210); }
+      } else {
+        this.hemi.color.set(0x9aa2bd); this.hemi.groundColor.set(0x2a1d12); this.hemi.intensity = 0.9;
+        this.key.color.set(0xdfe6ff); this.key.intensity = 2.1;
+        this.rim.color.set(0xffb070); this.rim.intensity = 1.1;
+        this.rim2.color.set(0x7f8fc0); this.rim2.intensity = 0.5;
+        this._exp0 = 1.15; this.renderer.toneMappingExposure = 1.15;
+        if (this.scene.fog) { this.scene.fog.color.set(0x0c0a09); }
+      }
+      this.dirty = true;
+    }
+    // impacto de finisher: shake/flash fortes, mas curtos (sem enjoo)
+    impactFin(power) {
+      const p = Math.min(1.15, Math.max(0.55, power || 1));
+      this.shake(Math.min(0.55, 0.42 * p));
+      this.flashExp(Math.min(1.8, 1.35 * p));
+      if (this.glowLight) {
+        const g0 = this.glowLight.intensity;
+        this.glowLight.intensity = Math.max(g0, 6 * p);
+        this.tween(0.28, (k) => { this.glowLight.intensity = 6 * p * (1 - k); });
+      }
+    }
+    // standoff: entram em quadro, erguem armas, se encaram
+    standoff(mesh, victim, dir) {
+      const ps = this.pScale || 1, p0 = mesh.position.clone().setY(0), vp = victim.position.clone().setY(0);
+      const back = p0.clone().addScaledVector(dir, -0.55 * ps), vback = vp.clone().addScaledVector(dir, 0.35 * ps);
+      mesh.position.copy(back); victim.position.copy(vback);
+      this._animMeshes.add(mesh); this._animMeshes.add(victim);
+      const w = mesh.userData.weapon, vw = victim.userData.weapon, rest = mesh.userData.rest || 0, vrest = victim.userData.rest || 0;
+      snd('drumsFar');
+      return this.tween(0.38, (k) => {
+        const e = k * k * (3 - 2 * k);
+        mesh.position.lerpVectors(back, p0, e); victim.position.lerpVectors(vback, vp, e);
+      }).then(() => {
+        snd('windup');
+        return this.tween(0.32, (k) => {
+          const e = ease(k);
+          if (w) w.rotation.x = rest + 0.85 * e;
+          if (vw) vw.rotation.x = vrest + 0.55 * e;
+          mesh.rotation.x = 0.06 * e; victim.rotation.x = -0.04 * e;
+          mesh.position.y = Math.sin(e * Math.PI) * 0.02;
+        });
+      }).then(() => this.tween(0.32, (k) => {
+        const s = Math.sin(k * Math.PI * 4) * 0.006 * (1 - k);
+        victim.position.x = vp.x + s; mesh.position.x = p0.x - s * 0.5;
+      })).then(() => {
+        mesh.position.copy(p0); victim.position.copy(vp); mesh.rotation.x = 0; victim.rotation.x = 0;
+        if (w) w.rotation.x = rest; if (vw) vw.rotation.x = vrest;
+      });
     }
     wantBomb() {
       if (this.forceBomb != null) return !!this.forceBomb;

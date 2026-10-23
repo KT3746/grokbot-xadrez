@@ -99,17 +99,22 @@ export function makeFight(M, mv) {
       const tv = Math.tan(this.FOV * Math.PI / 360), asp = this.W / Math.max(1, this.H);
       f.dist = Math.max(1.0 / tv, 0.85 / (tv * asp)) * (this.mobile ? 0.82 : 1) + (this.mobile ? 0.22 : 0.5);
       this.cam.rFactor = 1; this.hold = false; this.setActive(true);
+      if (this.armyLight) this.armyLight();
       const mv2 = { from, to, piece: m.piece, cap, promo: m.promo || 0, flags: m.promo ? E.F_PROMO : 0 };
+      const atk = this.meshes[from], vic = this.meshes[to];
       // termina logo depois do golpe final (as metades caindo ja contam a historia)
       return new Promise((res) => {
         let done = false, pending = false;
         const end = () => { if (!done) { done = true; this._onKill = null; res(); } };
         const afterKill = () => { if (done || pending) return; pending = true; this.spectatorPan().then(end); };
         this._onKill = () => { this._onKill = null; setTimeout(afterKill, this._bombing ? 900 : 700); };
-        this.animate(mv2, after, {}).then(() => {
+        const go = () => this.animate(mv2, after, {}).then(() => {
           if (done) return;
           if (this._onKill) { this._onKill = null; afterKill(); }
         });
+        // standoff antes do embate (pula se ja pediram skip)
+        const stand = (atk && vic && this.standoff) ? this.standoff(atk, vic, dir) : Promise.resolve();
+        stand.then(() => { if (!done) go(); });
       });
     }
     // replay curto: camera gira para o outro lado e mostra o rastro da luta
