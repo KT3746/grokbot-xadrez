@@ -102,10 +102,25 @@ export function makeFight(M, mv) {
       const mv2 = { from, to, piece: m.piece, cap, promo: m.promo || 0, flags: m.promo ? E.F_PROMO : 0 };
       // termina logo depois do golpe final (as metades caindo ja contam a historia)
       return new Promise((res) => {
-        let done = false; const end = () => { if (!done) { done = true; this._onKill = null; res(); } };
-        this._onKill = () => { this._onKill = null; setTimeout(end, this._bombing ? 1050 : 850); };
-        this.animate(mv2, after, {}).then(end);
+        let done = false, pending = false;
+        const end = () => { if (!done) { done = true; this._onKill = null; res(); } };
+        const afterKill = () => { if (done || pending) return; pending = true; this.spectatorPan().then(end); };
+        this._onKill = () => { this._onKill = null; setTimeout(afterKill, this._bombing ? 900 : 700); };
+        this.animate(mv2, after, {}).then(() => {
+          if (done) return;
+          if (this._onKill) { this._onKill = null; afterKill(); }
+        });
       });
+    }
+    // replay curto: camera gira para o outro lado e mostra o rastro da luta
+    spectatorPan() {
+      if (!this.active || this.hold) return Promise.resolve();
+      const f = this.fc, th0 = f.theta, ph0 = f.phi;
+      const th1 = th0 + (this.mobile ? 0.95 : 1.15), ph1 = Math.max(0.18, ph0 - 0.06);
+      return this.tween(0.85, (k) => {
+        const e = k * k * (3 - 2 * k);
+        f.theta = th0 + (th1 - th0) * e; f.phi = ph0 + (ph1 - ph0) * e;
+      }).then(() => this.tween(0.28, (k) => { /* segura o angulo */ }));
     }
   };
 }

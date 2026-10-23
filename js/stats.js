@@ -24,7 +24,13 @@
     ['d10', '10 desafios', 'Resolva 10 desafios.', 'star'],
     ['dperfeito', 'Perfeccionista', 'Ganhe 3 estrelas em 10 desafios.', 'star'],
     ['dtodos', 'Mestre dos desafios', 'Resolva todos os desafios.', 'crown'],
-    ['p10', 'Dedicado', 'Jogue 10 partidas até o fim.', 'clock']
+    ['p10', 'Dedicado', 'Jogue 10 partidas até o fim.', 'clock'],
+    ['brutal5', 'Pedra partida', 'Faça 5 capturas brutais numa partida com lutas.', 'fire'],
+    ['brutal25', 'Massacre de pedra', 'Acumule 25 capturas brutais no total.', 'fire'],
+    ['fogo', 'Fogo no buraco!', 'Exploda uma peça com bomba, canhão ou pote.', 'bolt'],
+    ['combo', 'Em série', 'Faça 2 capturas seguidas (combo).', 'fire'],
+    ['exercito', 'Às armas', 'Jogue com Exército Cem Anos ou Espartanos.', 'shield'],
+    ['finisher', 'Golpe de graça', 'Veja um finisher especial (barragem, falange ou dual).', 'crown']
   ];
   var ICON = {
     trophy: '<path d="M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M7 6H4a3 3 0 0 0 3 4M17 6h3a3 3 0 0 1-3 4M12 14v4M8 21h8M9 18h6"/>',
@@ -41,7 +47,7 @@
     star: '<path d="M12 3l2.7 5.8 6.3.7-4.7 4.3 1.3 6.2L12 17l-5.6 3 1.3-6.2L3 9.5l6.3-.7z"/>',
     clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>'
   };
-  function fresh() { var lv = {}; LEVELS.forEach(function (l) { lv[l[0]] = { w: 0, l: 0, d: 0 }; }); return { levels: lv, streak: 0, best: 0, games: 0, twoP: 0, ach: {} }; }
+  function fresh() { var lv = {}; LEVELS.forEach(function (l) { lv[l[0]] = { w: 0, l: 0, d: 0 }; }); return { levels: lv, streak: 0, best: 0, games: 0, twoP: 0, ach: {}, brutal: 0, brutalGame: 0 }; }
   var S;
   try { S = JSON.parse(localStorage.getItem(KEY)) || fresh(); } catch (e) { S = fresh(); }
   var f = fresh(); for (var k in f) if (!(k in S)) S[k] = f[k];
@@ -95,6 +101,21 @@
     if (m.promo) unlock('promo');
     if (m.flags & E.F_EP) unlock('passagem');
   }
+  // captura brutal / bomba / combo / exercito / finisher
+  function onBrutal(info) {
+    if (!info) return;
+    if (info.army && info.army !== 'estatuas') unlock('exercito');
+    if (info.combo) unlock('combo');
+    if (info.bomb) unlock('fogo');
+    if (info.finisher) unlock('finisher');
+    if (info.cap) {
+      S.brutal = (S.brutal || 0) + 1; S.brutalGame = (S.brutalGame || 0) + 1;
+      if (S.brutalGame >= 5) unlock('brutal5');
+      if (S.brutal >= 25) unlock('brutal25');
+      save();
+    }
+  }
+  function resetBrutalGame() { S.brutalGame = 0; save(); }
   function onPuzzle(p, stars, m, prog, total) {
     var solved = 0, perfect = 0;
     for (var k in prog) { if (prog[k]) solved++; if (prog[k] >= 3) perfect++; }
@@ -122,6 +143,6 @@
     el.innerHTML = html + '</div>';
   }
   function count() { return { got: ACH.filter(function (a) { return S.ach[a[0]]; }).length, total: ACH.length }; }
-  var api = { onGameEnd: onGameEnd, onMove: onMove, onPuzzle: onPuzzle, render: render, count: count, data: function () { return S; }, ACH: ACH };
+  var api = { onGameEnd: onGameEnd, onMove: onMove, onPuzzle: onPuzzle, onBrutal: onBrutal, resetBrutalGame: resetBrutalGame, render: render, count: count, data: function () { return S; }, ACH: ACH };
   window.XStats = api;
 })();

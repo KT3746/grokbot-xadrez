@@ -736,3 +736,8 @@ body.vivo:not(.vwide) #game .top { height: 48px; }
   .controls svg { width: 26px; height: 26px; }
   .player { height: 40px; }
 }
+
+/* ===== Onda 4: marcas sutis de dano no 2D (nao atrapalham a leitura) ===== */
+.b2-sq.b2-scar::after { content: ""; position: absolute; inset: 18% 22%; pointer-events: none; opacity: .28;
+  background: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'><path d='M6 18 L18 10 L22 20 L34 12' fill='none' stroke='%231a120c' stroke-width='1.6' stroke-linecap='round'/><path d='M10 28 L20 22 L28 30' fill='none' stroke='%231a120c' stroke-width='1.2' stroke-linecap='round' opacity='.7'/></svg>") center/contain no-repeat; }
+.b2-sq.b2-scar2::after { opacity: .4; transform: scaleX(-1) rotate(8deg); }

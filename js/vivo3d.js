@@ -846,6 +846,7 @@ export function makeVivo(M) {
         const fins = this.army.name === 'esparta' ? ['phalanx', 'dual'] : this.army.name === 'cem' ? ['barrage', 'dual'] : ['dual'];
         const fin = this.forceFin || fins[V(fins.length)];
         this.forceFin = null;
+        if (typeof window !== 'undefined' && window.XApp) window.XApp._lastFin = fin;
         if (fin === 'barrage') return this.finBarrage(mesh, victim, dir);
         if (fin === 'phalanx') return this.finPhalanx(mesh, victim, dir);
         if (fin === 'dual') return this.finDual(mesh, victim, dir, t);
@@ -1384,6 +1385,7 @@ export function makeVivo(M) {
         const fins = this.army.name === 'esparta' ? ['phalanx', 'dual'] : this.army.name === 'cem' ? ['barrage', 'dual'] : ['dual'];
         const fin = this.forceFin || fins[this.pickVar(E.N, fins.length)];
         this.forceFin = null;
+        if (typeof window !== 'undefined' && window.XApp) window.XApp._lastFin = fin;
         let p = null;
         if (fin === 'barrage') p = this.finBarrage(mesh, victim, dir);
         else if (fin === 'phalanx') p = this.finPhalanx(mesh, victim, dir);

@@ -136,7 +136,9 @@
   // ===== Partida =====
   function isHumanTurn() { return app.mode === '2p' || (app.game.pos.turn === app.human && !(app.mode === 'puzzle' && app.pz && app.pz.lock)); }
   function startGame(opts) {
-    capStreak = 0; capStreakT = 0;
+    capStreak = 0; capStreakT = 0; app._lastFin = null; app._lastBomb = false;
+    if (window.XStats && XStats.resetBrutalGame) XStats.resetBrutalGame();
+    if (app.view2d && app.view2d.clearScars) app.view2d.clearScars();
     endReview();
     app.recorded = false; app.t0 = Date.now();
     app.jornada = opts.jornada != null ? opts.jornada : null; app.sayT = 0;
@@ -297,7 +299,16 @@
     if (capStreak >= 2) {
       var title = kind === 'bomb' ? 'FOGO NO BURACO!' : capStreak >= 4 ? 'MASSACRE!' : capStreak === 3 ? 'EMBALADO!' : 'COMBO!';
       var sub = capStreak + ' capturas seguidas';
-      setTimeout(function () { if (app.screen === 'game') { banner(title, sub); clearTimeout(banner.t); banner.t = setTimeout(function () { $('banner').hidden = true; }, 3200); } }, kind === 'bomb' ? 900 : (app.fighting ? 2200 : 180));
+      setTimeout(function () { if (app.screen === 'game') { banner(title, sub); clearTimeout(banner.t); banner.t = setTimeout(function () { $('banner').hidden = true; }, 3200); } }, kind === 'bomb' ? 400 : 180);
+    }
+    if (window.XStats && XStats.onBrutal) {
+      XStats.onBrutal({
+        cap: true,
+        bomb: kind === 'bomb',
+        combo: capStreak >= 2,
+        army: armyOn() || prefs.army,
+        finisher: !!app._lastFin
+      });
     }
   }
   function musicMood(st) {
@@ -482,9 +493,11 @@
     var willAI = !st.over && app.mode === 'ai' && app.game.pos.turn !== app.human;
     if (willAI) requestAI();
     var run = function () { return app.v.animate(m, app.game.pos.board, opts || {}); };
-    if (m.cap) noteCapture(app._lastBomb ? 'bomb' : ''); app._lastBomb = false;
     var pre = fightWanted(m) ? playFight(m) : null;
     return (pre ? pre.then(run) : run()).then(function () {
+      // depois da luta/animacao: bomba e finisher ja foram marcados
+      if (m.cap) noteCapture(app._lastBomb ? 'bomb' : '');
+      app._lastBomb = false; app._lastFin = null;
       app.busy = false;
       moveSound(m, st);
       musicMood(st);

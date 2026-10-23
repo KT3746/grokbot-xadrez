@@ -106,6 +106,19 @@
     setTimeout(function () { c.classList.remove('b2-hit'); }, 520);
     var el = this.el; el.classList.remove('b2-jolt'); void el.offsetWidth; el.classList.add('b2-jolt');
     setTimeout(function () { el.classList.remove('b2-jolt'); }, 260);
+    this.scar(sq);
+  };
+  // marca sutil de dano apos a luta (nao tapa a peca)
+  View2D.prototype.scar = function (sq) {
+    var c = this.squares[sq]; if (!c) return;
+    c.classList.add('b2-scar');
+    if (!this._scars) this._scars = {};
+    this._scars[sq] = (this._scars[sq] || 0) + 1;
+    if (this._scars[sq] > 2) c.classList.add('b2-scar2');
+  };
+  View2D.prototype.clearScars = function () {
+    this._scars = {};
+    for (var k in this.squares) this.squares[k].classList.remove('b2-scar', 'b2-scar2');
   };
   View2D.prototype.highlight = function (h) {
     for (var k in this.squares) {
