@@ -1047,7 +1047,7 @@ export function makeVivo(M) {
           mesh.position.copy(p0); mesh.rotation.x = 0; if (w) w.rotation.x = rest;
         }).then(() => { ghosts.forEach((g) => this.pieceGroup.remove(g)); mat.dispose(); }));
     }
-    finDual    finDual(mesh, victim, dir, t) {
+    finDual(mesh, victim, dir, t) {
       // duas espadas: golpe esquerdo e direito
       const ps = this.pScale || 1, w = mesh.userData.weapon, rest = mesh.userData.rest || 0;
       const p0 = mesh.position.clone().setY(0), vp = victim.position.clone().setY(0);
