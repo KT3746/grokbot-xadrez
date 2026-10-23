@@ -142,9 +142,14 @@
     var L = Math.hypot(x2 - x1, y2 - y1), ux = (x2 - x1) / L, uy = (y2 - y1) / L, px = -uy, py = ux;
     var hx = x2 - ux * 0.42, hy = y2 - uy * 0.42, sx = x1 + ux * 0.2, sy = y1 + uy * 0.2, w = 0.11, hw = 0.3;
     var pts = [[sx + px * w, sy + py * w], [hx + px * w, hy + py * w], [hx + px * hw, hy + py * hw], [x2 - ux * 0.08, y2 - uy * 0.08], [hx - px * hw, hy - py * hw], [hx - px * w, hy - py * w], [sx - px * w, sy - py * w]];
-    var e = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); e.setAttribute('viewBox', '0 0 8 8'); e.setAttribute('class', 'b2-arrow');
+    var e = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); e.setAttribute('viewBox', '0 0 8 8'); e.setAttribute('class', 'b2-arrow' + (this._arrowLm ? ' lm' : ''));
     e.innerHTML = '<polygon points="' + pts.map(function (p) { return p[0].toFixed(3) + ',' + p[1].toFixed(3); }).join(' ') + '"/>';
     this.el.appendChild(e); this.arrowEl = e;
+  };
+  View2D.prototype.lastArrow = function (from, to, on) {
+    this._arrowLm = !!on;
+    if (!on || from < 0) { this.arrow(-1, -1); this._arrowLm = false; return; }
+    this.arrow(from, to);
   };
   // selo do lance (!!, ?, ??) no canto da casa
   View2D.prototype.mark = function (sq, mk) {

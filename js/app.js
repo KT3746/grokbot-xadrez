@@ -10,7 +10,8 @@
   var PHONE = Math.min(screen.width, screen.height) < 700;
   var prefs = load(PREFS) || {};
   prefs = { style: prefs.style || 'classico', env: prefs.env || 'sala', theme: prefs.theme || 'classico', clock: prefs.clock || '0', view: prefs.view || '3d', sound: prefs.sound !== false, music: prefs.music !== false, vibe: prefs.vibe !== false, learn: !!prefs.learn, level: prefs.level || 'medio', color: prefs.color || 'w', flip: prefs.flip !== false, cam: prefs.cam2 || 'auto', aid: !!prefs.aid2, camFx: prefs.camFx !== false, p2: prefs.p2 || 'premium', evalbar: prefs.evalbar || 'learn',
-    palette: prefs.palette || 'classico', psize: prefs.psize || 'n', outline: prefs.outline !== false, speed: prefs.speed || 'normal', capFx: prefs.capFx === 'normal' ? 'normal' : 'brutal', fight: prefs.fight !== false, fight3: !!prefs.fight3, army: prefs.army === 'cem' || prefs.army === 'esparta' ? prefs.army : 'estatuas', last3: prefs.last3 || (prefs.view === 'vivo' ? 'vivo' : '3d'), tipFight: !!prefs.tipFight, tipArmy: !!prefs.tipArmy };
+    palette: prefs.palette || 'classico', psize: prefs.psize || 'n', outline: prefs.outline !== false, speed: prefs.speed || 'normal', capFx: prefs.capFx === 'normal' ? 'normal' : 'brutal', fight: prefs.fight !== false, fight3: !!prefs.fight3, army: prefs.army === 'cem' || prefs.army === 'esparta' ? prefs.army : 'estatuas', last3: prefs.last3 || (prefs.view === 'vivo' ? 'vivo' : '3d'), tipFight: !!prefs.tipFight, tipArmy: !!prefs.tipArmy,
+    lmArrow: prefs.lmArrow != null ? !!prefs.lmArrow : (typeof matchMedia === 'function' && matchMedia('(pointer:fine) and (min-width:900px)').matches) };
   var PSIZE = { p: 0.9, n: 1, g: 1.12 };
 
   var app = {
@@ -220,6 +221,10 @@
     var lm = lastMove(), st = getStatus();
     var check = st.check ? app.game.pos.kings[app.game.pos.turn >> 3] : -1;
     app.v.highlight({ sel: app.sel, dests: app.dests, last: lm ? { from: lm.from, to: lm.to } : null, check: check, hint: app.hintMove });
+    if (app.v && app.v.lastArrow) {
+      if (prefs.lmArrow && lm && app.v === app.view2d) app.v.lastArrow(lm.from, lm.to, true);
+      else app.v.lastArrow(-1, -1, false);
+    }
   }
   function refreshAll() {
     refreshHL(); refreshStatus(); refreshPlayers(); refreshButtons(); refreshHist();
@@ -242,15 +247,18 @@
       }[st.reason];
     }
     var who;
-    if (app.mode === 'ai') who = turn === app.human ? 'Sua vez' : 'Computador pensando...';
-    else who = 'Vez das ' + COLOR_NAME[turn];
+    if (app.mode === 'ai') {
+      if (app.aiCue) who = 'Computador jogou';
+      else who = turn === app.human ? 'Sua vez' : (app.thinking ? 'Computador pensando...' : 'Vez do computador');
+    } else who = 'Vez das ' + COLOR_NAME[turn];
     return st.check ? 'Xeque! ' + who : who;
   }
   function refreshStatus() {
     var st = getStatus(), el = $('status');
     if (app.hintText && !st.over) { el.textContent = app.hintText; el.className = 'hint'; return; }
     el.textContent = statusText(st);
-    el.className = st.over ? 'over' : (st.check ? 'check' : '');    musicMood(st);
+    el.className = (st.over ? 'over' : (st.check ? 'check' : '')) + (app.aiCue ? ' ai-cue' : '');
+    musicMood(st);
     updateEval(st);
   }
   // barra de vantagem (pontos do motor, do lado das brancas)
@@ -265,11 +273,28 @@
     var pawns = Math.abs(cpWhite) > 20000 ? 'Mate' : (Math.abs(cp) / 100).toFixed(1);
     bar.querySelector('span').textContent = Math.abs(cp) < 25 ? 'Igual' : (cpWhite > 0 ? 'Brancas +' : 'Pretas +') + pawns;
   }
-  var evalKey = '';
+  var evalKey = '', MATV = [0, 100, 320, 330, 500, 900, 0];
+  function materialCp() {
+    var b = app.game.pos.board, s = 0;
+    for (var sq = 0; sq < 120; sq++) {
+      if (sq & 0x88) { sq += 7; continue; }
+      var p = b[sq]; if (!p) continue;
+      var v = MATV[p & 7]; s += (p & 8) ? -v : v;
+    }
+    return s;
+  }
+  function pulseEval(cp) {
+    var bar = $('evalBar'); if (!bar || bar.hidden) return;
+    setEval(cp);
+    bar.classList.remove('pulse'); void bar.offsetWidth; bar.classList.add('pulse');
+    clearTimeout(pulseEval.t); pulseEval.t = setTimeout(function () { bar.classList.remove('pulse'); }, 750);
+  }
   function updateEval(st) {
     var bar = $('evalBar'), on = evalOn();
     if (bar.hidden === on) { bar.hidden = !on; queueLayout(); if (on) { bar.querySelector('i').style.width = '50%'; evalKey = ''; } }
     if (!on || st.over) return;
+    // material imediato (anima em captura); motor refina depois
+    if (!app._matLocked) setEval(materialCp());
     if (app.mode === 'ai' && app.game.pos.turn !== app.human) return;
     var key = app.gameId + ':' + app.game.moves.length;
     if (key === evalKey) return; evalKey = key;
@@ -291,6 +316,7 @@
   // musica adaptativa: mais tensa em xeque, com o relogio no fim ou no final da partida
   var capStreak = 0, capStreakT = 0;
   function noteCapture(kind) {
+    if (evalOn()) { app._matLocked = true; pulseEval(materialCp()); clearTimeout(noteCapture._mt); noteCapture._mt = setTimeout(function () { app._matLocked = false; }, 900); }
     var now = Date.now();
     if (now - capStreakT < 14000) capStreak++; else capStreak = 1;
     capStreakT = now;
@@ -345,8 +371,9 @@
       el.querySelector('.name').textContent = name(c);
       var avk = app.mode === 'ai' ? (c === app.human ? 'you' : (app.jornada != null ? XJourney.STAGES[app.jornada].av : app.level)) : app.mode === 'puzzle' ? (c === app.human ? 'you' : 'puzzle') : (c ? 'b' : 'w');
       var av = el.querySelector('.av'); if (window.XAvatars && av.dataset.k !== avk) { av.innerHTML = XAvatars.svg(avk); av.dataset.k = avk; }
-      el.querySelector('.sub').textContent = app.mode === 'ai' && c !== app.human ? (app.thinking && g.pos.turn === c ? 'pensando' : (app.jornada != null ? 'Jornada, rival ' + (app.jornada + 1) : 'Computador, ' + COLOR_NAME[c])) : '';
+      el.querySelector('.sub').textContent = app.mode === 'ai' && c !== app.human ? (app.thinking && g.pos.turn === c ? 'pensando' : (app.aiCue && c !== g.pos.turn ? 'jogou' : (app.jornada != null ? 'Jornada, rival ' + (app.jornada + 1) : 'Computador, ' + COLOR_NAME[c]))) : '';
       el.classList.toggle('think', app.mode === 'ai' && c !== app.human && !!app.thinking && g.pos.turn === c);
+      el.classList.toggle('played', app.mode === 'ai' && c !== app.human && !!app.aiCue);
       var list = taken[c].slice().sort(function (x, y) { return (y & 7) - (x & 7); });
       el.querySelector('.caps').innerHTML = list.map(function (p) { return XPieces.svg(p); }).join('');
       var adv = mat[c] - mat[c ^ 8];
@@ -891,7 +918,11 @@
     for (var i = 0; i < ms.length; i++) if (E.uci(ms[i]) === d.move) m = ms[i];
     if (!m) m = E.think(app.game.pos, 'facil');
     if (m && app.learn) app.coach.pendingAI = { fenBefore: app.game.pos.fen(), move: E.uci(m), score: d.score, book: d.book };
-    if (m) doMove(m);
+    if (m) {
+      app.aiCue = true; refreshStatus(); refreshPlayers();
+      clearTimeout(applyAI._cue); applyAI._cue = setTimeout(function () { app.aiCue = false; refreshStatus(); refreshPlayers(); }, 1100);
+      doMove(m);
+    }
   }
 
   // ===== Desafios =====
@@ -1147,11 +1178,12 @@
     fight3: { t: 'Lutas 3D nas capturas', o: [['1', 'Ligado'], ['0', 'Desligado']], when: function (g) { return g('view') === '3d'; } },
     camFx: { t: 'Câmera aproxima nas capturas', o: [['1', 'Ligado'], ['0', 'Desligado']], when: function (g) { return is3k(g('view')); } },
     evalbar: { t: 'Barra de vantagem', o: [['learn', 'No Aprender'], ['on', 'Sempre'], ['off', 'Nunca']] },
+    lmArrow: { t: 'Seta do último lance', o: [['1', 'Ligada'], ['0', 'Desligada']], when: function (g) { return g('view') === '2d'; } },
     sound: { t: 'Sons', o: [['1', 'Ligado'], ['0', 'Desligado']] },
     music: { t: 'Música', o: [['1', 'Ligada'], ['0', 'Desligada']] },
     vibe: { t: 'Vibração', o: [['1', 'Ligada'], ['0', 'Desligada']], when: function () { return !!navigator.vibrate; } }
   };
-  var SGROUPS = [['Visual', ['view', 'style', 'army', 'palette', 'psize', 'outline', 'aid']], ['Tabuleiro e cenário', ['theme', 'p2', 'env']], ['Câmera e animação', ['cam', 'speed', 'fight', 'fight3', 'capFx', 'camFx', 'evalbar']], ['Som', ['sound', 'music', 'vibe']]];
+  var SGROUPS = [['Visual', ['view', 'style', 'army', 'palette', 'psize', 'outline', 'aid']], ['Tabuleiro e cenário', ['theme', 'p2', 'env']], ['Câmera e animação', ['cam', 'speed', 'fight', 'fight3', 'capFx', 'camFx', 'evalbar', 'lmArrow']], ['Som', ['sound', 'music', 'vibe']]];
   function setVal(k) {
     var v = prefs[k];
     if (k === 'style' && prefs.view === 'vivo') return 'vivo';
@@ -1204,6 +1236,7 @@
       case 'fight3': prefs.fight3 = on; savePrefs(); if (on) fightPreload(); break;
       case 'camFx': prefs.camFx = on; app.camFx = on; savePrefs(); each3(function (x) { x.camFx = on; }); break;
       case 'evalbar': prefs.evalbar = v; savePrefs(); if (app.game) { evalKey = ''; refreshStatus(); } break;
+      case 'lmArrow': prefs.lmArrow = on; savePrefs(); if (app.game) refreshHL(); break;
       case 'sound': if (prefs.sound !== on) toggleSound(); break;
       case 'music': if (prefs.music !== on) toggleMusic(); break;
       case 'vibe': if (prefs.vibe !== on) toggleVibe(); break;
@@ -1237,7 +1270,7 @@
   }
   // ===== Ajustes com prévia ao vivo =====
   // Nada muda no jogo até tocar em Aplicar. A prévia desenha um tabuleiro de exemplo com o visual escolhido.
-  var DEF = { view: '3d', style: 'classico', palette: 'classico', psize: 'n', outline: '1', aid: '0', theme: 'classico', p2: 'premium', env: 'sala', cam: 'auto', speed: 'normal', capFx: 'brutal', army: 'estatuas', fight: '1', fight3: '0', camFx: '1', evalbar: 'learn', sound: '1', music: '1', vibe: '1' };
+  var DEF = { view: '3d', style: 'classico', palette: 'classico', psize: 'n', outline: '1', aid: '0', theme: 'classico', p2: 'premium', env: 'sala', cam: 'auto', speed: 'normal', capFx: 'brutal', army: 'estatuas', fight: '1', fight3: '0', camFx: '1', evalbar: 'learn', lmArrow: '1', sound: '1', music: '1', vibe: '1' };
   var PV = { open: false, mode: 'game', base: null, d: null, hov: null, inst: {}, cls: {}, kind: null, v2: null, keep: false };
   var PVSAMPLE = (function () {
     var fen = 'r1bq1rk1/ppp2ppp/2np1n2/2b1p3/2B1P3/2NP1N2/PPP2PPP/R1BQ1RK1 w - - 0 7';
