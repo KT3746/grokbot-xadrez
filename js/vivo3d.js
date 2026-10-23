@@ -997,7 +997,7 @@ export function makeVivo(M) {
     }
     // a explosao grande: bola de fogo, fumaca, onda de choque, entulho, tremor e mancha queimada
     blastFx(p, power = 1) {
-      const P = this.projMeshes(), k = this.qL() >= 3 ? 0.6 : 1, c = p.clone().setY(0.35);
+      const P = this.projMeshes(), k = this.qL() >= 3 ? 0.55 : this.qL() >= 1 ? 0.8 : 1, c = p.clone().setY(0.35);
       const balls = [];
       for (const [col, s, d, op] of [[0xfff4d0, 1.5, 0.35, 1], [0xffa040, 2.6, 0.6, 0.95], [0xff4a12, 3.4, 0.85, 0.75]]) {
         const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: P.glowT, color: col, transparent: true, opacity: op, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false }));
