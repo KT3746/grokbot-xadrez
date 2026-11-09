@@ -155,6 +155,7 @@
     if (app.mode === '2p' && app.autoFlip) app.orient = app.game.pos.turn;
     app.sel = -1; app.dests = {}; app.over = null; app.busy = false; app.thinking = false; app.aiReq++; app.hintMove = null; app.hintReq = 0;
     app.clock = opts.clock && opts.clock.limit ? { limit: opts.clock.limit, left: { 0: opts.clock.left ? opts.clock.left[0] : opts.clock.limit, 8: opts.clock.left ? opts.clock.left[8] : opts.clock.limit } } : null;
+    app.clockWarned = false;
     lastTick = 0;
     if (app.view3d) { app.view3d.cam.target = null; app.view3d._fitKey = null; }
     $('banner').hidden = true; clearTimeout(app.overT);
@@ -446,7 +447,18 @@
       if (!app.clock) { el.textContent = ''; return; }
       var left = app.clock.left[a[1]];
       el.textContent = fmt(left); el.classList.toggle('low', left < 20000 && !app.over);
+      el.classList.toggle('urgent', left < 10000 && !app.over);
     });
+    // Onda 9: aviso único abaixo de 30s no seu relógio
+    if (app.clock && !app.over && app.screen === 'game') {
+      var mine = app.mode === 'ai' ? app.human : app.game.pos.turn;
+      var leftMine = app.clock.left[mine];
+      if (leftMine < 30000 && leftMine > 0 && !app.clockWarned) {
+        app.clockWarned = true;
+        toast('Menos de 30 segundos!');
+        buzz('check');
+      }
+    }
   }
   var lastTick = 0;
   function tick() {
@@ -565,6 +577,11 @@
     var st = app.game.status();
     refreshStatus(); refreshPlayers(); refreshButtons(); refreshHist();
     refreshHL();
+    // Onda 9: faixa XEQUE! bem visível
+    if (st.check && !st.over) {
+      banner('XEQUE!', (m.piece & 8) === app.human ? 'Você colocou o rei em xeque' : 'Seu rei está em xeque');
+      clearTimeout(banner.t); banner.t = setTimeout(function () { $('banner').hidden = true; }, 1800);
+    }
     saveGame();
     if (app.jornada != null && !st.over) {
       var JR = XJourney.STAGES[app.jornada], mine = (m.piece & 8) === app.human;

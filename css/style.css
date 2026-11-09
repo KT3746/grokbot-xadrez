@@ -784,3 +784,24 @@ body.reduce-mot .b2-pc { transition-duration: .08s !important; }
 ul.howto { margin: 0; padding-left: 1.1em; text-align: left; line-height: 1.45; }
 ul.howto li { margin: .45em 0; }
 .tiles .tile#bComo { border-color: rgba(245, 200, 76, .35); }
+
+/* ===== WAVE9 — xeque faixa + relógio urgente ===== */
+.clk.urgent {
+  color: #ff6a5a !important;
+  animation: clk-urgent 0.7s ease-in-out infinite;
+  text-shadow: 0 0 10px rgba(255, 80, 60, 0.55);
+}
+@keyframes clk-urgent {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.75; transform: scale(1.06); }
+}
+#status.check {
+  animation: status-check 1s ease-in-out infinite;
+}
+@keyframes status-check {
+  0%, 100% { filter: brightness(1); }
+  50% { filter: brightness(1.25); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .clk.urgent, #status.check { animation: none; }
+}
