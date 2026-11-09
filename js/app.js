@@ -158,7 +158,7 @@
     app.clockWarned = false;
     lastTick = 0;
     if (app.view3d) { app.view3d.cam.target = null; app.view3d._fitKey = null; }
-    $('banner').hidden = true; clearTimeout(app.overT);
+    $('banner').hidden = true; $('banner').classList.remove('mate-cine'); setCine(false); setCheckRim(false); clearTimeout(app.overT);
     showScreen('game');
     useView(prefs.view);
     if (app.v === app.view3d) app.view3d.intro(!!moves.length || opts.mode === 'puzzle');
@@ -258,9 +258,10 @@
   }
   function refreshStatus() {
     var st = getStatus(), el = $('status');
-    if (app.hintText && !st.over) { el.textContent = app.hintText; el.className = 'hint'; return; }
+    if (app.hintText && !st.over) { el.textContent = app.hintText; el.className = 'hint'; setCheckRim(!!st.check && !st.over); return; }
     el.textContent = statusText(st);
     el.className = (st.over ? 'over' : (st.check ? 'check' : '')) + (app.aiCue ? ' ai-cue' : '');
+    setCheckRim(!!st.check && !st.over);
     musicMood(st);
     updateEval(st);
   }
@@ -595,7 +596,7 @@
     var pre = fightWanted(m) ? playFight(m) : null;
     return (pre ? pre.then(run) : run()).then(function () {
       // depois da luta/animacao: bomba e finisher ja foram marcados
-      if (m.cap) noteCapture(app._lastBomb ? 'bomb' : '');
+      if (m.cap) { stageJolt(); noteCapture(app._lastBomb ? 'bomb' : ''); }
       app._lastBomb = false; app._lastFin = null;
       app.busy = false;
       moveSound(m, st);
@@ -747,7 +748,11 @@
     // Vivo brutal: a execucao do rei leva mais tempo; o aviso e o resultado esperam a explosao
     var cm = app.v.celebrate({ reason: st.reason, winner: st.winner, kingSq: loserKing }), cms = typeof cm === 'number' ? cm : 0;
     if (AT) setTimeout(function () { if (app.over === st) sfx(st.winner === -1 || (app.mode === 'ai' && st.winner !== app.human) ? 'lament' : 'fanfare'); }, st.reason === 'mate' ? (cms ? cms - 1300 : 900) : 300);
-    setTimeout(function () { if (app.over === st) banner(big, sub.charAt(0).toUpperCase() + sub.slice(1)); }, st.reason === 'mate' ? (cms ? cms - 1500 : 700) : 200);
+    setTimeout(function () {
+      if (app.over !== st) return;
+      if (st.reason === 'mate') { setCine(true); $('banner').classList.add('mate-cine'); }
+      banner(big, sub.charAt(0).toUpperCase() + sub.slice(1));
+    }, st.reason === 'mate' ? (cms ? cms - 1500 : 700) : 200);
     clearTimeout(app.overT);
     app.overT = setTimeout(function () {
       if (app.over !== st) return;
@@ -777,7 +782,7 @@
   var PVAL = [0, 1, 3, 3, 5, 9, 0];
   function startReview() {
     var g = app.game; if (!g || !g.moves.length) return;
-    clearTimeout(app.overT); $('modal').hidden = true; $('banner').hidden = true; $('bubble').hidden = true;
+    clearTimeout(app.overT); $('modal').hidden = true; $('banner').hidden = true; $('banner').classList.remove('mate-cine'); setCine(false); $('bubble').hidden = true;
     var rg = new E.Game(g.startFen), ucis = g.moves.map(E.uci);
     var R = { ucis: ucis, n: ucis.length, boards: [rg.pos.board.slice()], check: [-1], mv: [], sans: [], s: [], best: [], marks: [], i: ucis.length, t0: rg.pos.turn };
     for (var k = 0; k < ucis.length; k++) {
@@ -1185,6 +1190,24 @@
   }
   var toastT;
   function toast(t) { var e = $('toast'); e.textContent = t; e.hidden = false; clearTimeout(toastT); toastT = setTimeout(function () { e.hidden = true; }, 3200); }
+  // Onda 10: aro vermelho no xeque + letterbox no mate + tranco do stage
+  function setCheckRim(on) {
+    var b2 = $('board2d'), stg = $('stage');
+    if (b2) b2.classList.toggle('in-check', !!on);
+    if (stg) stg.classList.toggle('in-check', !!on);
+  }
+  function setCine(on) {
+    var c = $('cine'); if (!c) return;
+    if (on) { c.hidden = false; requestAnimationFrame(function () { c.classList.add('on'); }); }
+    else { c.classList.remove('on'); setTimeout(function () { if (!c.classList.contains('on')) c.hidden = true; }, 600); }
+  }
+  function stageJolt() {
+    if (prefs.reduceMot) return;
+    var stg = $('stage'); if (!stg) return;
+    stg.classList.remove('stage-jolt'); void stg.offsetWidth; stg.classList.add('stage-jolt');
+    clearTimeout(stageJolt.t); stageJolt.t = setTimeout(function () { stg.classList.remove('stage-jolt'); }, 320);
+  }
+
 
   // ===== Telas =====
   function showScreen(s) {
